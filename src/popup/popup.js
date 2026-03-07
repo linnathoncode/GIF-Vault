@@ -1,17 +1,23 @@
 import { idbGetAll, idbSave, idbDelete, idbClear, idbLog } from "../lib/db.js";
 
+const THEME_KEY = "themeMode";
+
 const grid = document.getElementById("grid");
 const countEl = document.getElementById("count");
 const importInput = document.getElementById("importInput");
+const searchInput = document.getElementById("searchInput");
 const importBtn = document.getElementById("importBtn");
 const clearAllBtn = document.getElementById("clearAllBtn");
 const statusEl = document.getElementById("status");
 const openLogsBtn = document.getElementById("openLogsBtn");
+const themeToggleBtn = document.getElementById("themeToggleBtn");
 const tabAllBtn = document.getElementById("tabAllBtn");
 const tabFavoritesBtn = document.getElementById("tabFavoritesBtn");
 
 const objectUrlById = new Map();
 let currentTab = "all";
+let searchTerm = "";
+let themeMode = "light";
 
 function setStatus(text, isOk = false) {
   statusEl.textContent = text;
@@ -135,6 +141,22 @@ async function toggleFavorite(item) {
   await render();
 }
 
+async function renameItem(item) {
+  const currentName = item.name || "";
+  const nextName = window.prompt("Name this GIF:", currentName);
+  if (nextName === null) {
+    return;
+  }
+  const normalized = nextName.trim();
+  const updated = {
+    ...item,
+    name: normalized
+  };
+  await idbSave(updated);
+  await safeLog("popup", "Item renamed", { id: item.id, name: normalized });
+  await render();
+}
+
 function buildCard(item) {
   const card = document.createElement("article");
   card.className = "item";
@@ -184,6 +206,23 @@ function buildCard(item) {
   const meta = document.createElement("div");
   meta.className = "meta";
 
+  const nameRow = document.createElement("div");
+  nameRow.className = "name-row";
+
+  const nameText = document.createElement("div");
+  nameText.className = "name";
+  nameText.textContent = item.name && item.name.trim() ? item.name.trim() : "Untitled";
+
+  const renameBtn = document.createElement("button");
+  renameBtn.className = "name-btn";
+  renameBtn.type = "button";
+  renameBtn.textContent = "\u270E";
+  renameBtn.title = "Rename";
+  renameBtn.setAttribute("aria-label", "Rename");
+  renameBtn.addEventListener("click", () => renameItem(item));
+
+  nameRow.append(nameText, renameBtn);
+
   const urlText = document.createElement("div");
   urlText.className = "url";
   const sizeLabel = formatBytes(item.blob?.size || 0);
@@ -228,17 +267,24 @@ function buildCard(item) {
   removeBtn.addEventListener("click", () => removeItem(item.id));
 
   actions.append(copyBtn, favoriteBtn, removeBtn);
-  meta.append(urlText, sizeText, actions);
+  meta.append(nameRow, urlText, sizeText, actions);
   card.append(media, meta);
   return card;
 }
 
 async function render() {
   const items = await idbGetAll();
-  const normalized = items.map((item) => ({ ...item, favorite: Boolean(item.favorite) }));
-  const visibleItems = currentTab === "favorites"
+  const normalized = items.map((item) => ({ ...item, favorite: Boolean(item.favorite), name: item.name || "" }));
+  const byTab = currentTab === "favorites"
     ? normalized.filter((item) => item.favorite)
     : normalized;
+  const query = searchTerm.trim().toLowerCase();
+  const visibleItems = query
+    ? byTab.filter((item) => {
+      const haystack = `${item.name || ""} ${item.sourceUrl || ""} ${item.mediaUrl || ""}`.toLowerCase();
+      return haystack.includes(query);
+    })
+    : byTab;
 
   await safeLog("popup", "Render media grid", { count: visibleItems.length, tab: currentTab });
   const favoritesCount = normalized.filter((item) => item.favorite).length;
@@ -253,7 +299,9 @@ async function render() {
   if (visibleItems.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty";
-    empty.textContent = currentTab === "favorites"
+    empty.textContent = query
+      ? "No matches for your search."
+      : currentTab === "favorites"
       ? "No favorites yet. Mark items as Favorite from the All tab."
       : "Paste a URL above to import into GIF Vault.";
     grid.appendChild(empty);
@@ -323,12 +371,21 @@ openLogsBtn.addEventListener("click", () => {
   const url = chrome.runtime.getURL("logs/logs.html");
   void chrome.tabs.create({ url });
 });
+themeToggleBtn.addEventListener("click", async () => {
+  themeMode = themeMode === "dark" ? "light" : "dark";
+  applyTheme(themeMode);
+  await setTheme(themeMode);
+});
 tabAllBtn.addEventListener("click", async () => {
   currentTab = "all";
   await render();
 });
 tabFavoritesBtn.addEventListener("click", async () => {
   currentTab = "favorites";
+  await render();
+});
+searchInput.addEventListener("input", async () => {
+  searchTerm = searchInput.value || "";
   await render();
 });
 
@@ -340,5 +397,31 @@ async function safeLog(stage, message, details = {}) {
   }
 }
 
-render();
+function applyTheme(mode) {
+  const theme = mode === "dark" ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", theme);
+  themeToggleBtn.textContent = theme === "dark" ? "\u2600" : "\u263E";
+  themeMode = theme;
+}
+
+function getTheme() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([THEME_KEY], (result) => {
+      resolve(result[THEME_KEY] === "dark" ? "dark" : "light");
+    });
+  });
+}
+
+function setTheme(theme) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [THEME_KEY]: theme }, resolve);
+  });
+}
+
+async function init() {
+  applyTheme(await getTheme());
+  await render();
+}
+
+init();
 

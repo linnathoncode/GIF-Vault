@@ -7,7 +7,7 @@ let ffmpegLoadPromise = null;
 const GIF_FPS = 10;
 const GIF_WIDTH = 360;
 const GIF_MAX_COLORS = 96;
-const GIF_MAX_DURATION_SECONDS = 5;
+const GIF_MAX_DURATION_SECONDS = 15;
 
 ffmpeg.on("log", ({ message }) => {
   if (!message) {

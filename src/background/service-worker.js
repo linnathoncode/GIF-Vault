@@ -108,6 +108,7 @@ async function importFromUrl(rawUrl, pageUrl) {
 
   const item = {
     id: crypto.randomUUID(),
+    name: inferName(url, resolvedMediaUrl),
     sourceUrl: url,
     mediaUrl: resolvedMediaUrl,
     pageUrl: pageUrl || "",
@@ -428,5 +429,20 @@ function base64ToUint8(base64) {
     return bytes;
   } catch {
     return new Uint8Array();
+  }
+}
+
+function inferName(sourceUrl, mediaUrl) {
+  const candidate = mediaUrl || sourceUrl || "";
+  try {
+    const url = new URL(candidate);
+    const file = url.pathname.split("/").filter(Boolean).pop() || "";
+    const noExt = file.replace(/\.[a-z0-9]+$/i, "").trim();
+    if (noExt) {
+      return noExt.slice(0, 40);
+    }
+    return `gif-${Date.now()}`;
+  } catch {
+    return `gif-${Date.now()}`;
   }
 }

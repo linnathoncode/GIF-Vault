@@ -13,6 +13,22 @@
       --line: #d1d5db;
       --danger: #b91c1c;
       --ok: #0f766e;
+      --accent-bg: #f8fafc;
+      --accent-line: #99f6e4;
+      --accent-text: #134e4a;
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #0f172a;
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --line: #334155;
+      --danger: #fecaca;
+      --ok: #5eead4;
+      --accent-bg: #0b3b39;
+      --accent-line: #0f766e;
+      --accent-text: #ccfbf1;
     }
 
     * { box-sizing: border-box; }
@@ -103,17 +119,18 @@
 
     .btn {
       border: 1px solid var(--line);
-      background: #f8fafc;
+      background: var(--accent-bg);
       border-radius: 8px;
       font-size: 12px;
       padding: 7px 10px;
       cursor: pointer;
+      color: var(--text);
     }
 
     .btn.primary {
-      background: #ccfbf1;
-      border-color: #99f6e4;
-      color: #134e4a;
+      background: var(--accent-bg);
+      border-color: var(--accent-line);
+      color: var(--accent-text);
     }
 
     .tabs {
@@ -166,8 +183,34 @@
 
     .size {
       font-size: 10px;
-      color: #334155;
+      color: var(--text);
       font-weight: 600;
+    }
+
+    .name-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .name {
+      font-size: 10px;
+      font-weight: 700;
+      min-width: 0;
+      flex: 1 1 auto;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .name-btn {
+      border: 1px solid var(--line);
+      background: var(--accent-bg);
+      border-radius: 6px;
+      font-size: 10px;
+      padding: 1px 5px;
+      cursor: pointer;
+      color: var(--text);
     }
 
     .actions {
@@ -212,7 +255,8 @@
         <div id="count" class="count">0 saved</div>
       </div>
       <div class="header-actions">
-        <button id="openLogsBtn" class="icon-btn" type="button" title="Open Logs" aria-label="Open Logs">Log</button>
+        <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme">&#9790;</button>
+        <button id="openLogsBtn" class="icon-btn" type="button" title="Open Logs" aria-label="Open Logs">&#128221;</button>
         <button id="clearAllBtn" class="danger-btn" type="button">Clear all</button>
       </div>
     </section>
@@ -221,6 +265,9 @@
       <div class="import-row">
         <input id="importInput" class="input" type="url" placeholder="Paste GIF / MP4 / tweet URL" />
         <button id="importBtn" class="btn primary" type="button">Import</button>
+      </div>
+      <div class="import-row" style="margin-top:8px;">
+        <input id="searchInput" class="input" type="search" placeholder="Search by name or source" />
       </div>
       <div id="status" class="status" aria-live="polite"></div>
     </section>
@@ -236,4 +283,5 @@
   <script type="module" src="popup.js"></script>
 </body>
 </html>
+
 
