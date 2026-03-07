@@ -18,6 +18,7 @@ const objectUrlById = new Map();
 let currentTab = "all";
 let searchTerm = "";
 let themeMode = "light";
+let activeImportRequestId = "";
 
 function setStatus(text, isOk = false) {
   statusEl.textContent = text;
@@ -102,23 +103,38 @@ function cleanupObjectUrls() {
 }
 
 async function copyItemBlob(item) {
-  if (!navigator.clipboard || typeof navigator.clipboard.write !== "function" || typeof ClipboardItem === "undefined") {
-    return false;
+  const canWriteBlob = navigator.clipboard
+    && typeof navigator.clipboard.write === "function"
+    && typeof ClipboardItem !== "undefined";
+
+  if (canWriteBlob) {
+    try {
+      const ext = fileExtensionFromMime(item.mimeType);
+      const file = new File([item.blob], `gif-vault-${item.id}.${ext}`, {
+        type: item.mimeType || item.blob.type || "application/octet-stream"
+      });
+      await navigator.clipboard.write([
+        new ClipboardItem({ [file.type]: file })
+      ]);
+      await safeLog("popup", "Copy succeeded (blob)", { id: item.id, mimeType: file.type });
+      return true;
+    } catch (error) {
+      await safeLog("popup", "Copy blob failed", { id: item.id, error: error?.message || "unknown" });
+    }
   }
 
-  try {
-    const ext = fileExtensionFromMime(item.mimeType);
-    const file = new File([item.blob], `gif-vault-${item.id}.${ext}`, {
-      type: item.mimeType || item.blob.type || "application/octet-stream"
-    });
-
-    await navigator.clipboard.write([
-      new ClipboardItem({ [file.type]: file })
-    ]);
-    return true;
-  } catch {
-    return false;
+  const canWriteText = navigator.clipboard && typeof navigator.clipboard.writeText === "function";
+  if (canWriteText) {
+    try {
+      await navigator.clipboard.writeText(item.mediaUrl || item.sourceUrl || "");
+      await safeLog("popup", "Copy fallback succeeded (url text)", { id: item.id });
+      return true;
+    } catch (error) {
+      await safeLog("popup", "Copy url fallback failed", { id: item.id, error: error?.message || "unknown" });
+    }
   }
+
+  return false;
 }
 
 async function removeItem(id) {
@@ -324,13 +340,16 @@ async function importUrl(rawUrl) {
     return;
   }
 
-  setStatus("Importing...");
+  const requestId = crypto.randomUUID();
+  activeImportRequestId = requestId;
+  setStatus("Starting import...");
   await safeLog("popup", "Import requested from popup", { url });
 
   try {
     const response = await chrome.runtime.sendMessage({
       type: "IMPORT_URL",
-      url
+      url,
+      requestId
     });
 
     if (!response?.ok) {
@@ -340,9 +359,11 @@ async function importUrl(rawUrl) {
     importInput.value = "";
     const convertedMessage = response.result?.converted ? " (converted)" : "";
     setStatus(`Imported successfully${convertedMessage}.`, true);
+    activeImportRequestId = "";
     await render();
   } catch (error) {
     setStatus(error?.message || "Import failed");
+    activeImportRequestId = "";
     await safeLog("popup", "Import failed in popup", { error: error?.message || "unknown" });
   }
 }
@@ -387,6 +408,16 @@ tabFavoritesBtn.addEventListener("click", async () => {
 searchInput.addEventListener("input", async () => {
   searchTerm = searchInput.value || "";
   await render();
+});
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (!message || message.type !== "IMPORT_PROGRESS") {
+    return;
+  }
+  if (!activeImportRequestId || message.requestId !== activeImportRequestId) {
+    return;
+  }
+  setStatus(message.text || "Importing...");
 });
 
 async function safeLog(stage, message, details = {}) {

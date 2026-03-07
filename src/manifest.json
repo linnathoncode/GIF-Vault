@@ -9,7 +9,7 @@
     "48": "assets/icons/icon48.png",
     "128": "assets/icons/icon128.png"
   },
-  "permissions": ["contextMenus", "storage", "offscreen"],
+  "permissions": ["contextMenus", "storage", "offscreen", "notifications"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background/service-worker.js",
