@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Package manager caches
+.npm-cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Build / artifacts
+dist/
+build/
+*.zip
+
+# Runtime logs / temp
+*.log
+*.tmp
+*.temp
