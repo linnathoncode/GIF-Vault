@@ -6,29 +6,31 @@
   <title>GIF Vault</title>
   <style>
     :root {
-      --bg: #f6f7f9;
-      --card: #ffffff;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --line: #d1d5db;
-      --danger: #b91c1c;
-      --ok: #0f766e;
-      --accent-bg: #f8fafc;
-      --accent-line: #99f6e4;
-      --accent-text: #134e4a;
+      --bg: #e0e2db;
+      --bg-top: #cfd6d2;
+      --card: #f2f3ee;
+      --text: #2e3532;
+      --muted: #4b5450;
+      --line: #a7aba4;
+      --danger: #8b2635;
+      --ok: #2e3532;
+      --accent-bg: #e0e2db;
+      --accent-line: #8b2635;
+      --accent-text: #8b2635;
     }
 
     :root[data-theme="dark"] {
-      --bg: #0f172a;
-      --card: #111827;
-      --text: #e5e7eb;
-      --muted: #94a3b8;
-      --line: #334155;
-      --danger: #fecaca;
-      --ok: #5eead4;
-      --accent-bg: #0b3b39;
-      --accent-line: #0f766e;
-      --accent-text: #ccfbf1;
+      --bg: #2e3532;
+      --bg-top: #3a4541;
+      --card: #39413d;
+      --text: #e0e2db;
+      --muted: #c6c8c2;
+      --line: #616a65;
+      --danger: #e0e2db;
+      --ok: #e0e2db;
+      --accent-bg: #2e3532;
+      --accent-line: #8b2635;
+      --accent-text: #e0e2db;
     }
 
     * { box-sizing: border-box; }
@@ -47,7 +49,7 @@
       margin: 0;
       overflow: hidden;
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      background: radial-gradient(circle at top, #e5f7f4, var(--bg) 45%);
+      background: radial-gradient(circle at top, var(--bg-top), var(--bg) 58%);
       color: var(--text);
     }
 
@@ -83,23 +85,38 @@
     .count, .status { font-size: 12px; color: var(--muted); }
 
     .danger-btn {
-      border: 1px solid #fca5a5;
-      background: #fee2e2;
-      color: var(--danger);
+      border: 1px solid #8b2635;
+      background: #8b2635;
+      color: #e0e2db;
       border-radius: 8px;
       padding: 6px 8px;
       font-size: 12px;
       cursor: pointer;
+      font-weight: 700;
     }
 
     .icon-btn {
       border: 1px solid var(--line);
-      background: #f8fafc;
+      background: var(--accent-bg);
       border-radius: 8px;
-      padding: 6px 8px;
-      font-size: 14px;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      font-size: 21px;
+      font-weight: 900;
       line-height: 1;
       cursor: pointer;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-btn.logs-btn {
+      background: #8b2635;
+      border-color: #8b2635;
+      color: #e0e2db;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
     }
 
     .import-row {
@@ -140,18 +157,23 @@
     }
 
     .tab-btn.active {
-      background: #e2e8f0;
-      border-color: #94a3b8;
+      background: var(--accent-bg);
+      border-color: var(--accent-line);
+      color: var(--accent-text);
       font-weight: 600;
     }
 
     .grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-auto-rows: minmax(168px, auto);
       gap: 8px;
       align-content: start;
       min-height: 0;
       overflow-y: auto;
+      scrollbar-gutter: stable;
+      padding-right: 2px;
+      padding-bottom: 12px;
     }
 
     .item {
@@ -161,6 +183,7 @@
       overflow: hidden;
       display: grid;
       grid-template-rows: 62px auto;
+      min-height: 168px;
     }
 
     .thumb {
@@ -224,14 +247,17 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      padding: 4px 3px;
-      font-size: 10px;
+      padding: 5px 3px;
+      font-size: 15px;
+      font-weight: 900;
+      min-height: 30px;
+      line-height: 1;
     }
 
     .btn.danger {
-      background: #fee2e2;
-      border-color: #fca5a5;
-      color: #991b1b;
+      background: #8b2635;
+      border-color: #8b2635;
+      color: #e0e2db;
     }
 
     .empty {
@@ -256,7 +282,7 @@
       </div>
       <div class="header-actions">
         <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme">&#9790;</button>
-        <button id="openLogsBtn" class="icon-btn" type="button" title="Open Logs" aria-label="Open Logs">&#128221;</button>
+        <button id="openLogsBtn" class="icon-btn logs-btn" type="button" title="Open Logs" aria-label="Open Logs">&#128203;</button>
         <button id="clearAllBtn" class="danger-btn" type="button">Clear all</button>
       </div>
     </section>

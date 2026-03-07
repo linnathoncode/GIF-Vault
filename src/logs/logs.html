@@ -22,11 +22,14 @@
       color: var(--text);
       background: radial-gradient(circle at top, #e5f7f4, var(--bg) 35%);
       min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
     }
 
     .wrap {
-      max-width: 980px;
-      margin: 0 auto;
+      width: min(980px, 96vw);
+      margin: 0;
       padding: 16px;
       display: grid;
       gap: 10px;
