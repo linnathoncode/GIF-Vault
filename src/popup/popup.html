@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GIF Vault</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #d1d5db;
+      --danger: #b91c1c;
+      --ok: #0f766e;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 520px;
+      min-width: 520px;
+      max-width: 520px;
+      height: 720px;
+      min-height: 720px;
+      max-height: 720px;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at top, #e5f7f4, var(--bg) 45%);
+      color: var(--text);
+    }
+
+    .container {
+      height: 100%;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      grid-template-rows: auto auto auto 1fr;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .title { margin: 0; font-size: 16px; }
+    .count, .status { font-size: 12px; color: var(--muted); }
+
+    .danger-btn {
+      border: 1px solid #fca5a5;
+      background: #fee2e2;
+      color: var(--danger);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .icon-btn {
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .import-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      border-radius: 8px;
+      font-size: 12px;
+      padding: 7px 10px;
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      background: #ccfbf1;
+      border-color: #99f6e4;
+      color: #134e4a;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .tab-btn.active {
+      background: #e2e8f0;
+      border-color: #94a3b8;
+      font-weight: 600;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      align-content: start;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    .item {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: 62px auto;
+    }
+
+    .thumb {
+      width: 100%;
+      height: 62px;
+      object-fit: cover;
+      background: #e5e7eb;
+    }
+
+    .meta { padding: 6px; display: grid; gap: 4px; }
+
+    .url {
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.15;
+      word-break: break-all;
+      max-height: 24px;
+      overflow: hidden;
+    }
+
+    .size {
+      font-size: 10px;
+      color: #334155;
+      font-weight: 600;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 4px;
+    }
+
+    .actions .btn {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 4px 3px;
+      font-size: 10px;
+    }
+
+    .btn.danger {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #991b1b;
+    }
+
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      color: var(--muted);
+      text-align: center;
+      padding: 24px 12px;
+      font-size: 13px;
+      background: var(--card);
+    }
+
+    .ok { color: var(--ok); }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="panel header">
+      <div>
+        <h1 class="title">GIF Vault</h1>
+        <div id="count" class="count">0 saved</div>
+      </div>
+      <div class="header-actions">
+        <button id="openLogsBtn" class="icon-btn" type="button" title="Open Logs" aria-label="Open Logs">Log</button>
+        <button id="clearAllBtn" class="danger-btn" type="button">Clear all</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="import-row">
+        <input id="importInput" class="input" type="url" placeholder="Paste GIF / MP4 / tweet URL" />
+        <button id="importBtn" class="btn primary" type="button">Import</button>
+      </div>
+      <div id="status" class="status" aria-live="polite"></div>
+    </section>
+
+    <section class="panel tabs">
+      <button id="tabAllBtn" class="btn tab-btn active" type="button">All</button>
+      <button id="tabFavoritesBtn" class="btn tab-btn" type="button">Favorites</button>
+    </section>
+
+    <section id="grid" class="grid" aria-live="polite"></section>
+  </main>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
+

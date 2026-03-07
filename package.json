@@ -4,6 +4,7 @@
   "description": "",
   "main": "background.js",
   "scripts": {
+    "build": "powershell -NoProfile -Command \"if (Test-Path dist) { Get-ChildItem dist -Force | Remove-Item -Recurse -Force }; Copy-Item -Recurse -Force src/* dist/\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
