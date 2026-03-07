@@ -19,7 +19,10 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
   try {
     await safeLog("context-menu", "Context menu click received", { srcUrl: info.srcUrl, pageUrl: info.pageUrl || "" });
     await importFromUrl(info.srcUrl, info.pageUrl || "");
-  } catch {
+    await showFeedback("Added to GIF Vault", "Media saved successfully.", true);
+  } catch (error) {
+    await showFeedback("GIF Vault", "Could not save media from this page.", false);
+    await safeLog("context-menu", "Context menu import failed", { error: error?.message || "unknown" });
     // Context-menu saves are fire-and-forget.
   }
 });
@@ -29,19 +32,20 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return;
   }
 
-  importFromUrl(message.url, message.pageUrl || "")
+  importFromUrl(message.url, message.pageUrl || "", message.requestId || "")
     .then((result) => sendResponse({ ok: true, result }))
     .catch((error) => sendResponse({ ok: false, error: error?.message || "Import failed" }));
 
   return true;
 });
 
-async function importFromUrl(rawUrl, pageUrl) {
+async function importFromUrl(rawUrl, pageUrl, requestId = "") {
   const url = String(rawUrl || "").trim();
   if (!url) {
     await safeLog("import", "Rejected empty URL");
     throw new Error("Empty URL");
   }
+  await reportProgress(requestId, "Resolving media URL...");
   await safeLog("import", "Import started", { url, pageUrl: pageUrl || "" });
 
   const resolvedMediaUrl = await resolveMediaUrl(url);
@@ -51,6 +55,7 @@ async function importFromUrl(rawUrl, pageUrl) {
   }
   await safeLog("resolve", "Resolved media URL", { url, resolvedMediaUrl });
 
+  await reportProgress(requestId, "Fetching media...");
   const response = await fetch(resolvedMediaUrl);
   if (!response.ok) {
     await safeLog("fetch", "Fetch failed", { resolvedMediaUrl, status: response.status });
@@ -74,6 +79,7 @@ async function importFromUrl(rawUrl, pageUrl) {
   let converted = false;
 
   if (needsTwitterConvert) {
+    await reportProgress(requestId, "Converting MP4 to GIF...");
     await safeLog("convert", "Twitter MP4 detected, offscreen conversion requested", { resolvedMediaUrl });
     try {
       const convertedPayload = await convertInOffscreen(resolvedMediaUrl, `vault-${Date.now()}.gif`);
@@ -100,12 +106,21 @@ async function importFromUrl(rawUrl, pageUrl) {
         });
       }
     } catch (error) {
+      if (String(error?.message || "").startsWith("VIDEO_TOO_LONG:")) {
+        const seconds = Number.parseFloat(String(error.message).split(":")[1] || "0");
+        await safeLog("convert", "Rejected long video in background", {
+          durationSeconds: seconds,
+          maxDurationSeconds: 15
+        });
+        throw new Error(`Video is too long (${seconds.toFixed(1)}s). Max allowed is 15s.`);
+      }
       await safeLog("convert", "Offscreen conversion threw, keeping original media", {
         error: error?.message || "unknown"
       });
     }
   }
 
+  await reportProgress(requestId, "Saving to vault...");
   const item = {
     id: crypto.randomUUID(),
     name: inferName(url, resolvedMediaUrl),
@@ -127,6 +142,7 @@ async function importFromUrl(rawUrl, pageUrl) {
     blobSize: item.blob?.size || 0,
     converted: item.converted
   });
+  await reportProgress(requestId, "Done.");
   return { id: item.id, kind: item.kind, converted };
 }
 
@@ -432,6 +448,21 @@ function base64ToUint8(base64) {
   }
 }
 
+async function reportProgress(requestId, text) {
+  if (!requestId) {
+    return;
+  }
+  try {
+    await chrome.runtime.sendMessage({
+      type: "IMPORT_PROGRESS",
+      requestId,
+      text
+    });
+  } catch {
+    // Popup may be closed; ignore progress delivery failures.
+  }
+}
+
 function inferName(sourceUrl, mediaUrl) {
   const candidate = mediaUrl || sourceUrl || "";
   try {
@@ -444,5 +475,46 @@ function inferName(sourceUrl, mediaUrl) {
     return `gif-${Date.now()}`;
   } catch {
     return `gif-${Date.now()}`;
+  }
+}
+
+async function showFeedback(title, message, ok) {
+  const notified = await showNotification(title, message);
+  if (notified) {
+    return;
+  }
+  await showBadgeFallback(ok);
+}
+
+async function showNotification(title, message) {
+  try {
+    const id = `gif-vault-${Date.now()}`;
+    await chrome.notifications.create(id, {
+      type: "basic",
+      iconUrl: "assets/icons/icon48.png",
+      title,
+      message
+    });
+    return true;
+  } catch {
+    // Ignore notification delivery failures.
+    return false;
+  }
+}
+
+async function showBadgeFallback(ok) {
+  try {
+    await chrome.action.setBadgeBackgroundColor({
+      color: ok ? "#0f766e" : "#8b2635"
+    });
+    await chrome.action.setBadgeText({
+      text: ok ? "+" : "!"
+    });
+    // Best-effort clear; if worker sleeps early, badge may persist until next action.
+    setTimeout(() => {
+      void chrome.action.setBadgeText({ text: "" });
+    }, 3000);
+  } catch {
+    // no-op
   }
 }

@@ -2,6 +2,7 @@ const DB_NAME = "gifVaultDB";
 const DB_VERSION = 2;
 const STORE_NAME = "media";
 const LOG_STORE_NAME = "logs";
+const LOG_MAX_ITEMS = 100;
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -105,6 +106,7 @@ function idbLog(stage, message, details = {}) {
       createdAt: Date.now()
     };
     store.put(item);
+    pruneOldLogs(store, LOG_MAX_ITEMS);
     return item;
   });
 }
@@ -126,6 +128,23 @@ function idbClearLogs() {
     store.clear();
     return true;
   });
+}
+
+function pruneOldLogs(store, maxItems) {
+  const request = store.getAll();
+  request.onsuccess = () => {
+    const items = Array.isArray(request.result) ? request.result : [];
+    if (items.length <= maxItems) {
+      return;
+    }
+    items.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    const toDelete = items.slice(0, items.length - maxItems);
+    for (const log of toDelete) {
+      if (log && log.id) {
+        store.delete(log.id);
+      }
+    }
+  };
 }
 
 export { idbSave, idbGetAll, idbDelete, idbClear, idbLog, idbGetLogs, idbClearLogs };
