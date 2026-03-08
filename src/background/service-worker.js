@@ -553,41 +553,8 @@ async function syncActionIconToTheme() {
 
 async function setActionIcon(theme) {
   const iconPaths = theme === "dark" ? ICONS.dark : ICONS.light;
-  try {
-    await setIconWithPath(iconPaths);
-    await safeLog("theme", "Action icon updated (path)", { theme });
-    return;
-  } catch (pathError) {
-    await safeLog("theme", "Path icon update failed, trying imageData fallback", {
-      theme,
-      error: pathError?.message || "unknown"
-    });
-  }
-
   await setIconWithImageData(iconPaths);
-  await safeLog("theme", "Action icon updated (imageData fallback)", { theme });
-}
-
-async function setIconWithPath(iconPaths) {
-  await new Promise((resolve, reject) => {
-    chrome.action.setIcon(
-      {
-        path: {
-          16: iconPaths["16"],
-          32: iconPaths["32"],
-          48: iconPaths["48"]
-        }
-      },
-      () => {
-        const error = chrome.runtime.lastError;
-        if (error) {
-          reject(new Error(error.message || "Failed to set action icon"));
-          return;
-        }
-        resolve();
-      }
-    );
-  });
+  await safeLog("theme", "Action icon updated (imageData)", { theme });
 }
 
 async function setIconWithImageData(iconPaths) {
