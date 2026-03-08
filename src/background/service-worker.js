@@ -1,6 +1,6 @@
 import { idbSave, idbLog } from "../lib/db.js";
 import { extensionFromUrl } from "../lib/media.js";
-import { STORAGE_KEYS, CONTEXT_MENU, OFFSCREEN, GIF_CONVERSION, BADGE } from "../lib/settings.js";
+import { STORAGE_KEYS, CONTEXT_MENU, OFFSCREEN, GIF_CONVERSION, BADGE, ICONS } from "../lib/settings.js";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -8,6 +8,19 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Add to GIF Vault",
     contexts: ["image", "video"]
   });
+  void syncActionIconToTheme();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void syncActionIconToTheme();
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local" || !changes[STORAGE_KEYS.themeMode]) {
+    return;
+  }
+  const nextTheme = changes[STORAGE_KEYS.themeMode].newValue === "dark" ? "dark" : "light";
+  void setActionIcon(nextTheme);
 });
 
 chrome.contextMenus.onClicked.addListener(async (info) => {
@@ -27,7 +40,23 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message || message.type !== "IMPORT_URL") {
+  if (!message) {
+    return;
+  }
+
+  if (message.type === "SET_THEME_ICON") {
+    const theme = message.theme === "dark" ? "dark" : "light";
+    void safeLog("theme", "SET_THEME_ICON request received", { theme });
+    setActionIcon(theme)
+      .then(() => sendResponse({ ok: true }))
+      .catch(async (error) => {
+        await safeLog("theme", "SET_THEME_ICON failed", { theme, error: error?.message || "unknown" });
+        sendResponse({ ok: false, error: error?.message || "Failed to set icon" });
+      });
+    return true;
+  }
+
+  if (message.type !== "IMPORT_URL") {
     return;
   }
 
@@ -510,4 +539,94 @@ async function showBadgeFallback(ok) {
   } catch {
     // no-op
   }
+}
+
+async function syncActionIconToTheme() {
+  try {
+    const current = await chrome.storage.local.get([STORAGE_KEYS.themeMode]);
+    const theme = current[STORAGE_KEYS.themeMode] === "dark" ? "dark" : "light";
+    await setActionIcon(theme);
+  } catch {
+    // no-op
+  }
+}
+
+async function setActionIcon(theme) {
+  const iconPaths = theme === "dark" ? ICONS.dark : ICONS.light;
+  try {
+    await setIconWithPath(iconPaths);
+    await safeLog("theme", "Action icon updated (path)", { theme });
+    return;
+  } catch (pathError) {
+    await safeLog("theme", "Path icon update failed, trying imageData fallback", {
+      theme,
+      error: pathError?.message || "unknown"
+    });
+  }
+
+  await setIconWithImageData(iconPaths);
+  await safeLog("theme", "Action icon updated (imageData fallback)", { theme });
+}
+
+async function setIconWithPath(iconPaths) {
+  await new Promise((resolve, reject) => {
+    chrome.action.setIcon(
+      {
+        path: {
+          16: iconPaths["16"],
+          32: iconPaths["32"],
+          48: iconPaths["48"]
+        }
+      },
+      () => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          reject(new Error(error.message || "Failed to set action icon"));
+          return;
+        }
+        resolve();
+      }
+    );
+  });
+}
+
+async function setIconWithImageData(iconPaths) {
+  const imageData16 = await iconPathToImageData(iconPaths["16"], 16);
+  const imageData32 = await iconPathToImageData(iconPaths["32"], 32);
+  await new Promise((resolve, reject) => {
+    chrome.action.setIcon(
+      {
+        imageData: {
+          16: imageData16,
+          32: imageData32
+        }
+      },
+      () => {
+        const error = chrome.runtime.lastError;
+        if (error) {
+          reject(new Error(error.message || "Failed to set action icon via imageData"));
+          return;
+        }
+        resolve();
+      }
+    );
+  });
+}
+
+async function iconPathToImageData(path, size) {
+  const url = chrome.runtime.getURL(path);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to load icon asset: ${path}`);
+  }
+  const blob = await response.blob();
+  const bitmap = await createImageBitmap(blob);
+  const canvas = new OffscreenCanvas(size, size);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Could not create 2D context for icon rendering");
+  }
+  ctx.clearRect(0, 0, size, size);
+  ctx.drawImage(bitmap, 0, 0, size, size);
+  return ctx.getImageData(0, 0, size, size);
 }

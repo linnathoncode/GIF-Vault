@@ -90,6 +90,20 @@
       gap: 8px;
     }
 
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .brand-logo {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+      flex: 0 0 auto;
+    }
+
     .header-actions {
       display: flex;
       align-items: center;
@@ -330,9 +344,12 @@
 <body>
   <main class="container">
     <section class="panel header">
-      <div>
+      <div class="brand">
+        <img id="brandLogo" class="brand-logo" src="../assets/icons/icon-dark-128.png" alt="GIF Vault logo" />
+        <div>
         <h1 class="title">GIF Vault</h1>
         <div id="count" class="count">0 saved</div>
+        </div>
       </div>
       <div class="header-actions">
         <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme">&#9790;</button>

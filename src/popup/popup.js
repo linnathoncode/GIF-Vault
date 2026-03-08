@@ -1,6 +1,6 @@
 import { idbGetAll, idbSave, idbDelete, idbClear, idbLog } from "../lib/db.js";
 import { fileExtensionFromMime } from "../lib/media.js";
-import { STORAGE_KEYS } from "../lib/settings.js";
+import { STORAGE_KEYS, ICONS } from "../lib/settings.js";
 
 const grid = document.getElementById("grid");
 const countEl = document.getElementById("count");
@@ -13,6 +13,7 @@ const openLogsBtn = document.getElementById("openLogsBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 const tabAllBtn = document.getElementById("tabAllBtn");
 const tabFavoritesBtn = document.getElementById("tabFavoritesBtn");
+const brandLogo = document.getElementById("brandLogo");
 
 const objectUrlById = new Map();
 let currentTab = "all";
@@ -427,7 +428,37 @@ function applyTheme(mode) {
   const theme = mode === "dark" ? "dark" : "light";
   document.documentElement.setAttribute("data-theme", theme);
   themeToggleBtn.textContent = theme === "dark" ? "\u2600" : "\u263E";
+  void setToolbarIcon(theme);
+  if (brandLogo) {
+    const oppositeTheme = theme === "dark" ? "light" : "dark";
+    brandLogo.src = `../${ICONS[oppositeTheme]["128"]}`;
+  }
   themeMode = theme;
+}
+
+async function setToolbarIcon(theme) {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "SET_THEME_ICON", theme });
+    if (response?.ok) {
+      return;
+    }
+  } catch {
+    // fallback below
+  }
+
+  const paths = ICONS[theme === "dark" ? "dark" : "light"];
+  await new Promise((resolve) => {
+    chrome.action.setIcon(
+      {
+        path: {
+          16: paths["16"],
+          32: paths["32"],
+          48: paths["48"]
+        }
+      },
+      () => resolve()
+    );
+  });
 }
 
 function getTheme() {

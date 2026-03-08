@@ -1,5 +1,5 @@
 import { idbGetLogs, idbClearLogs } from "../lib/db.js";
-import { STORAGE_KEYS } from "../lib/settings.js";
+import { STORAGE_KEYS, ICONS } from "../lib/settings.js";
 
 const logsEl = document.getElementById("logs");
 const statusEl = document.getElementById("status");
@@ -73,10 +73,36 @@ async function renderLogs() {
 function applyTheme(mode) {
   const theme = mode === "dark" ? "dark" : "light";
   document.documentElement.setAttribute("data-theme", theme);
+  void setToolbarIcon(theme);
   if (themeToggleBtn) {
     themeToggleBtn.textContent = theme === "dark" ? "\u2600" : "\u263E";
   }
   themeMode = theme;
+}
+
+async function setToolbarIcon(theme) {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "SET_THEME_ICON", theme });
+    if (response?.ok) {
+      return;
+    }
+  } catch {
+    // fallback below
+  }
+
+  const paths = ICONS[theme === "dark" ? "dark" : "light"];
+  await new Promise((resolve) => {
+    chrome.action.setIcon(
+      {
+        path: {
+          16: paths["16"],
+          32: paths["32"],
+          48: paths["48"]
+        }
+      },
+      () => resolve()
+    );
+  });
 }
 
 function getTheme() {

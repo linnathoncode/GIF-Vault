@@ -34,4 +34,19 @@ const BADGE = {
   clearDelayMs: 3000
 };
 
-export { STORAGE_KEYS, CONTEXT_MENU, OFFSCREEN, DB, GIF_CONVERSION, BADGE };
+const ICONS = {
+  light: {
+    "16": "assets/icons/icon-light-16.png",
+    "32": "assets/icons/icon-light-32.png",
+    "48": "assets/icons/icon-light-48.png",
+    "128": "assets/icons/icon-light-128.png"
+  },
+  dark: {
+    "16": "assets/icons/icon-dark-16.png",
+    "32": "assets/icons/icon-dark-32.png",
+    "48": "assets/icons/icon-dark-48.png",
+    "128": "assets/icons/icon-dark-128.png"
+  }
+};
+
+export { STORAGE_KEYS, CONTEXT_MENU, OFFSCREEN, DB, GIF_CONVERSION, BADGE, ICONS };
