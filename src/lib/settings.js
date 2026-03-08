@@ -16,7 +16,7 @@ const DB = {
   version: 2,
   mediaStore: "media",
   logStore: "logs",
-  logMaxItems: 100
+  logMaxItems: 250
 };
 
 const GIF_CONVERSION = {
