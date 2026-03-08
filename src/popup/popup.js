@@ -13,10 +13,15 @@ const openLogsBtn = document.getElementById("openLogsBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 const tabAllBtn = document.getElementById("tabAllBtn");
 const tabFavoritesBtn = document.getElementById("tabFavoritesBtn");
+const prevPageBtn = document.getElementById("prevPageBtn");
+const nextPageBtn = document.getElementById("nextPageBtn");
+const pageIndicator = document.getElementById("pageIndicator");
 const brandLogo = document.getElementById("brandLogo");
 
 const objectUrlById = new Map();
+const PAGE_SIZE = 18;
 let currentTab = "all";
+let currentPage = 1;
 let searchTerm = "";
 let themeMode = "light";
 let activeImportRequestId = "";
@@ -300,6 +305,10 @@ async function render() {
       return haystack.includes(query);
     })
     : byTab;
+  const totalPages = Math.max(1, Math.ceil(visibleItems.length / PAGE_SIZE));
+  currentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const pagedItems = visibleItems.slice(startIndex, startIndex + PAGE_SIZE);
 
   await safeLog("popup", "Render media grid", { count: visibleItems.length, tab: currentTab });
   const favoritesCount = normalized.filter((item) => item.favorite).length;
@@ -309,11 +318,14 @@ async function render() {
 
   tabAllBtn.classList.toggle("active", currentTab === "all");
   tabFavoritesBtn.classList.toggle("active", currentTab === "favorites");
+  prevPageBtn.disabled = currentPage <= 1;
+  nextPageBtn.disabled = currentPage >= totalPages;
+  pageIndicator.textContent = `Page ${currentPage} / ${totalPages}`;
 
-  pruneObjectUrlsForVisibleIds(new Set(visibleItems.map((item) => item.id)));
+  pruneObjectUrlsForVisibleIds(new Set(pagedItems.map((item) => item.id)));
 
   grid.innerHTML = "";
-  if (visibleItems.length === 0) {
+  if (pagedItems.length === 0) {
     const empty = document.createElement("div");
     empty.className = "empty";
     empty.textContent = query
@@ -325,7 +337,7 @@ async function render() {
     return;
   }
 
-  for (const item of visibleItems) {
+  for (const item of pagedItems) {
     try {
       grid.appendChild(buildCard(item));
     } catch (error) {
@@ -400,14 +412,25 @@ themeToggleBtn.addEventListener("click", async () => {
 });
 tabAllBtn.addEventListener("click", async () => {
   currentTab = "all";
+  currentPage = 1;
   await render();
 });
 tabFavoritesBtn.addEventListener("click", async () => {
   currentTab = "favorites";
+  currentPage = 1;
   await render();
 });
 searchInput.addEventListener("input", async () => {
   searchTerm = searchInput.value || "";
+  currentPage = 1;
+  await render();
+});
+prevPageBtn.addEventListener("click", async () => {
+  currentPage = Math.max(1, currentPage - 1);
+  await render();
+});
+nextPageBtn.addEventListener("click", async () => {
+  currentPage += 1;
   await render();
 });
 
