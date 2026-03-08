@@ -1,6 +1,7 @@
 import { idbGetAll, idbSave, idbDelete, idbClear, idbLog } from "../lib/db.js";
 
 const THEME_KEY = "themeMode";
+const IMPORT_STATE_KEY = "importState";
 
 const grid = document.getElementById("grid");
 const countEl = document.getElementById("count");
@@ -23,6 +24,14 @@ let activeImportRequestId = "";
 function setStatus(text, isOk = false) {
   statusEl.textContent = text;
   statusEl.className = isOk ? "status ok" : "status";
+}
+
+function applyImportState(state) {
+  if (!state || !state.text) {
+    return;
+  }
+  const isOk = state.kind === "success";
+  setStatus(state.text, isOk);
 }
 
 function hostFromUrl(rawUrl) {
@@ -242,8 +251,7 @@ function buildCard(item) {
   const urlText = document.createElement("div");
   urlText.className = "url";
   const sizeLabel = formatBytes(item.blob?.size || 0);
-  const favPrefix = item.favorite ? "* " : "";
-  urlText.textContent = `${favPrefix}${hostFromUrl(item.sourceUrl || item.mediaUrl || "")}`;
+  urlText.textContent = hostFromUrl(item.sourceUrl || item.mediaUrl || "");
 
   const sizeText = document.createElement("div");
   sizeText.className = "size";
@@ -268,6 +276,9 @@ function buildCard(item) {
 
   const favoriteBtn = document.createElement("button");
   favoriteBtn.className = "btn";
+  if (item.favorite) {
+    favoriteBtn.classList.add("favorite-active");
+  }
   favoriteBtn.type = "button";
   favoriteBtn.textContent = item.favorite ? "\u2605" : "\u2606";
   favoriteBtn.title = item.favorite ? "Unfavorite" : "Favorite";
@@ -411,13 +422,20 @@ searchInput.addEventListener("input", async () => {
 });
 
 chrome.runtime.onMessage.addListener((message) => {
-  if (!message || message.type !== "IMPORT_PROGRESS") {
+  if (!message) {
     return;
   }
-  if (!activeImportRequestId || message.requestId !== activeImportRequestId) {
+  if (message.type === "VAULT_UPDATED") {
+    void render();
     return;
   }
-  setStatus(message.text || "Importing...");
+  if (message.type !== "IMPORT_PROGRESS") {
+    return;
+  }
+  if (activeImportRequestId && message.requestId !== activeImportRequestId) {
+    return;
+  }
+  applyImportState(message);
 });
 
 async function safeLog(stage, message, details = {}) {
@@ -449,8 +467,34 @@ function setTheme(theme) {
   });
 }
 
+function getImportState() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([IMPORT_STATE_KEY], (result) => {
+      resolve(result[IMPORT_STATE_KEY] || null);
+    });
+  });
+}
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local" || !changes[IMPORT_STATE_KEY]) {
+    return;
+  }
+  const nextState = changes[IMPORT_STATE_KEY].newValue || null;
+  const prevState = changes[IMPORT_STATE_KEY].oldValue || null;
+  if (nextState) {
+    applyImportState(nextState);
+  }
+  if ((prevState?.active || false) && !nextState?.active) {
+    void render();
+  }
+});
+
 async function init() {
   applyTheme(await getTheme());
+  const importState = await getImportState();
+  if (importState?.active) {
+    applyImportState(importState);
+  }
   await render();
 }
 

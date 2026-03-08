@@ -27,3 +27,6 @@ build/
 *.log
 *.tmp
 *.temp
+
+# Local agent context
+agentcontext
