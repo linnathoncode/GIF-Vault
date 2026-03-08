@@ -1,14 +1,10 @@
 import { idbLog } from "../lib/db.js";
+import { GIF_CONVERSION } from "../lib/settings.js";
 import { FFmpeg } from "../vendor/@ffmpeg/ffmpeg/esm/index.js";
 import { fetchFile } from "../vendor/@ffmpeg/util/esm/index.js";
 
 const ffmpeg = new FFmpeg();
 let ffmpegLoadPromise = null;
-const GIF_FPS = 10;
-const GIF_WIDTH = 360;
-const GIF_MAX_COLORS = 96;
-const GIF_MAX_DURATION_SECONDS = 15;
-
 ffmpeg.on("log", ({ message }) => {
   if (!message) {
     return;
@@ -58,18 +54,18 @@ async function convertMp4ToGif(message) {
   }
   await safeLog("offscreen", "Starting ffmpeg conversion", {
     inputBytes: inputData.length,
-    fps: GIF_FPS,
-    width: GIF_WIDTH,
-    maxColors: GIF_MAX_COLORS,
-    maxDurationSeconds: GIF_MAX_DURATION_SECONDS
+    fps: GIF_CONVERSION.fps,
+    width: GIF_CONVERSION.width,
+    maxColors: GIF_CONVERSION.maxColors,
+    maxDurationSeconds: GIF_CONVERSION.maxDurationSeconds
   });
 
   await ffmpeg.writeFile(inputName, inputData);
   const durationSeconds = await probeVideoDuration(inputName, probeName);
-  if (durationSeconds > GIF_MAX_DURATION_SECONDS) {
+  if (durationSeconds > GIF_CONVERSION.maxDurationSeconds) {
     await safeLog("offscreen", "Rejected long video", {
       durationSeconds,
-      maxDurationSeconds: GIF_MAX_DURATION_SECONDS
+      maxDurationSeconds: GIF_CONVERSION.maxDurationSeconds
     });
     await safeDeleteFile(inputName);
     await safeDeleteFile(probeName);
@@ -80,7 +76,7 @@ async function convertMp4ToGif(message) {
     "-i",
     inputName,
     "-vf",
-    `fps=${GIF_FPS},scale=${GIF_WIDTH}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=${GIF_MAX_COLORS}:stats_mode=diff[p];[s1][p]paletteuse=dither=sierra2_4a`,
+    `fps=${GIF_CONVERSION.fps},scale=${GIF_CONVERSION.width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=${GIF_CONVERSION.maxColors}:stats_mode=diff[p];[s1][p]paletteuse=dither=sierra2_4a`,
     "-loop",
     "0",
     outputName

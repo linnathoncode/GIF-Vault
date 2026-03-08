@@ -1,21 +1,17 @@
-const DB_NAME = "gifVaultDB";
-const DB_VERSION = 2;
-const STORE_NAME = "media";
-const LOG_STORE_NAME = "logs";
-const LOG_MAX_ITEMS = 100;
+import { DB } from "./settings.js";
 
 function openDb() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(DB.name, DB.version);
 
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      if (!db.objectStoreNames.contains(DB.mediaStore)) {
+        const store = db.createObjectStore(DB.mediaStore, { keyPath: "id" });
         store.createIndex("savedAt", "savedAt", { unique: false });
       }
-      if (!db.objectStoreNames.contains(LOG_STORE_NAME)) {
-        const logs = db.createObjectStore(LOG_STORE_NAME, { keyPath: "id" });
+      if (!db.objectStoreNames.contains(DB.logStore)) {
+        const logs = db.createObjectStore(DB.logStore, { keyPath: "id" });
         logs.createIndex("createdAt", "createdAt", { unique: false });
       }
     };
@@ -27,8 +23,8 @@ function openDb() {
 
 function runTx(mode, fn) {
   return openDb().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, mode);
-    const store = tx.objectStore(STORE_NAME);
+    const tx = db.transaction(DB.mediaStore, mode);
+    const store = tx.objectStore(DB.mediaStore);
 
     let result;
     try {
@@ -46,8 +42,8 @@ function runTx(mode, fn) {
 
 function runLogTx(mode, fn) {
   return openDb().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(LOG_STORE_NAME, mode);
-    const store = tx.objectStore(LOG_STORE_NAME);
+    const tx = db.transaction(DB.logStore, mode);
+    const store = tx.objectStore(DB.logStore);
 
     let result;
     try {
@@ -106,7 +102,7 @@ function idbLog(stage, message, details = {}) {
       createdAt: Date.now()
     };
     store.put(item);
-    pruneOldLogs(store, LOG_MAX_ITEMS);
+    pruneOldLogs(store, DB.logMaxItems);
     return item;
   });
 }

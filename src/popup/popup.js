@@ -1,7 +1,6 @@
 import { idbGetAll, idbSave, idbDelete, idbClear, idbLog } from "../lib/db.js";
-
-const THEME_KEY = "themeMode";
-const IMPORT_STATE_KEY = "importState";
+import { fileExtensionFromMime } from "../lib/media.js";
+import { STORAGE_KEYS } from "../lib/settings.js";
 
 const grid = document.getElementById("grid");
 const countEl = document.getElementById("count");
@@ -40,28 +39,6 @@ function hostFromUrl(rawUrl) {
   } catch {
     return rawUrl || "";
   }
-}
-
-function fileExtensionFromMime(mimeType) {
-  if (!mimeType) {
-    return "bin";
-  }
-  if (mimeType.includes("gif")) {
-    return "gif";
-  }
-  if (mimeType.includes("mp4")) {
-    return "mp4";
-  }
-  if (mimeType.includes("webm")) {
-    return "webm";
-  }
-  if (mimeType.includes("png")) {
-    return "png";
-  }
-  if (mimeType.includes("jpeg")) {
-    return "jpg";
-  }
-  return "bin";
 }
 
 function formatBytes(bytes) {
@@ -455,32 +432,32 @@ function applyTheme(mode) {
 
 function getTheme() {
   return new Promise((resolve) => {
-    chrome.storage.local.get([THEME_KEY], (result) => {
-      resolve(result[THEME_KEY] === "dark" ? "dark" : "light");
+    chrome.storage.local.get([STORAGE_KEYS.themeMode], (result) => {
+      resolve(result[STORAGE_KEYS.themeMode] === "dark" ? "dark" : "light");
     });
   });
 }
 
 function setTheme(theme) {
   return new Promise((resolve) => {
-    chrome.storage.local.set({ [THEME_KEY]: theme }, resolve);
+    chrome.storage.local.set({ [STORAGE_KEYS.themeMode]: theme }, resolve);
   });
 }
 
 function getImportState() {
   return new Promise((resolve) => {
-    chrome.storage.local.get([IMPORT_STATE_KEY], (result) => {
-      resolve(result[IMPORT_STATE_KEY] || null);
+    chrome.storage.local.get([STORAGE_KEYS.importState], (result) => {
+      resolve(result[STORAGE_KEYS.importState] || null);
     });
   });
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== "local" || !changes[IMPORT_STATE_KEY]) {
+  if (areaName !== "local" || !changes[STORAGE_KEYS.importState]) {
     return;
   }
-  const nextState = changes[IMPORT_STATE_KEY].newValue || null;
-  const prevState = changes[IMPORT_STATE_KEY].oldValue || null;
+  const nextState = changes[STORAGE_KEYS.importState].newValue || null;
+  const prevState = changes[STORAGE_KEYS.importState].oldValue || null;
   if (nextState) {
     applyImportState(nextState);
   }

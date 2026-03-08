@@ -1,19 +1,17 @@
 import { idbSave, idbLog } from "../lib/db.js";
-
-const MENU_ID = "addToGifVault";
-const OFFSCREEN_URL = "offscreen/offscreen.html";
-const IMPORT_STATE_KEY = "importState";
+import { extensionFromUrl } from "../lib/media.js";
+import { STORAGE_KEYS, CONTEXT_MENU, OFFSCREEN, GIF_CONVERSION, BADGE } from "../lib/settings.js";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
-    id: MENU_ID,
+    id: CONTEXT_MENU.addToVaultId,
     title: "Add to GIF Vault",
     contexts: ["image", "video"]
   });
 });
 
 chrome.contextMenus.onClicked.addListener(async (info) => {
-  if (info.menuItemId !== MENU_ID || !info.srcUrl) {
+  if (info.menuItemId !== CONTEXT_MENU.addToVaultId || !info.srcUrl) {
     return;
   }
 
@@ -113,9 +111,9 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "") {
           const seconds = Number.parseFloat(String(error.message).split(":")[1] || "0");
           await safeLog("convert", "Rejected long video in background", {
             durationSeconds: seconds,
-            maxDurationSeconds: 15
+            maxDurationSeconds: GIF_CONVERSION.maxDurationSeconds
           });
-          throw new Error(`Video is too long (${seconds.toFixed(1)}s). Max allowed is 15s.`);
+          throw new Error(`Video is too long (${seconds.toFixed(1)}s). Max allowed is ${GIF_CONVERSION.maxDurationSeconds}s.`);
         }
         await safeLog("convert", "Offscreen conversion threw, keeping original media", {
           error: error?.message || "unknown"
@@ -162,40 +160,6 @@ function isTwitterUrl(url) {
   } catch {
     return false;
   }
-}
-
-function extensionFromUrl(url, mimeType = "") {
-  try {
-    const pathname = new URL(url).pathname.toLowerCase();
-    if (pathname.endsWith(".gif")) {
-      return "gif";
-    }
-    if (pathname.endsWith(".mp4")) {
-      return "mp4";
-    }
-    if (pathname.endsWith(".webm")) {
-      return "webm";
-    }
-    if (pathname.endsWith(".png")) {
-      return "png";
-    }
-    if (pathname.endsWith(".jpg") || pathname.endsWith(".jpeg")) {
-      return "jpg";
-    }
-  } catch {
-    // fallback to mime type
-  }
-
-  if (mimeType.includes("gif")) {
-    return "gif";
-  }
-  if (mimeType.includes("mp4")) {
-    return "mp4";
-  }
-  if (mimeType.includes("webm")) {
-    return "webm";
-  }
-  return "bin";
 }
 
 async function resolveMediaUrl(rawUrl) {
@@ -384,7 +348,7 @@ async function ensureOffscreenDocument() {
   }
 
   await chrome.offscreen.createDocument({
-    url: OFFSCREEN_URL,
+    url: OFFSCREEN.url,
     reasons: ["BLOBS"],
     justification: "Convert imported MP4 media into GIF in background"
   });
@@ -460,7 +424,7 @@ function base64ToUint8(base64) {
 async function reportProgress(requestId, text, active = true, kind = "info") {
   try {
     await chrome.storage.local.set({
-      [IMPORT_STATE_KEY]: {
+      [STORAGE_KEYS.importState]: {
         requestId,
         text,
         kind,
@@ -534,15 +498,15 @@ async function showNotification(title, message) {
 async function showBadgeFallback(ok) {
   try {
     await chrome.action.setBadgeBackgroundColor({
-      color: ok ? "#0f766e" : "#8b2635"
+      color: ok ? BADGE.okColor : BADGE.errorColor
     });
     await chrome.action.setBadgeText({
-      text: ok ? "+" : "!"
+      text: ok ? BADGE.okText : BADGE.errorText
     });
     // Best-effort clear; if worker sleeps early, badge may persist until next action.
     setTimeout(() => {
       void chrome.action.setBadgeText({ text: "" });
-    }, 3000);
+    }, BADGE.clearDelayMs);
   } catch {
     // no-op
   }
