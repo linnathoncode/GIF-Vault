@@ -21,6 +21,7 @@ Thumbs.db
 # Build / artifacts
 dist/
 build/
+release/
 *.zip
 
 # Runtime logs / temp

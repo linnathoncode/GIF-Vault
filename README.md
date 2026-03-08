@@ -11,6 +11,7 @@
 - IndexedDB storage for media blobs
 - Popup vault UI:
   - 3-column grid
+  - Pagination controls (Prev / Next + page indicator)
   - Favorites tab
   - Rename, copy, favorite, delete
   - Search by name/source
@@ -21,6 +22,7 @@
   - Live debug logs
   - Storage usage (`navigator.storage.estimate()`)
   - Theme support
+  - Stable wrapping for long log lines/URLs
 
 ## Project Layout
 ```txt
@@ -49,11 +51,22 @@ npm run build
 ```
 Copies `src/*` into `dist/*`.
 
+## Release Download
+If you do not want to build locally, you can download the prebuilt package from the GitHub release:
+
+- `v1.2.5` zip: `https://github.com/linnathoncode/GIF-Vault/releases/download/v1.2.5/GIF_Vault_v1.2.5.zip`
+
+Notes:
+- This may not be the latest version.
+- If you download the zip directly, unzip it first, then load the unzipped folder in Chrome/Opera.
+
 ## Load Unpacked
 1. Open `chrome://extensions`
 2. Enable Developer mode
 3. Click `Load unpacked`
-4. Select `dist/`
+4. Select either:
+   - `dist/` (if you built locally), or
+   - unzipped `GIF_Vault_vx.x.x` (if you downloaded from a release zip)
 
 ## Notes
 - Data is stored in extension IndexedDB (profile-local).
