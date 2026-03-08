@@ -1,11 +1,32 @@
-# GIF Vault (Chrome Extension)
+# GIF Vault (Manifest V3)
 
-`GIF Vault` is a Manifest V3 Chrome extension for saving web GIFs and importing Twitter/X links into a local vault.
+`GIF Vault` is a Chrome/Chromium extension for collecting GIF media into a local vault, including Twitter/X status imports with MP4-to-GIF conversion.
+
+## Current Features
+- Context menu: `Add to GIF Vault` on image/video elements
+- Manual URL import from popup (`gif`, direct media URLs, Twitter/X status URLs)
+- Twitter/X resolution pipeline (syndication + page fallbacks)
+- Offscreen FFmpeg conversion for Twitter MP4 -> GIF
+- Video safety limit (max 15 seconds for conversion)
+- IndexedDB storage for media blobs
+- Popup vault UI:
+  - 3-column grid
+  - Favorites tab
+  - Rename, copy, favorite, delete
+  - Search by name/source
+  - Per-item size display
+  - Light/Dark theme
+- Themed extension icons (light/dark sets)
+- Logs page:
+  - Live debug logs
+  - Storage usage (`navigator.storage.estimate()`)
+  - Theme support
 
 ## Project Layout
 ```txt
 src/
   manifest.json
+  assets/icons/
   background/service-worker.js
   popup/popup.html
   popup/popup.js
@@ -13,35 +34,30 @@ src/
   offscreen/offscreen.js
   logs/logs.html
   logs/logs.js
-  lib/db.js
+  lib/
+    db.js
+    media.js
+    settings.js
   vendor/@ffmpeg/...
 
 dist/
 ```
 
-## What It Does
-- Imports media from pasted URLs (`.gif`, direct media links, tweet/status links)
-- Resolves Twitter/X status links to media
-- Converts Twitter MP4 to GIF using FFmpeg in offscreen context
-- Stores media in IndexedDB
-- Popup supports:
-  - All / Favorites tabs
-  - Copy / Favorite / Delete actions
-  - Size display per media card
-
 ## Build
 ```bash
 npm run build
 ```
-This copies `src/*` to `dist/*`.
+Copies `src/*` into `dist/*`.
 
-## Load in Chrome
+## Load Unpacked
 1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select the `dist/` folder
+2. Enable Developer mode
+3. Click `Load unpacked`
+4. Select `dist/`
 
 ## Notes
-- Data is stored in extension IndexedDB (inside Chrome profile storage)
-- Large GIFs can consume quota quickly
-- Protected/private tweet media may not resolve
+- Data is stored in extension IndexedDB (profile-local).
+- Log retention cap is 250 entries.
+- Media conversion cap: videos longer than 15 seconds are rejected.
+- Private/protected tweet media may fail to resolve.
+- FFmpeg conversion can be CPU/memory intensive on lower-end machines.

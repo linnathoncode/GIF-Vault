@@ -513,7 +513,7 @@ async function showNotification(title, message) {
     const id = `gif-vault-${Date.now()}`;
     await chrome.notifications.create(id, {
       type: "basic",
-      iconUrl: "assets/icons/icon48.png",
+      iconUrl: ICONS.light["48"],
       title,
       message
     });

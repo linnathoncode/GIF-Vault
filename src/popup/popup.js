@@ -89,6 +89,16 @@ function cleanupObjectUrls() {
   objectUrlById.clear();
 }
 
+function pruneObjectUrlsForVisibleIds(visibleIds) {
+  for (const [id, url] of objectUrlById.entries()) {
+    if (visibleIds.has(id)) {
+      continue;
+    }
+    URL.revokeObjectURL(url);
+    objectUrlById.delete(id);
+  }
+}
+
 async function copyItemBlob(item) {
   const canWriteBlob = navigator.clipboard
     && typeof navigator.clipboard.write === "function"
@@ -299,6 +309,8 @@ async function render() {
 
   tabAllBtn.classList.toggle("active", currentTab === "all");
   tabFavoritesBtn.classList.toggle("active", currentTab === "favorites");
+
+  pruneObjectUrlsForVisibleIds(new Set(visibleItems.map((item) => item.id)));
 
   grid.innerHTML = "";
   if (visibleItems.length === 0) {
