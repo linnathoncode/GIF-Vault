@@ -47,6 +47,12 @@ dist/
 
 ## Build
 ```bash
+# Clone the repository
+git clone https://github.com/linnathoncode/GIF-Vault.git
+cd GIF-Vault
+
+# Install dependencies and build
+npm install
 npm run build
 ```
 Copies `src/*` into `dist/*`.
@@ -54,19 +60,20 @@ Copies `src/*` into `dist/*`.
 ## Release Download
 If you do not want to build locally, you can download the prebuilt package from the GitHub release:
 
-- `v1.2.5` zip: `https://github.com/linnathoncode/GIF-Vault/releases/download/v1.2.5/GIF_Vault_v1.2.5.zip`
+| Version | Download Link | Installation |
+| :--- | :--- | :--- |
+| **v1.2.5** | [GIF_Vault_v1.2.5.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.2.5/GIF_Vault_v1.2.5.zip) | Unzip the file and load into unpacked. |
 
 Notes:
 - This may not be the latest version.
-- If you download the zip directly, unzip it first, then load the unzipped folder in Chrome/Opera.
 
 ## Load Unpacked
-1. Open `chrome://extensions`
+1. Open `chrome://extensions` (Chromium browsers will redirect to their extensions page.)
 2. Enable Developer mode
 3. Click `Load unpacked`
 4. Select either:
    - `dist/` (if you built locally), or
-   - unzipped `GIF_Vault_vx.x.x` (if you downloaded from a release zip)
+   - unzipped `GIF_Vault_vX.X.X` (if you downloaded from a release zip)
 
 ## Notes
 - Data is stored in extension IndexedDB (profile-local).
