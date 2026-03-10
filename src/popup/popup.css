@@ -256,7 +256,7 @@ body {
   overflow: hidden;
   display: grid;
   grid-template-rows: 62px 1fr;
-  min-height: 172px;
+  min-height: 164px;
 }
 
 .thumb {
