@@ -74,7 +74,6 @@ If you do not want to build locally, download a prebuilt package from GitHub Rel
 
 ## Privacy Policy
 
-- Markdown source: [docs/privacy-policy.md](docs/privacy-policy.md)
 - GitHub Pages URL: `https://linnathoncode.github.io/GIF-Vault/privacy-policy.html`
 
 ## Load Unpacked
