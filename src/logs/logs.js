@@ -1,5 +1,13 @@
 import { idbGetLogs, idbClearLogs } from "../lib/db.js";
-import { STORAGE_KEYS, ICONS } from "../lib/settings.js";
+import { STORAGE_KEYS } from "../lib/settings.js";
+import { formatBytes } from "../lib/ui.js";
+import {
+  applyDocumentTheme,
+  getThemeMode,
+  setThemeMode,
+  setThemeToggleGlyph,
+  setToolbarIcon
+} from "../lib/theme.js";
 
 const logsEl = document.getElementById("logs");
 const statusEl = document.getElementById("status");
@@ -13,22 +21,6 @@ let themeMode = "light";
 function setStatus(text, ok = false) {
   statusEl.textContent = text;
   statusEl.className = ok ? "status ok" : "status";
-}
-
-function formatBytes(bytes) {
-  const value = Number(bytes || 0);
-  if (!Number.isFinite(value) || value <= 0) {
-    return "0 B";
-  }
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let size = value;
-  let unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
-  }
-  const rounded = size >= 10 || unitIndex === 0 ? size.toFixed(0) : size.toFixed(1);
-  return `${rounded} ${units[unitIndex]}`;
 }
 
 async function renderStorageEstimate() {
@@ -45,7 +37,7 @@ async function renderStorageEstimate() {
     const quota = await navigator.storage.estimate();
     const totalSpace = quota.quota || 0;
     const usedSpace = quota.usage || 0;
-    storageUsageEl.textContent = `Storage: ${formatBytes(usedSpace)} used / ${formatBytes(totalSpace)} total`;
+    storageUsageEl.textContent = `Storage: ${formatBytes(usedSpace, ["B", "KB", "MB", "GB", "TB"])} used / ${formatBytes(totalSpace, ["B", "KB", "MB", "GB", "TB"])} total`;
   } catch {
     storageUsageEl.textContent = "Storage: estimate failed";
   }
@@ -71,52 +63,10 @@ async function renderLogs() {
 }
 
 function applyTheme(mode) {
-  const theme = mode === "dark" ? "dark" : "light";
-  document.documentElement.setAttribute("data-theme", theme);
+  const theme = applyDocumentTheme(mode);
   void setToolbarIcon(theme);
-  if (themeToggleBtn) {
-    themeToggleBtn.textContent = theme === "dark" ? "\u2600" : "\u263E";
-  }
+  setThemeToggleGlyph(themeToggleBtn, theme);
   themeMode = theme;
-}
-
-async function setToolbarIcon(theme) {
-  try {
-    const response = await chrome.runtime.sendMessage({ type: "SET_THEME_ICON", theme });
-    if (response?.ok) {
-      return;
-    }
-  } catch {
-    // fallback below
-  }
-
-  const paths = ICONS[theme === "dark" ? "dark" : "light"];
-  await new Promise((resolve) => {
-    chrome.action.setIcon(
-      {
-        path: {
-          16: paths["16"],
-          32: paths["32"],
-          48: paths["48"]
-        }
-      },
-      () => resolve()
-    );
-  });
-}
-
-function getTheme() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get([STORAGE_KEYS.themeMode], (result) => {
-      resolve(result[STORAGE_KEYS.themeMode] === "dark" ? "dark" : "light");
-    });
-  });
-}
-
-function setTheme(theme) {
-  return new Promise((resolve) => {
-    chrome.storage.local.set({ [STORAGE_KEYS.themeMode]: theme }, resolve);
-  });
 }
 
 refreshBtn.addEventListener("click", () => {
@@ -132,7 +82,7 @@ clearBtn.addEventListener("click", async () => {
 themeToggleBtn.addEventListener("click", async () => {
   themeMode = themeMode === "dark" ? "light" : "dark";
   applyTheme(themeMode);
-  await setTheme(themeMode);
+  await setThemeMode(themeMode);
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -144,7 +94,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 async function init() {
-  applyTheme(await getTheme());
+  applyTheme(await getThemeMode());
   await renderLogs();
 }
 

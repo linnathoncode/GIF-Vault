@@ -1,6 +1,8 @@
-import { idbSave, idbLog } from "../lib/db.js";
+import { idbSave } from "../lib/db.js";
 import { extensionFromUrl } from "../lib/media.js";
 import { STORAGE_KEYS, CONTEXT_MENU, OFFSCREEN, GIF_CONVERSION, BADGE, ICONS } from "../lib/settings.js";
+import { safeLog } from "../lib/log.js";
+import { originPatternFromUrl } from "../lib/ui.js";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -412,14 +414,6 @@ async function convertInOffscreen(url, filename) {
   return response.payload;
 }
 
-async function safeLog(stage, message, details = {}) {
-  try {
-    await idbLog(stage, message, details);
-  } catch {
-    // Logging should never break the import pipeline.
-  }
-}
-
 function blobFromConvertedPayload(payload) {
   if (!payload) {
     return null;
@@ -478,18 +472,6 @@ async function ensureOriginAccess(rawUrl) {
 
   await safeLog("permissions", "Missing host access for origin", { origin: originPattern });
   throw new Error(`Host access needed for ${originPattern}. Use popup import to grant access.`);
-}
-
-function originPatternFromUrl(rawUrl) {
-  try {
-    const url = new URL(rawUrl);
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      return "";
-    }
-    return `${url.protocol}//${url.host}/*`;
-  } catch {
-    return "";
-  }
 }
 
 async function reportProgress(requestId, text, active = true, kind = "info") {

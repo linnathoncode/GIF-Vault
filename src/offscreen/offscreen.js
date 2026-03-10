@@ -1,5 +1,5 @@
-import { idbLog } from "../lib/db.js";
 import { GIF_CONVERSION } from "../lib/settings.js";
+import { safeLog } from "../lib/log.js";
 import { FFmpeg } from "../vendor/@ffmpeg/ffmpeg/esm/index.js";
 import { fetchFile } from "../vendor/@ffmpeg/util/esm/index.js";
 
@@ -104,14 +104,6 @@ async function convertMp4ToGif(message) {
     mimeType: "image/gif",
     filename: message.filename || `vault-${Date.now()}.gif`
   };
-}
-
-async function safeLog(stage, message, details = {}) {
-  try {
-    await idbLog(stage, message, details);
-  } catch {
-    // no-op
-  }
 }
 
 async function ensureFfmpegLoaded() {

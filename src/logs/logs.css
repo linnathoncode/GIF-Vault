@@ -1,0 +1,150 @@
+:root {
+  --bg: #f6f7f9;
+  --bg-top: #e5f7f4;
+  --card: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --line: #d1d5db;
+  --ok: #0f766e;
+  --scrollbar-thumb: #8b2635;
+  --scrollbar-track: #e5e7eb;
+}
+
+:root[data-theme="dark"] {
+  --bg: #2e3532;
+  --bg-top: #3a4541;
+  --card: #39413d;
+  --text: #e0e2db;
+  --muted: #c6c8c2;
+  --line: #616a65;
+  --ok: #e0e2db;
+  --scrollbar-thumb: #8b2635;
+  --scrollbar-track: #3a4541;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at top, var(--bg-top), var(--bg) 35%);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.wrap {
+  width: min(980px, 96vw);
+  max-width: 980px;
+  height: 100vh;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+  grid-template-rows: auto auto auto 1fr;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.logs-panel {
+  min-height: 0;
+  display: flex;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+}
+
+.status {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.status.ok {
+  color: var(--ok);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 8px;
+  font-size: 13px;
+  padding: 7px 10px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.icon-btn {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logs {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--card);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.logs::-webkit-scrollbar {
+  width: 10px;
+}
+
+.logs::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 999px;
+}
+
+.logs::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid var(--scrollbar-track);
+}

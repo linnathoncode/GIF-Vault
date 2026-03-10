@@ -1,6 +1,15 @@
-import { idbGetAll, idbSave, idbDelete, idbClear, idbLog } from "../lib/db.js";
+import { idbGetAll, idbSave, idbDelete, idbClear } from "../lib/db.js";
 import { fileExtensionFromMime } from "../lib/media.js";
 import { STORAGE_KEYS, ICONS } from "../lib/settings.js";
+import { safeLog } from "../lib/log.js";
+import { formatBytes, hostFromUrl, originPatternFromUrl } from "../lib/ui.js";
+import {
+  applyDocumentTheme,
+  getThemeMode,
+  setThemeMode,
+  setThemeToggleGlyph,
+  setToolbarIcon
+} from "../lib/theme.js";
 
 const grid = document.getElementById("grid");
 const countEl = document.getElementById("count");
@@ -37,29 +46,6 @@ function applyImportState(state) {
   }
   const isOk = state.kind === "success";
   setStatus(state.text, isOk);
-}
-
-function hostFromUrl(rawUrl) {
-  try {
-    return new URL(rawUrl).host;
-  } catch {
-    return rawUrl || "";
-  }
-}
-
-function formatBytes(bytes) {
-  const value = Number(bytes || 0);
-  if (!Number.isFinite(value) || value <= 0) {
-    return "0 B";
-  }
-  const units = ["B", "KB", "MB", "GB"];
-  let size = value;
-  let unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
-  }
-  return `${size >= 10 || unitIndex === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[unitIndex]}`;
 }
 
 function buildPreviewUrl(item) {
@@ -175,36 +161,52 @@ async function renameItem(item) {
   await render();
 }
 
-function buildCard(item) {
+function createButton({ className, text, title, label, onClick }) {
+  const button = document.createElement("button");
+  button.className = className;
+  button.type = "button";
+  button.textContent = text;
+  if (title) {
+    button.title = title;
+  }
+  if (label) {
+    button.setAttribute("aria-label", label);
+  }
+  if (onClick) {
+    button.addEventListener("click", onClick);
+  }
+  return button;
+}
+
+function createInvalidCard(item) {
   const card = document.createElement("article");
   card.className = "item";
+  const meta = document.createElement("div");
+  meta.className = "meta";
 
-  const previewUrl = buildPreviewUrl(item);
-  if (!previewUrl) {
-    const card = document.createElement("article");
-    card.className = "item";
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    const urlText = document.createElement("div");
-    urlText.className = "url";
-    urlText.textContent = "Invalid media entry";
-    const actions = document.createElement("div");
-    actions.className = "actions";
-    const removeBtn = document.createElement("button");
-    removeBtn.className = "btn";
-    removeBtn.type = "button";
-    removeBtn.textContent = "Remove";
-    removeBtn.addEventListener("click", () => removeItem(item.id));
-    actions.append(removeBtn);
-    meta.append(urlText, actions);
-    card.append(meta);
-    return card;
-  }
+  const urlText = document.createElement("div");
+  urlText.className = "url";
+  urlText.textContent = "Invalid media entry";
 
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  actions.append(createButton({
+    className: "btn",
+    text: "Remove",
+    onClick: () => removeItem(item.id)
+  }));
+
+  meta.append(urlText, actions);
+  card.append(meta);
+  return card;
+}
+
+function createPreviewMedia(item, previewUrl) {
   const media = item.kind === "video" ? document.createElement("video") : document.createElement("img");
   media.className = "thumb";
+  media.src = previewUrl;
+
   if (item.kind === "video") {
-    media.src = previewUrl;
     media.muted = true;
     media.loop = true;
     media.autoplay = true;
@@ -212,14 +214,26 @@ function buildCard(item) {
     media.addEventListener("error", () => {
       void safeLog("popup", "Video preview failed", { id: item.id, mimeType: item.mimeType || "" });
     });
-  } else {
-    media.src = previewUrl;
-    media.alt = "Saved GIF";
-    media.loading = "lazy";
-    media.addEventListener("error", () => {
-      void safeLog("popup", "Image preview failed", { id: item.id, mimeType: item.mimeType || "" });
-    });
+    return media;
   }
+
+  media.alt = "Saved GIF";
+  media.loading = "lazy";
+  media.addEventListener("error", () => {
+    void safeLog("popup", "Image preview failed", { id: item.id, mimeType: item.mimeType || "" });
+  });
+  return media;
+}
+
+function buildCard(item) {
+  const previewUrl = buildPreviewUrl(item);
+  if (!previewUrl) {
+    return createInvalidCard(item);
+  }
+
+  const card = document.createElement("article");
+  card.className = "item";
+  const media = createPreviewMedia(item, previewUrl);
 
   const meta = document.createElement("div");
   meta.className = "meta";
@@ -231,13 +245,13 @@ function buildCard(item) {
   nameText.className = "name";
   nameText.textContent = item.name && item.name.trim() ? item.name.trim() : "Untitled";
 
-  const renameBtn = document.createElement("button");
-  renameBtn.className = "name-btn";
-  renameBtn.type = "button";
-  renameBtn.textContent = "\u270E";
-  renameBtn.title = "Rename";
-  renameBtn.setAttribute("aria-label", "Rename");
-  renameBtn.addEventListener("click", () => renameItem(item));
+  const renameBtn = createButton({
+    className: "name-btn",
+    text: "\u270E",
+    title: "Rename",
+    label: "Rename",
+    onClick: () => renameItem(item)
+  });
 
   nameRow.append(nameText, renameBtn);
 
@@ -253,12 +267,12 @@ function buildCard(item) {
   const actions = document.createElement("div");
   actions.className = "actions";
 
-  const copyBtn = document.createElement("button");
-  copyBtn.className = "btn primary";
-  copyBtn.type = "button";
-  copyBtn.textContent = "\u29C9";
-  copyBtn.title = "Copy";
-  copyBtn.setAttribute("aria-label", "Copy");
+  const copyBtn = createButton({
+    className: "btn primary",
+    text: "\u29C9",
+    title: "Copy",
+    label: "Copy"
+  });
   copyBtn.addEventListener("click", async () => {
     const ok = await copyItemBlob(item);
     copyBtn.textContent = ok ? "\u2713" : "!";
@@ -267,24 +281,24 @@ function buildCard(item) {
     }, 900);
   });
 
-  const favoriteBtn = document.createElement("button");
-  favoriteBtn.className = "btn";
+  const favoriteBtn = createButton({
+    className: "btn",
+    text: item.favorite ? "\u2605" : "\u2606",
+    title: item.favorite ? "Unfavorite" : "Favorite",
+    label: item.favorite ? "Unfavorite" : "Favorite",
+    onClick: () => toggleFavorite(item)
+  });
   if (item.favorite) {
     favoriteBtn.classList.add("favorite-active");
   }
-  favoriteBtn.type = "button";
-  favoriteBtn.textContent = item.favorite ? "\u2605" : "\u2606";
-  favoriteBtn.title = item.favorite ? "Unfavorite" : "Favorite";
-  favoriteBtn.setAttribute("aria-label", item.favorite ? "Unfavorite" : "Favorite");
-  favoriteBtn.addEventListener("click", () => toggleFavorite(item));
 
-  const removeBtn = document.createElement("button");
-  removeBtn.className = "btn danger";
-  removeBtn.type = "button";
-  removeBtn.textContent = "\u2715";
-  removeBtn.title = "Delete";
-  removeBtn.setAttribute("aria-label", "Delete");
-  removeBtn.addEventListener("click", () => removeItem(item.id));
+  const removeBtn = createButton({
+    className: "btn danger",
+    text: "\u2715",
+    title: "Delete",
+    label: "Delete",
+    onClick: () => removeItem(item.id)
+  });
 
   actions.append(copyBtn, favoriteBtn, removeBtn);
   meta.append(nameRow, urlText, sizeText, actions);
@@ -447,18 +461,6 @@ async function resolveForPermission(url) {
   return { resolvedMediaUrl: "" };
 }
 
-function originPatternFromUrl(rawUrl) {
-  try {
-    const url = new URL(rawUrl);
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      return "";
-    }
-    return `${url.protocol}//${url.host}/*`;
-  } catch {
-    return "";
-  }
-}
-
 function applyImportAssistFromQuery() {
   const params = new URLSearchParams(window.location.search);
   const importUrl = params.get("importUrl") || "";
@@ -498,7 +500,7 @@ openLogsBtn.addEventListener("click", () => {
 themeToggleBtn.addEventListener("click", async () => {
   themeMode = themeMode === "dark" ? "light" : "dark";
   applyTheme(themeMode);
-  await setTheme(themeMode);
+  await setThemeMode(themeMode);
 });
 tabAllBtn.addEventListener("click", async () => {
   currentTab = "all";
@@ -541,63 +543,15 @@ chrome.runtime.onMessage.addListener((message) => {
   applyImportState(message);
 });
 
-async function safeLog(stage, message, details = {}) {
-  try {
-    await idbLog(stage, message, details);
-  } catch {
-    // no-op
-  }
-}
-
 function applyTheme(mode) {
-  const theme = mode === "dark" ? "dark" : "light";
-  document.documentElement.setAttribute("data-theme", theme);
-  themeToggleBtn.textContent = theme === "dark" ? "\u2600" : "\u263E";
+  const theme = applyDocumentTheme(mode);
+  setThemeToggleGlyph(themeToggleBtn, theme);
   void setToolbarIcon(theme);
   if (brandLogo) {
     const oppositeTheme = theme === "dark" ? "light" : "dark";
     brandLogo.src = `../${ICONS[oppositeTheme]["128"]}`;
   }
   themeMode = theme;
-}
-
-async function setToolbarIcon(theme) {
-  try {
-    const response = await chrome.runtime.sendMessage({ type: "SET_THEME_ICON", theme });
-    if (response?.ok) {
-      return;
-    }
-  } catch {
-    // fallback below
-  }
-
-  const paths = ICONS[theme === "dark" ? "dark" : "light"];
-  await new Promise((resolve) => {
-    chrome.action.setIcon(
-      {
-        path: {
-          16: paths["16"],
-          32: paths["32"],
-          48: paths["48"]
-        }
-      },
-      () => resolve()
-    );
-  });
-}
-
-function getTheme() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get([STORAGE_KEYS.themeMode], (result) => {
-      resolve(result[STORAGE_KEYS.themeMode] === "dark" ? "dark" : "light");
-    });
-  });
-}
-
-function setTheme(theme) {
-  return new Promise((resolve) => {
-    chrome.storage.local.set({ [STORAGE_KEYS.themeMode]: theme }, resolve);
-  });
 }
 
 function getImportState() {
@@ -623,7 +577,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 async function init() {
-  applyTheme(await getTheme());
+  applyTheme(await getThemeMode());
   applyImportAssistFromQuery();
   const importState = await getImportState();
   if (importState?.active) {

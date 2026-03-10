@@ -1,5 +1,7 @@
-import { idbLog } from "../lib/db.js";
 import { STORAGE_KEYS } from "../lib/settings.js";
+import { safeLog } from "../lib/log.js";
+import { originPatternFromUrl } from "../lib/ui.js";
+import { applyDocumentTheme } from "../lib/theme.js";
 
 const reasonEl = document.getElementById("reason");
 const originsEl = document.getElementById("origins");
@@ -160,21 +162,8 @@ function setStatus(text, kind = "") {
   statusEl.className = kind ? `status ${kind}` : "status";
 }
 
-function originPatternFromUrl(rawUrl) {
-  try {
-    const url = new URL(rawUrl);
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      return "";
-    }
-    return `${url.protocol}//${url.host}/*`;
-  } catch {
-    return "";
-  }
-}
-
 function applyTheme(mode) {
-  const theme = mode === "dark" ? "dark" : "light";
-  document.documentElement.setAttribute("data-theme", theme);
+  applyDocumentTheme(mode);
 }
 
 async function closeCurrentTabSoon() {
@@ -187,10 +176,3 @@ async function closeCurrentTabSoon() {
   window.close();
 }
 
-async function safeLog(stage, message, details = {}) {
-  try {
-    await idbLog(stage, message, details);
-  } catch {
-    // no-op
-  }
-}
