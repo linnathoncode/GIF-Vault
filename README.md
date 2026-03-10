@@ -72,6 +72,11 @@ If you do not want to build locally, download a prebuilt package from GitHub Rel
 | **v1.3.1** | [GIF_Vault_v1.3.1.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.3.1/GIF_Vault_v1.3.1.zip) | Latest structured build. Uses stricter required host permissions plus runtime permission prompts through the permission-assist tab for unknown hosts. |
 | **v1.2.5** | [GIF_Vault_v1.2.5.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.2.5/GIF_Vault_v1.2.5.zip) | Older looser-permission release. Uses `notifications` and broader `<all_urls>` host access. |
 
+## Privacy Policy
+
+- Markdown source: [docs/privacy-policy.md](docs/privacy-policy.md)
+- GitHub Pages URL: `https://linnathoncode.github.io/GIF-Vault/privacy-policy.html`
+
 ## Load Unpacked
 1. Open `chrome://extensions`.
 2. Enable Developer mode.
