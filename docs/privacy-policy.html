@@ -6,34 +6,28 @@
   <title>Privacy Policy for GIF Vault</title>
   <style>
     :root {
-      color-scheme: light dark;
-      --bg: #f5f1ea;
-      --card: #fffaf2;
-      --text: #1f1d1a;
-      --muted: #5d574f;
-      --border: #d9cdbb;
-      --accent: #9a4d17;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #1b1814;
-        --card: #26211b;
-        --text: #f4eee5;
-        --muted: #c7b8a7;
-        --border: #4b4033;
-        --accent: #f2a15a;
-      }
+      color-scheme: light;
+      --bg: #e0e2db;
+      --bg-top: #cfd6d2;
+      --card: #f2f3ee;
+      --text: #2e3532;
+      --muted: #4b5450;
+      --border: #a7aba4;
+      --accent: #8b2635;
     }
 
     * {
       box-sizing: border-box;
     }
 
+    html {
+      background: radial-gradient(circle at top, var(--bg-top), var(--bg) 58%) fixed;
+    }
+
     body {
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
-      background: linear-gradient(180deg, var(--bg), #e7dfd3);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: transparent;
       color: var(--text);
       line-height: 1.6;
     }
@@ -76,6 +70,10 @@
     .meta {
       color: var(--muted);
       margin-top: -0.75rem;
+    }
+
+    ul {
+      padding-left: 1.25rem;
     }
 
     a {
