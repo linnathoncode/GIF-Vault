@@ -1,6 +1,6 @@
 import { idbGetAll, idbSave, idbDelete, idbClear } from "../lib/db.js";
 import { fileExtensionFromMime } from "../lib/media.js";
-import { STORAGE_KEYS, ICONS } from "../lib/settings.js";
+import { STORAGE_KEYS, ICONS, POPUP_MENU } from "../lib/settings.js";
 import { safeLog } from "../lib/log.js";
 import { formatBytes, hostFromUrl, originPatternFromUrl } from "../lib/ui.js";
 import {
@@ -8,7 +8,7 @@ import {
   getThemeMode,
   setThemeMode,
   setThemeToggleGlyph,
-  setToolbarIcon
+  setToolbarIcon,
 } from "../lib/theme.js";
 
 const grid = document.getElementById("grid");
@@ -53,7 +53,7 @@ function buildPreviewUrl(item) {
     void safeLog("popup", "Skipped preview: blob is invalid", {
       id: item.id,
       mimeType: item.mimeType || "",
-      blobType: typeof item.blob
+      blobType: typeof item.blob,
     });
     return "";
   }
@@ -68,7 +68,7 @@ function buildPreviewUrl(item) {
   void safeLog("popup", "Created object URL for preview", {
     id: item.id,
     mimeType: item.mimeType || "",
-    blobSize: item.blob?.size || 0
+    blobSize: item.blob?.size || 0,
   });
   return objectUrl;
 }
@@ -91,34 +91,49 @@ function pruneObjectUrlsForVisibleIds(visibleIds) {
 }
 
 async function copyItemBlob(item) {
-  const canWriteBlob = navigator.clipboard
-    && typeof navigator.clipboard.write === "function"
-    && typeof ClipboardItem !== "undefined";
+  const canWriteBlob =
+    navigator.clipboard &&
+    typeof navigator.clipboard.write === "function" &&
+    typeof ClipboardItem !== "undefined";
 
   if (canWriteBlob) {
     try {
       const ext = fileExtensionFromMime(item.mimeType);
       const file = new File([item.blob], `gif-vault-${item.id}.${ext}`, {
-        type: item.mimeType || item.blob.type || "application/octet-stream"
+        type: item.mimeType || item.blob.type || "application/octet-stream",
       });
       await navigator.clipboard.write([
-        new ClipboardItem({ [file.type]: file })
+        new ClipboardItem({ [file.type]: file }),
       ]);
-      await safeLog("popup", "Copy succeeded (blob)", { id: item.id, mimeType: file.type });
+      await safeLog("popup", "Copy succeeded (blob)", {
+        id: item.id,
+        mimeType: file.type,
+      });
       return true;
     } catch (error) {
-      await safeLog("popup", "Copy blob failed", { id: item.id, error: error?.message || "unknown" });
+      await safeLog("popup", "Copy blob failed", {
+        id: item.id,
+        error: error?.message || "unknown",
+      });
     }
   }
 
-  const canWriteText = navigator.clipboard && typeof navigator.clipboard.writeText === "function";
+  const canWriteText =
+    navigator.clipboard && typeof navigator.clipboard.writeText === "function";
   if (canWriteText) {
     try {
-      await navigator.clipboard.writeText(item.mediaUrl || item.sourceUrl || "");
-      await safeLog("popup", "Copy fallback succeeded (url text)", { id: item.id });
+      await navigator.clipboard.writeText(
+        item.mediaUrl || item.sourceUrl || "",
+      );
+      await safeLog("popup", "Copy fallback succeeded (url text)", {
+        id: item.id,
+      });
       return true;
     } catch (error) {
-      await safeLog("popup", "Copy url fallback failed", { id: item.id, error: error?.message || "unknown" });
+      await safeLog("popup", "Copy url fallback failed", {
+        id: item.id,
+        error: error?.message || "unknown",
+      });
     }
   }
 
@@ -138,10 +153,13 @@ async function removeItem(id) {
 async function toggleFavorite(item) {
   const next = {
     ...item,
-    favorite: !Boolean(item.favorite)
+    favorite: !Boolean(item.favorite),
   };
   await idbSave(next);
-  await safeLog("popup", "Favorite toggled", { id: item.id, favorite: next.favorite });
+  await safeLog("popup", "Favorite toggled", {
+    id: item.id,
+    favorite: next.favorite,
+  });
   await render();
 }
 
@@ -154,7 +172,7 @@ async function renameItem(item) {
   const normalized = nextName.trim();
   const updated = {
     ...item,
-    name: normalized
+    name: normalized,
   };
   await idbSave(updated);
   await safeLog("popup", "Item renamed", { id: item.id, name: normalized });
@@ -190,11 +208,13 @@ function createInvalidCard(item) {
 
   const actions = document.createElement("div");
   actions.className = "actions";
-  actions.append(createButton({
-    className: "btn",
-    text: "Remove",
-    onClick: () => removeItem(item.id)
-  }));
+  actions.append(
+    createButton({
+      className: "btn",
+      text: "Remove",
+      onClick: () => removeItem(item.id),
+    }),
+  );
 
   meta.append(urlText, actions);
   card.append(meta);
@@ -202,7 +222,10 @@ function createInvalidCard(item) {
 }
 
 function createPreviewMedia(item, previewUrl) {
-  const media = item.kind === "video" ? document.createElement("video") : document.createElement("img");
+  const media =
+    item.kind === "video"
+      ? document.createElement("video")
+      : document.createElement("img");
   media.className = "thumb";
   media.src = previewUrl;
 
@@ -212,7 +235,10 @@ function createPreviewMedia(item, previewUrl) {
     media.autoplay = true;
     media.playsInline = true;
     media.addEventListener("error", () => {
-      void safeLog("popup", "Video preview failed", { id: item.id, mimeType: item.mimeType || "" });
+      void safeLog("popup", "Video preview failed", {
+        id: item.id,
+        mimeType: item.mimeType || "",
+      });
     });
     return media;
   }
@@ -220,7 +246,10 @@ function createPreviewMedia(item, previewUrl) {
   media.alt = "Saved GIF";
   media.loading = "lazy";
   media.addEventListener("error", () => {
-    void safeLog("popup", "Image preview failed", { id: item.id, mimeType: item.mimeType || "" });
+    void safeLog("popup", "Image preview failed", {
+      id: item.id,
+      mimeType: item.mimeType || "",
+    });
   });
   return media;
 }
@@ -243,14 +272,15 @@ function buildCard(item) {
 
   const nameText = document.createElement("div");
   nameText.className = "name";
-  nameText.textContent = item.name && item.name.trim() ? item.name.trim() : "Untitled";
+  nameText.textContent =
+    item.name && item.name.trim() ? item.name.trim() : "Untitled";
 
   const renameBtn = createButton({
     className: "name-btn",
     text: "\u270E",
     title: "Rename",
     label: "Rename",
-    onClick: () => renameItem(item)
+    onClick: () => renameItem(item),
   });
 
   nameRow.append(nameText, renameBtn);
@@ -271,7 +301,7 @@ function buildCard(item) {
     className: "btn primary",
     text: "\u29C9",
     title: "Copy",
-    label: "Copy"
+    label: "Copy",
   });
   copyBtn.addEventListener("click", async () => {
     const ok = await copyItemBlob(item);
@@ -286,7 +316,7 @@ function buildCard(item) {
     text: item.favorite ? "\u2605" : "\u2606",
     title: item.favorite ? "Unfavorite" : "Favorite",
     label: item.favorite ? "Unfavorite" : "Favorite",
-    onClick: () => toggleFavorite(item)
+    onClick: () => toggleFavorite(item),
   });
   if (item.favorite) {
     favoriteBtn.classList.add("favorite-active");
@@ -297,7 +327,7 @@ function buildCard(item) {
     text: "\u2715",
     title: "Delete",
     label: "Delete",
-    onClick: () => removeItem(item.id)
+    onClick: () => removeItem(item.id),
   });
 
   actions.append(copyBtn, favoriteBtn, removeBtn);
@@ -308,27 +338,43 @@ function buildCard(item) {
 
 async function render() {
   const items = await idbGetAll();
-  const normalized = items.map((item) => ({ ...item, favorite: Boolean(item.favorite), name: item.name || "" }));
-  const byTab = currentTab === "favorites"
-    ? normalized.filter((item) => item.favorite)
-    : normalized;
+  const normalized = items.map((item) => ({
+    ...item,
+    favorite: Boolean(item.favorite),
+    name: item.name || "",
+  }));
+  const byTab =
+    currentTab === "favorites"
+      ? normalized.filter((item) => item.favorite)
+      : normalized;
   const query = searchTerm.trim().toLowerCase();
   const visibleItems = query
     ? byTab.filter((item) => {
-      const haystack = `${item.name || ""} ${item.sourceUrl || ""} ${item.mediaUrl || ""}`.toLowerCase();
-      return haystack.includes(query);
-    })
+        const haystack =
+          `${item.name || ""} ${item.sourceUrl || ""} ${item.mediaUrl || ""}`.toLowerCase();
+        return haystack.includes(query);
+      })
     : byTab;
-  const totalPages = Math.max(1, Math.ceil(visibleItems.length / PAGE_SIZE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(visibleItems.length / POPUP_MENU.pageSize),
+  );
   currentPage = Math.min(Math.max(1, currentPage), totalPages);
-  const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const pagedItems = visibleItems.slice(startIndex, startIndex + PAGE_SIZE);
+  const startIndex = (currentPage - 1) * POPUP_MENU.pageSize;
+  const pagedItems = visibleItems.slice(
+    startIndex,
+    startIndex + POPUP_MENU.pageSize,
+  );
 
-  await safeLog("popup", "Render media grid", { count: visibleItems.length, tab: currentTab });
+  await safeLog("popup", "Render media grid", {
+    count: visibleItems.length,
+    tab: currentTab,
+  });
   const favoritesCount = normalized.filter((item) => item.favorite).length;
-  countEl.textContent = currentTab === "favorites"
-    ? `${visibleItems.length} favorite(s)`
-    : `${normalized.length} saved | ${favoritesCount} favorite(s)`;
+  countEl.textContent =
+    currentTab === "favorites"
+      ? `${visibleItems.length} favorite(s)`
+      : `${normalized.length} saved | ${favoritesCount} favorite(s)`;
 
   tabAllBtn.classList.toggle("active", currentTab === "all");
   tabFavoritesBtn.classList.toggle("active", currentTab === "favorites");
@@ -345,8 +391,8 @@ async function render() {
     empty.textContent = query
       ? "No matches for your search."
       : currentTab === "favorites"
-      ? "No favorites yet. Mark items as Favorite from the All tab."
-      : "Paste a URL above to import into GIF Vault.";
+        ? "No favorites yet. Mark items as Favorite from the All tab."
+        : "Paste a URL above to import into GIF Vault.";
     grid.appendChild(empty);
     return;
   }
@@ -355,7 +401,10 @@ async function render() {
     try {
       grid.appendChild(buildCard(item));
     } catch (error) {
-      await safeLog("popup", "Render item failed", { id: item.id, error: error?.message || "unknown" });
+      await safeLog("popup", "Render item failed", {
+        id: item.id,
+        error: error?.message || "unknown",
+      });
     }
   }
 }
@@ -376,20 +425,24 @@ async function importUrl(rawUrl) {
     const resolution = await resolveForPermission(url);
     const originsToRequest = new Set([
       originPatternFromUrl(url),
-      originPatternFromUrl(resolution.resolvedMediaUrl || "")
+      originPatternFromUrl(resolution.resolvedMediaUrl || ""),
     ]);
 
     const missingOrigins = await findMissingOrigins(originsToRequest);
     if (missingOrigins.length > 0) {
       await openPermissionAssist(url, "", missingOrigins);
-      setStatus(`Additional site access is needed. Continue in the permission tab.`);
+      setStatus(
+        `Additional site access is needed. Continue in the permission tab.`,
+      );
       activeImportRequestId = "";
       return;
     }
   } catch (error) {
     setStatus(error?.message || "Import failed");
     activeImportRequestId = "";
-    await safeLog("popup", "Import failed in popup", { error: error?.message || "unknown" });
+    await safeLog("popup", "Import failed in popup", {
+      error: error?.message || "unknown",
+    });
     return;
   }
 
@@ -397,7 +450,7 @@ async function importUrl(rawUrl) {
     const response = await chrome.runtime.sendMessage({
       type: "IMPORT_URL",
       url,
-      requestId
+      requestId,
     });
 
     if (!response?.ok) {
@@ -413,7 +466,9 @@ async function importUrl(rawUrl) {
   } catch (error) {
     setStatus(error?.message || "Import failed");
     activeImportRequestId = "";
-    await safeLog("popup", "Import failed in popup", { error: error?.message || "unknown" });
+    await safeLog("popup", "Import failed in popup", {
+      error: error?.message || "unknown",
+    });
   }
 }
 
@@ -424,7 +479,7 @@ async function findMissingOrigins(origins) {
       continue;
     }
     const hasAccess = await chrome.permissions.contains({
-      origins: [origin]
+      origins: [origin],
     });
     if (!hasAccess) {
       missing.push(origin);
@@ -434,7 +489,9 @@ async function findMissingOrigins(origins) {
 }
 
 async function openPermissionAssist(url, pageUrl, missingOrigins) {
-  const assistUrl = new URL(chrome.runtime.getURL("assist/permission-assist.html"));
+  const assistUrl = new URL(
+    chrome.runtime.getURL("assist/permission-assist.html"),
+  );
   assistUrl.searchParams.set("url", url || "");
   if (pageUrl) {
     assistUrl.searchParams.set("pageUrl", pageUrl);
@@ -449,7 +506,7 @@ async function resolveForPermission(url) {
   try {
     const response = await chrome.runtime.sendMessage({
       type: "RESOLVE_MEDIA_URL",
-      url
+      url,
     });
     if (response?.ok) {
       return { resolvedMediaUrl: response.resolvedMediaUrl || "" };
@@ -481,7 +538,9 @@ importInput.addEventListener("keydown", (event) => {
 });
 
 clearAllBtn.addEventListener("click", async () => {
-  const confirmed = window.confirm("Clear all items from GIF Vault? This cannot be undone.");
+  const confirmed = window.confirm(
+    "Clear all items from GIF Vault? This cannot be undone.",
+  );
   if (!confirmed) {
     return;
   }
@@ -587,4 +646,3 @@ async function init() {
 }
 
 init();
-

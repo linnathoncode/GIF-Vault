@@ -17,46 +17,57 @@ function openDb() {
     };
 
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error("Failed to open IndexedDB"));
+    request.onerror = () =>
+      reject(request.error || new Error("Failed to open IndexedDB"));
   });
 }
 
 function runTx(mode, fn) {
-  return openDb().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(DB.mediaStore, mode);
-    const store = tx.objectStore(DB.mediaStore);
+  return openDb().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction(DB.mediaStore, mode);
+        const store = tx.objectStore(DB.mediaStore);
 
-    let result;
-    try {
-      result = fn(store);
-    } catch (error) {
-      reject(error);
-      return;
-    }
+        let result;
+        try {
+          result = fn(store);
+        } catch (error) {
+          reject(error);
+          return;
+        }
 
-    tx.oncomplete = () => resolve(result);
-    tx.onerror = () => reject(tx.error || new Error("IndexedDB transaction failed"));
-    tx.onabort = () => reject(tx.error || new Error("IndexedDB transaction aborted"));
-  }));
+        tx.oncomplete = () => resolve(result);
+        tx.onerror = () =>
+          reject(tx.error || new Error("IndexedDB transaction failed"));
+        tx.onabort = () =>
+          reject(tx.error || new Error("IndexedDB transaction aborted"));
+      }),
+  );
 }
 
 function runLogTx(mode, fn) {
-  return openDb().then((db) => new Promise((resolve, reject) => {
-    const tx = db.transaction(DB.logStore, mode);
-    const store = tx.objectStore(DB.logStore);
+  return openDb().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction(DB.logStore, mode);
+        const store = tx.objectStore(DB.logStore);
 
-    let result;
-    try {
-      result = fn(store);
-    } catch (error) {
-      reject(error);
-      return;
-    }
+        let result;
+        try {
+          result = fn(store);
+        } catch (error) {
+          reject(error);
+          return;
+        }
 
-    tx.oncomplete = () => resolve(result);
-    tx.onerror = () => reject(tx.error || new Error("IndexedDB log transaction failed"));
-    tx.onabort = () => reject(tx.error || new Error("IndexedDB log transaction aborted"));
-  }));
+        tx.oncomplete = () => resolve(result);
+        tx.onerror = () =>
+          reject(tx.error || new Error("IndexedDB log transaction failed"));
+        tx.onabort = () =>
+          reject(tx.error || new Error("IndexedDB log transaction aborted"));
+      }),
+  );
 }
 
 function idbSave(item) {
@@ -67,15 +78,20 @@ function idbSave(item) {
 }
 
 function idbGetAll() {
-  return runTx("readonly", (store) => new Promise((resolve, reject) => {
-    const request = store.getAll();
-    request.onsuccess = () => {
-      const items = Array.isArray(request.result) ? request.result : [];
-      items.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
-      resolve(items);
-    };
-    request.onerror = () => reject(request.error || new Error("Failed to read IndexedDB items"));
-  }));
+  return runTx(
+    "readonly",
+    (store) =>
+      new Promise((resolve, reject) => {
+        const request = store.getAll();
+        request.onsuccess = () => {
+          const items = Array.isArray(request.result) ? request.result : [];
+          items.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+          resolve(items);
+        };
+        request.onerror = () =>
+          reject(request.error || new Error("Failed to read IndexedDB items"));
+      }),
+  );
 }
 
 function idbDelete(id) {
@@ -99,7 +115,7 @@ function idbLog(stage, message, details = {}) {
       stage,
       message,
       details,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     };
     store.put(item);
     pruneOldLogs(store, DB.logMaxItems);
@@ -107,16 +123,21 @@ function idbLog(stage, message, details = {}) {
   });
 }
 
-function idbGetLogs(limit = 100) {
-  return runLogTx("readonly", (store) => new Promise((resolve, reject) => {
-    const request = store.getAll();
-    request.onsuccess = () => {
-      const items = Array.isArray(request.result) ? request.result : [];
-      items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      resolve(items.slice(0, Math.max(1, limit)));
-    };
-    request.onerror = () => reject(request.error || new Error("Failed to read logs"));
-  }));
+function idbGetLogs(limit = 250) {
+  return runLogTx(
+    "readonly",
+    (store) =>
+      new Promise((resolve, reject) => {
+        const request = store.getAll();
+        request.onsuccess = () => {
+          const items = Array.isArray(request.result) ? request.result : [];
+          items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+          resolve(items.slice(0, Math.max(1, limit)));
+        };
+        request.onerror = () =>
+          reject(request.error || new Error("Failed to read logs"));
+      }),
+  );
 }
 
 function idbClearLogs() {
@@ -143,4 +164,12 @@ function pruneOldLogs(store, maxItems) {
   };
 }
 
-export { idbSave, idbGetAll, idbDelete, idbClear, idbLog, idbGetLogs, idbClearLogs };
+export {
+  idbSave,
+  idbGetAll,
+  idbDelete,
+  idbClear,
+  idbLog,
+  idbGetLogs,
+  idbClearLogs,
+};
