@@ -31,9 +31,12 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
   try {
     await safeLog("context-menu", "Context menu click received", { srcUrl: info.srcUrl, pageUrl: info.pageUrl || "" });
     await importFromUrl(info.srcUrl, info.pageUrl || "");
-    await showFeedback("Added to GIF Vault", "Media saved successfully.", true);
+    await showBadgeFallback(true);
   } catch (error) {
-    await showFeedback("GIF Vault", "Could not save media from this page.", false);
+    if (String(error?.message || "").startsWith("Host access needed for ")) {
+      await openPermissionAssist(info.srcUrl, info.pageUrl || "", error.message);
+    }
+    await showBadgeFallback(false);
     await safeLog("context-menu", "Context menu import failed", { error: error?.message || "unknown" });
     // Context-menu saves are fire-and-forget.
   }
@@ -53,6 +56,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         await safeLog("theme", "SET_THEME_ICON failed", { theme, error: error?.message || "unknown" });
         sendResponse({ ok: false, error: error?.message || "Failed to set icon" });
       });
+    return true;
+  }
+
+  if (message.type === "RESOLVE_MEDIA_URL") {
+    resolveMediaUrl(message.url || "")
+      .then((resolvedMediaUrl) => sendResponse({ ok: true, resolvedMediaUrl }))
+      .catch((error) => sendResponse({ ok: false, error: error?.message || "Resolve failed" }));
     return true;
   }
 
@@ -77,6 +87,7 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "") {
   await reportProgress(progressId, "Resolving media URL...", true, "info");
   try {
     await safeLog("import", "Import started", { url, pageUrl: pageUrl || "" });
+    await ensureOriginAccess(url);
 
     const resolvedMediaUrl = await resolveMediaUrl(url);
     if (!resolvedMediaUrl) {
@@ -84,6 +95,7 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "") {
       throw new Error("Could not resolve media URL");
     }
     await safeLog("resolve", "Resolved media URL", { url, resolvedMediaUrl });
+    await ensureOriginAccess(resolvedMediaUrl);
 
     await reportProgress(progressId, "Fetching media...", true, "info");
     const response = await fetch(resolvedMediaUrl);
@@ -450,6 +462,36 @@ function base64ToUint8(base64) {
   }
 }
 
+async function ensureOriginAccess(rawUrl) {
+  const originPattern = originPatternFromUrl(rawUrl);
+  if (!originPattern) {
+    return;
+  }
+
+  const hasAccess = await chrome.permissions.contains({
+    origins: [originPattern]
+  });
+
+  if (hasAccess) {
+    return;
+  }
+
+  await safeLog("permissions", "Missing host access for origin", { origin: originPattern });
+  throw new Error(`Host access needed for ${originPattern}. Use popup import to grant access.`);
+}
+
+function originPatternFromUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      return "";
+    }
+    return `${url.protocol}//${url.host}/*`;
+  } catch {
+    return "";
+  }
+}
+
 async function reportProgress(requestId, text, active = true, kind = "info") {
   try {
     await chrome.storage.local.set({
@@ -500,30 +542,6 @@ function inferName(sourceUrl, mediaUrl) {
   }
 }
 
-async function showFeedback(title, message, ok) {
-  const notified = await showNotification(title, message);
-  if (notified) {
-    return;
-  }
-  await showBadgeFallback(ok);
-}
-
-async function showNotification(title, message) {
-  try {
-    const id = `gif-vault-${Date.now()}`;
-    await chrome.notifications.create(id, {
-      type: "basic",
-      iconUrl: ICONS.light["48"],
-      title,
-      message
-    });
-    return true;
-  } catch {
-    // Ignore notification delivery failures.
-    return false;
-  }
-}
-
 async function showBadgeFallback(ok) {
   try {
     await chrome.action.setBadgeBackgroundColor({
@@ -555,6 +573,23 @@ async function setActionIcon(theme) {
   const iconPaths = theme === "dark" ? ICONS.dark : ICONS.light;
   await setIconWithImageData(iconPaths);
   await safeLog("theme", "Action icon updated (imageData)", { theme });
+}
+
+async function openPermissionAssist(url, pageUrl, reason) {
+  try {
+    const assistUrl = new URL(chrome.runtime.getURL("assist/permission-assist.html"));
+    assistUrl.searchParams.set("url", url || "");
+    if (pageUrl) {
+      assistUrl.searchParams.set("pageUrl", pageUrl);
+    }
+    if (reason) {
+      assistUrl.searchParams.set("reason", reason);
+    }
+    await chrome.tabs.create({ url: assistUrl.toString() });
+    await safeLog("context-menu", "Opened permission assist tab", { url, pageUrl, reason });
+  } catch (error) {
+    await safeLog("context-menu", "Failed to open permission assist tab", { error: error?.message || "unknown" });
+  }
 }
 
 async function setIconWithImageData(iconPaths) {

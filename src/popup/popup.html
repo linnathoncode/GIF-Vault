@@ -258,8 +258,8 @@
       border-radius: 10px;
       overflow: hidden;
       display: grid;
-      grid-template-rows: 62px auto;
-      min-height: 164px;
+      grid-template-rows: 62px 1fr;
+      min-height: 172px;
     }
 
     .thumb {
@@ -269,14 +269,20 @@
       background: #e5e7eb;
     }
 
-    .meta { padding: 6px 6px 8px; display: grid; gap: 4px; }
+    .meta {
+      padding: 6px 6px 8px;
+      display: grid;
+      gap: 4px;
+      grid-template-rows: auto auto auto 1fr;
+      min-height: 0;
+    }
 
     .url {
       font-size: 10px;
       color: var(--muted);
       line-height: 1.15;
       word-break: break-all;
-      max-height: 24px;
+      max-height: 22px;
       overflow: hidden;
     }
 
@@ -290,6 +296,8 @@
       display: flex;
       align-items: center;
       gap: 4px;
+      min-width: 0;
+      overflow: hidden;
     }
 
     .name {
@@ -316,6 +324,7 @@
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 4px;
+      align-self: end;
     }
 
     .actions .btn {

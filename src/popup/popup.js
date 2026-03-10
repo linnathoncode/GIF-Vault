@@ -359,6 +359,27 @@ async function importUrl(rawUrl) {
   await safeLog("popup", "Import requested from popup", { url });
 
   try {
+    const resolution = await resolveForPermission(url);
+    const originsToRequest = new Set([
+      originPatternFromUrl(url),
+      originPatternFromUrl(resolution.resolvedMediaUrl || "")
+    ]);
+
+    const missingOrigins = await findMissingOrigins(originsToRequest);
+    if (missingOrigins.length > 0) {
+      await openPermissionAssist(url, "", missingOrigins);
+      setStatus(`Additional site access is needed. Continue in the permission tab.`);
+      activeImportRequestId = "";
+      return;
+    }
+  } catch (error) {
+    setStatus(error?.message || "Import failed");
+    activeImportRequestId = "";
+    await safeLog("popup", "Import failed in popup", { error: error?.message || "unknown" });
+    return;
+  }
+
+  try {
     const response = await chrome.runtime.sendMessage({
       type: "IMPORT_URL",
       url,
@@ -370,6 +391,7 @@ async function importUrl(rawUrl) {
     }
 
     importInput.value = "";
+    importBtn.textContent = "Import";
     const convertedMessage = response.result?.converted ? " (converted)" : "";
     setStatus(`Imported successfully${convertedMessage}.`, true);
     activeImportRequestId = "";
@@ -378,6 +400,74 @@ async function importUrl(rawUrl) {
     setStatus(error?.message || "Import failed");
     activeImportRequestId = "";
     await safeLog("popup", "Import failed in popup", { error: error?.message || "unknown" });
+  }
+}
+
+async function findMissingOrigins(origins) {
+  const missing = [];
+  for (const origin of origins) {
+    if (!origin) {
+      continue;
+    }
+    const hasAccess = await chrome.permissions.contains({
+      origins: [origin]
+    });
+    if (!hasAccess) {
+      missing.push(origin);
+    }
+  }
+  return missing;
+}
+
+async function openPermissionAssist(url, pageUrl, missingOrigins) {
+  const assistUrl = new URL(chrome.runtime.getURL("assist/permission-assist.html"));
+  assistUrl.searchParams.set("url", url || "");
+  if (pageUrl) {
+    assistUrl.searchParams.set("pageUrl", pageUrl);
+  }
+  if (Array.isArray(missingOrigins) && missingOrigins.length > 0) {
+    assistUrl.searchParams.set("origins", JSON.stringify(missingOrigins));
+  }
+  await chrome.tabs.create({ url: assistUrl.toString() });
+}
+
+async function resolveForPermission(url) {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: "RESOLVE_MEDIA_URL",
+      url
+    });
+    if (response?.ok) {
+      return { resolvedMediaUrl: response.resolvedMediaUrl || "" };
+    }
+  } catch {
+    // Fallback to original URL only.
+  }
+
+  return { resolvedMediaUrl: "" };
+}
+
+function originPatternFromUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      return "";
+    }
+    return `${url.protocol}//${url.host}/*`;
+  } catch {
+    return "";
+  }
+}
+
+function applyImportAssistFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const importUrl = params.get("importUrl") || "";
+  const status = params.get("status") || "";
+  if (importUrl && !importInput.value) {
+    importInput.value = importUrl;
+  }
+  if (status) {
+    setStatus(status);
   }
 }
 
@@ -534,6 +624,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 async function init() {
   applyTheme(await getTheme());
+  applyImportAssistFromQuery();
   const importState = await getImportState();
   if (importState?.active) {
     applyImportState(importState);

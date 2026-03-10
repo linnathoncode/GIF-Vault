@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GIF Vault",
-  "version": "1.2.5",
+  "version": "1.3.0",
   "description": "Save GIFs and media links into a local vault.",
   "icons": {
     "16": "assets/icons/icon-light-16.png",
@@ -9,8 +9,22 @@
     "48": "assets/icons/icon-light-48.png",
     "128": "assets/icons/icon-light-128.png"
   },
-  "permissions": ["contextMenus", "storage", "offscreen", "notifications"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": ["contextMenus", "storage", "offscreen"],
+  "host_permissions": [
+    "https://*.x.com/*",
+    "https://*.twitter.com/*",
+    "https://*.twimg.com/*",
+    "https://*.fxtwitter.com/*",
+    "https://*.vxtwitter.com/*",
+    "https://*.fixupx.com/*",
+    "https://*.giphy.com/*",
+    "https://*.tenor.com/*",
+    "https://*.google.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
   "background": {
     "service_worker": "background/service-worker.js",
     "type": "module"
