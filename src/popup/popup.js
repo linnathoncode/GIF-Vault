@@ -28,7 +28,6 @@ const pageIndicator = document.getElementById("pageIndicator");
 const brandLogo = document.getElementById("brandLogo");
 
 const objectUrlById = new Map();
-const PAGE_SIZE = 18;
 let currentTab = "all";
 let currentPage = 1;
 let searchTerm = "";
@@ -308,7 +307,7 @@ function buildCard(item) {
     copyBtn.textContent = ok ? "\u2713" : "!";
     setTimeout(() => {
       copyBtn.textContent = "\u29C9";
-    }, 900);
+    }, POPUP_MENU.copyFeedbackResetDelayMs);
   });
 
   const favoriteBtn = createButton({

@@ -51,6 +51,7 @@ const ICONS = {
 
 const POPUP_MENU = {
   pageSize: 18,
+  copyFeedbackResetDelayMs: 900,
 };
 
 export {
