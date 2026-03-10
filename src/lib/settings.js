@@ -13,8 +13,9 @@ const OFFSCREEN = {
 
 const DB = {
   name: "gifVaultDB",
-  version: 2,
+  version: 3,
   mediaStore: "media",
+  mediaBlobStore: "mediaBlobs",
   logStore: "logs",
   logMaxItems: 250,
 };

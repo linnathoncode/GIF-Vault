@@ -6,13 +6,23 @@ function openDb() {
 
     request.onupgradeneeded = () => {
       const db = request.result;
+      let mediaStore;
       if (!db.objectStoreNames.contains(DB.mediaStore)) {
-        const store = db.createObjectStore(DB.mediaStore, { keyPath: "id" });
-        store.createIndex("savedAt", "savedAt", { unique: false });
+        mediaStore = db.createObjectStore(DB.mediaStore, { keyPath: "id" });
+        mediaStore.createIndex("savedAt", "savedAt", { unique: false });
+      } else {
+        mediaStore = request.transaction.objectStore(DB.mediaStore);
+      }
+      if (!db.objectStoreNames.contains(DB.mediaBlobStore)) {
+        db.createObjectStore(DB.mediaBlobStore, { keyPath: "id" });
       }
       if (!db.objectStoreNames.contains(DB.logStore)) {
         const logs = db.createObjectStore(DB.logStore, { keyPath: "id" });
         logs.createIndex("createdAt", "createdAt", { unique: false });
+      }
+
+      if (request.oldVersion < 3) {
+        migrateMediaStore(request.transaction, mediaStore);
       }
     };
 
@@ -22,16 +32,43 @@ function openDb() {
   });
 }
 
-function runTx(mode, fn) {
+function migrateMediaStore(tx, mediaStore) {
+  if (!tx || !mediaStore) {
+    return;
+  }
+
+  const blobStore = tx.objectStore(DB.mediaBlobStore);
+  const cursorRequest = mediaStore.openCursor();
+  cursorRequest.onsuccess = () => {
+    const cursor = cursorRequest.result;
+    if (!cursor) {
+      return;
+    }
+
+    const item = cursor.value || {};
+    if (item.blob instanceof Blob) {
+      blobStore.put({ id: item.id, blob: item.blob });
+      cursor.update(toMediaMetadata(item));
+      cursor.continue();
+      return;
+    }
+
+    if ("blob" in item) {
+      cursor.update(toMediaMetadata(item));
+    }
+    cursor.continue();
+  };
+}
+
+function runMediaTx(mode, storeNames, fn) {
   return openDb().then(
     (db) =>
       new Promise((resolve, reject) => {
-        const tx = db.transaction(DB.mediaStore, mode);
-        const store = tx.objectStore(DB.mediaStore);
+        const tx = db.transaction(storeNames, mode);
 
         let result;
         try {
-          result = fn(store);
+          result = fn(tx);
         } catch (error) {
           reject(error);
           return;
@@ -70,42 +107,129 @@ function runLogTx(mode, fn) {
   );
 }
 
+function toMediaMetadata(item) {
+  return {
+    id: item.id,
+    name: item.name || "",
+    sourceUrl: item.sourceUrl || "",
+    mediaUrl: item.mediaUrl || "",
+    pageUrl: item.pageUrl || "",
+    mimeType: item.mimeType || "",
+    kind: item.kind || "",
+    converted: Boolean(item.converted),
+    favorite: Boolean(item.favorite),
+    savedAt: item.savedAt || 0,
+    blobSize: item.blob instanceof Blob ? item.blob.size : item.blobSize || 0,
+  };
+}
+
 function idbSave(item) {
-  return runTx("readwrite", (store) => {
-    store.put(item);
-    return item;
+  return runMediaTx(
+    "readwrite",
+    [DB.mediaStore, DB.mediaBlobStore],
+    (tx) => {
+      tx.objectStore(DB.mediaStore).put(toMediaMetadata(item));
+      if (item.blob instanceof Blob) {
+        tx.objectStore(DB.mediaBlobStore).put({ id: item.id, blob: item.blob });
+      }
+      return item;
+    },
+  );
+}
+
+function idbGetAllMedia() {
+  return runMediaTx("readonly", [DB.mediaStore], (tx) => {
+    const store = tx.objectStore(DB.mediaStore);
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const items = Array.isArray(request.result) ? request.result : [];
+        items.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+        resolve(items);
+      };
+      request.onerror = () =>
+        reject(request.error || new Error("Failed to read IndexedDB items"));
+    });
   });
 }
 
-function idbGetAll() {
-  return runTx(
-    "readonly",
-    (store) =>
-      new Promise((resolve, reject) => {
-        const request = store.getAll();
-        request.onsuccess = () => {
-          const items = Array.isArray(request.result) ? request.result : [];
-          items.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
-          resolve(items);
-        };
-        request.onerror = () =>
-          reject(request.error || new Error("Failed to read IndexedDB items"));
-      }),
+function idbGetMediaBlobs(ids) {
+  const uniqueIds = [...new Set((ids || []).filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    return Promise.resolve(new Map());
+  }
+
+  return runMediaTx(
+    "readwrite",
+    [DB.mediaStore, DB.mediaBlobStore],
+    (tx) => {
+      const mediaStore = tx.objectStore(DB.mediaStore);
+      const blobStore = tx.objectStore(DB.mediaBlobStore);
+
+      return Promise.all(
+        uniqueIds.map(
+          (id) =>
+            new Promise((resolve, reject) => {
+              const blobRequest = blobStore.get(id);
+              blobRequest.onsuccess = () => {
+                const blobRecord = blobRequest.result || null;
+                if (blobRecord?.blob instanceof Blob) {
+                  resolve([id, blobRecord.blob]);
+                  return;
+                }
+
+                const mediaRequest = mediaStore.get(id);
+                mediaRequest.onsuccess = () => {
+                  const mediaRecord = mediaRequest.result || null;
+                  if (mediaRecord?.blob instanceof Blob) {
+                    const migratedBlob = mediaRecord.blob;
+                    blobStore.put({ id, blob: migratedBlob });
+                    mediaStore.put(toMediaMetadata(mediaRecord));
+                    resolve([id, migratedBlob]);
+                    return;
+                  }
+
+                  resolve([id, null]);
+                };
+                mediaRequest.onerror = () =>
+                  reject(
+                    mediaRequest.error ||
+                      new Error(`Failed to read legacy media for ${id}`),
+                  );
+              };
+              blobRequest.onerror = () =>
+                reject(
+                  blobRequest.error || new Error(`Failed to read blob for ${id}`),
+                );
+            }),
+        ),
+      ).then((entries) => new Map(entries));
+    },
   );
 }
 
 function idbDelete(id) {
-  return runTx("readwrite", (store) => {
-    store.delete(id);
-    return id;
-  });
+  return runMediaTx(
+    "readwrite",
+    [DB.mediaStore, DB.mediaBlobStore],
+    (tx) => {
+      tx.objectStore(DB.mediaStore).delete(id);
+      tx.objectStore(DB.mediaBlobStore).delete(id);
+      return id;
+    },
+  );
 }
 
 function idbClear() {
-  return runTx("readwrite", (store) => {
-    store.clear();
-    return true;
-  });
+  return runMediaTx(
+    "readwrite",
+    [DB.mediaStore, DB.mediaBlobStore],
+    (tx) => {
+      tx.objectStore(DB.mediaStore).clear();
+      tx.objectStore(DB.mediaBlobStore).clear();
+      return true;
+    },
+  );
 }
 
 function idbLog(stage, message, details = {}) {
@@ -166,7 +290,8 @@ function pruneOldLogs(store, maxItems) {
 
 export {
   idbSave,
-  idbGetAll,
+  idbGetAllMedia,
+  idbGetMediaBlobs,
   idbDelete,
   idbClear,
   idbLog,

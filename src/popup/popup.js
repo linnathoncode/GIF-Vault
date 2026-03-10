@@ -1,4 +1,10 @@
-import { idbGetAll, idbSave, idbDelete, idbClear } from "../lib/db.js";
+import {
+  idbGetAllMedia,
+  idbGetMediaBlobs,
+  idbSave,
+  idbDelete,
+  idbClear,
+} from "../lib/db.js";
 import { fileExtensionFromMime } from "../lib/media.js";
 import { STORAGE_KEYS, ICONS, POPUP_MENU } from "../lib/settings.js";
 import { safeLog } from "../lib/log.js";
@@ -33,6 +39,7 @@ let currentPage = 1;
 let searchTerm = "";
 let themeMode = "light";
 let activeImportRequestId = "";
+let renderSequence = 0;
 
 function setStatus(text, isOk = false) {
   statusEl.textContent = text;
@@ -336,7 +343,11 @@ function buildCard(item) {
 }
 
 async function render() {
-  const items = await idbGetAll();
+  const renderId = ++renderSequence;
+  const items = await idbGetAllMedia();
+  if (renderId !== renderSequence) {
+    return;
+  }
   const normalized = items.map((item) => ({
     ...item,
     favorite: Boolean(item.favorite),
@@ -360,7 +371,7 @@ async function render() {
   );
   currentPage = Math.min(Math.max(1, currentPage), totalPages);
   const startIndex = (currentPage - 1) * POPUP_MENU.pageSize;
-  const pagedItems = visibleItems.slice(
+  const pagedItemsMeta = visibleItems.slice(
     startIndex,
     startIndex + POPUP_MENU.pageSize,
   );
@@ -381,10 +392,13 @@ async function render() {
   nextPageBtn.disabled = currentPage >= totalPages;
   pageIndicator.textContent = `Page ${currentPage} / ${totalPages}`;
 
-  pruneObjectUrlsForVisibleIds(new Set(pagedItems.map((item) => item.id)));
+  pruneObjectUrlsForVisibleIds(new Set(pagedItemsMeta.map((item) => item.id)));
 
   grid.innerHTML = "";
-  if (pagedItems.length === 0) {
+  if (pagedItemsMeta.length === 0) {
+    if (renderId !== renderSequence) {
+      return;
+    }
     const empty = document.createElement("div");
     empty.className = "empty";
     empty.textContent = query
@@ -395,6 +409,15 @@ async function render() {
     grid.appendChild(empty);
     return;
   }
+
+  const blobById = await idbGetMediaBlobs(pagedItemsMeta.map((item) => item.id));
+  if (renderId !== renderSequence) {
+    return;
+  }
+  const pagedItems = pagedItemsMeta.map((item) => ({
+    ...item,
+    blob: blobById.get(item.id) || null,
+  }));
 
   for (const item of pagedItems) {
     try {
