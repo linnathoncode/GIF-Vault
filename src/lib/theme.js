@@ -1,5 +1,7 @@
 import { STORAGE_KEYS, ICONS } from "./settings.js";
 
+let lastToolbarIconTheme = "";
+
 function normalizeThemeMode(mode) {
   return mode === "dark" ? "dark" : "light";
 }
@@ -19,6 +21,9 @@ function setThemeToggleGlyph(button, mode) {
 
 async function setToolbarIcon(theme) {
   const normalizedTheme = normalizeThemeMode(theme);
+  if (lastToolbarIconTheme === normalizedTheme) {
+    return;
+  }
 
   try {
     const response = await chrome.runtime.sendMessage({
@@ -26,6 +31,7 @@ async function setToolbarIcon(theme) {
       theme: normalizedTheme
     });
     if (response?.ok) {
+      lastToolbarIconTheme = normalizedTheme;
       return;
     }
   } catch {
@@ -42,7 +48,10 @@ async function setToolbarIcon(theme) {
           48: paths["48"]
         }
       },
-      () => resolve()
+      () => {
+        lastToolbarIconTheme = normalizedTheme;
+        resolve();
+      }
     );
   });
 }

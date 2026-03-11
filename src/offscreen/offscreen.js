@@ -44,7 +44,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 async function convertMp4ToGif(message) {
   await ensureFfmpegLoaded();
 
-  const inputName = `input-${Date.now()}.mp4`;
+  const inputExtension =
+    message.inputExtension === "webm" || message.inputExtension === "mp4"
+      ? message.inputExtension
+      : "mp4";
+  const inputName = `input-${Date.now()}.${inputExtension}`;
   const outputName = `output-${Date.now()}.gif`;
   const probeName = `probe-${Date.now()}.txt`;
 

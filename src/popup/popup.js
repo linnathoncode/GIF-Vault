@@ -356,7 +356,10 @@ function createInvalidCard(item) {
 
   const urlText = document.createElement("div");
   urlText.className = "url";
-  urlText.textContent = "Invalid media entry";
+  urlText.textContent =
+    item.kind === "video"
+      ? "Legacy video entry is no longer supported"
+      : "Invalid media entry";
 
   const actions = document.createElement("div");
   actions.className = "actions";
@@ -374,26 +377,9 @@ function createInvalidCard(item) {
 }
 
 function createPreviewMedia(item, previewUrl) {
-  const media =
-    item.kind === "video"
-      ? document.createElement("video")
-      : document.createElement("img");
+  const media = document.createElement("img");
   media.className = "thumb";
   media.src = previewUrl;
-
-  if (item.kind === "video") {
-    media.muted = true;
-    media.loop = true;
-    media.autoplay = true;
-    media.playsInline = true;
-    media.addEventListener("error", () => {
-      void safeLog("popup", "Video preview failed", {
-        id: item.id,
-        mimeType: item.mimeType || "",
-      });
-    });
-    return media;
-  }
 
   media.alt = "Saved GIF";
   media.loading = "lazy";
@@ -407,6 +393,11 @@ function createPreviewMedia(item, previewUrl) {
 }
 
 function buildCard(item) {
+  // Fallback for legacy videos, currently its not possible to import videos
+  if (item.kind === "video") {
+    return createInvalidCard(item);
+  }
+
   const previewUrl = buildPreviewUrl(item);
   if (!previewUrl) {
     return createInvalidCard(item);
@@ -489,6 +480,7 @@ function buildCard(item) {
 }
 
 // Grid rendering, filtering, and pagination.
+// Because render is an async function renderId and renderSequence is used as a race guard here
 async function render() {
   const renderId = ++renderSequence;
   const items = await idbGetAllMedia();
@@ -516,7 +508,9 @@ async function render() {
     return;
   }
 
-  const blobById = await idbGetMediaBlobs(pagedItemsMeta.map((item) => item.id));
+  const blobById = await idbGetMediaBlobs(
+    pagedItemsMeta.map((item) => item.id),
+  );
   if (renderId !== renderSequence) {
     return;
   }
@@ -616,6 +610,7 @@ async function importUrl(rawUrl) {
   }
 }
 
+// Check host permission for the site origins
 async function findMissingOrigins(origins) {
   const missing = [];
   for (const origin of origins) {

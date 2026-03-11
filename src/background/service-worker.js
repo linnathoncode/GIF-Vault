@@ -125,18 +125,30 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHi
 
     const inputBlob = await response.blob();
     const ext = extensionFromUrl(resolvedMediaUrl, inputBlob.type);
-    const isMp4 = ext === "mp4" || (inputBlob.type || "").includes("mp4");
-    const needsTwitterConvert = isMp4 && isTwitterUrl(url);
+    const isVideoMedia =
+      (inputBlob.type || "").startsWith("video/") ||
+      ext === "mp4" ||
+      ext === "webm";
 
     let finalBlob = inputBlob;
-    let finalMime = inputBlob.type || (isMp4 ? "video/mp4" : "image/gif");
+    let finalMime = inputBlob.type || "image/gif";
     let converted = false;
 
-    if (needsTwitterConvert) {
-      await reportProgress(progressId, "Converting MP4 to GIF...", true, "info");
-      await safeLog("convert", "Twitter MP4 detected, offscreen conversion requested", { resolvedMediaUrl });
+    if (isVideoMedia) {
+      await reportProgress(progressId, "Converting video to GIF...", true, "info");
+      await safeLog("convert", "Video detected, offscreen conversion requested", {
+        resolvedMediaUrl,
+        sourceUrl: url,
+        extension: ext,
+        mimeType: inputBlob.type || "",
+        isTwitterSource: isTwitterUrl(url)
+      });
       try {
-        const convertedPayload = await convertInOffscreen(resolvedMediaUrl, `vault-${Date.now()}.gif`);
+        const convertedPayload = await convertInOffscreen(
+          resolvedMediaUrl,
+          `vault-${Date.now()}.gif`,
+          ext
+        );
         const rebuiltBlob = blobFromConvertedPayload(convertedPayload);
         await safeLog("convert", "Offscreen conversion response received", {
           converted: Boolean(convertedPayload?.converted),
@@ -154,10 +166,12 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHi
           finalMime = convertedPayload.mimeType || "image/gif";
           converted = Boolean(convertedPayload.converted);
         } else {
-          await safeLog("convert", "Offscreen payload had no usable blob, keeping original media", {
+          await safeLog("convert", "Offscreen payload had no usable blob", {
             mimeType: convertedPayload?.mimeType || "",
-            reason: convertedPayload?.reason || ""
+            reason: convertedPayload?.reason || "",
+            extension: ext
           });
+          throw new Error("Could not convert video to GIF.");
         }
       } catch (error) {
         if (String(error?.message || "").startsWith("VIDEO_TOO_LONG:")) {
@@ -168,9 +182,11 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHi
           });
           throw new Error(`Video is too long (${seconds.toFixed(1)}s). Max allowed is ${GIF_CONVERSION.maxDurationSeconds}s.`);
         }
-        await safeLog("convert", "Offscreen conversion threw, keeping original media", {
-          error: error?.message || "unknown"
+        await safeLog("convert", "Offscreen conversion failed", {
+          error: error?.message || "unknown",
+          extension: ext
         });
+        throw new Error(error?.message || "Could not convert video to GIF.");
       }
     }
 
@@ -426,13 +442,14 @@ async function ensureOffscreenDocument() {
   });
 }
 
-async function convertInOffscreen(url, filename) {
+async function convertInOffscreen(url, filename, inputExtension = "") {
   await ensureOffscreenDocument();
 
   const response = await chrome.runtime.sendMessage({
     type: "OFFSCREEN_CONVERT_MP4",
     url,
-    filename
+    filename,
+    inputExtension
   });
 
   if (!response?.ok) {
