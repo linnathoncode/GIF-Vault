@@ -24,6 +24,9 @@ const searchInput = document.getElementById("searchInput");
 const importBtn = document.getElementById("importBtn");
 const clearAllBtn = document.getElementById("clearAllBtn");
 const statusEl = document.getElementById("status");
+const progressTrackEl = document.getElementById("progressTrack");
+const progressBarEl = document.getElementById("progressBar");
+const progressLabelEl = document.getElementById("progressLabel");
 const openLogsBtn = document.getElementById("openLogsBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 const tabAllBtn = document.getElementById("tabAllBtn");
@@ -41,17 +44,58 @@ let themeMode = "light";
 let activeImportRequestId = "";
 let renderSequence = 0;
 
+function getImportProgressPercent(state) {
+  if (!state?.text) {
+    return 0;
+  }
+  if (state.kind === "success") {
+    return 100;
+  }
+
+  const text = state.text.toLowerCase();
+  if (text.includes("saving")) {
+    return 88;
+  }
+  if (text.includes("converting")) {
+    return 66;
+  }
+  if (text.includes("fetching")) {
+    return 40;
+  }
+  if (text.includes("resolving")) {
+    return 16;
+  }
+  return state.active ? 12 : 100;
+}
+
+function setProgressState(state) {
+  if (!progressTrackEl || !progressBarEl || !progressLabelEl) {
+    return;
+  }
+
+  const percent = getImportProgressPercent(state);
+  const isVisible = Boolean(state?.active || state?.kind === "success");
+  progressTrackEl.classList.toggle("active", isVisible);
+  progressTrackEl.classList.toggle("ok", state?.kind === "success");
+  progressBarEl.style.width = `${percent}%`;
+  progressLabelEl.textContent = state?.text || "";
+}
+
 function setStatus(text, isOk = false) {
-  statusEl.textContent = text;
+  if (progressLabelEl) {
+    progressLabelEl.textContent = text;
+  }
   statusEl.className = isOk ? "status ok" : "status";
 }
 
 function applyImportState(state) {
   if (!state || !state.text) {
+    setProgressState(null);
     return;
   }
   const isOk = state.kind === "success";
   setStatus(state.text, isOk);
+  setProgressState(state);
 }
 
 function buildPreviewUrl(item) {
@@ -441,6 +485,11 @@ async function importUrl(rawUrl) {
   const requestId = crypto.randomUUID();
   activeImportRequestId = requestId;
   setStatus("Starting import...");
+  setProgressState({
+    text: "Starting import...",
+    kind: "info",
+    active: true,
+  });
   await safeLog("popup", "Import requested from popup", { url });
 
   try {
@@ -456,11 +505,17 @@ async function importUrl(rawUrl) {
       setStatus(
         `Additional site access is needed. Continue in the permission tab.`,
       );
+      setProgressState(null);
       activeImportRequestId = "";
       return;
     }
   } catch (error) {
     setStatus(error?.message || "Import failed");
+    setProgressState({
+      text: error?.message || "Import failed",
+      kind: "error",
+      active: false,
+    });
     activeImportRequestId = "";
     await safeLog("popup", "Import failed in popup", {
       error: error?.message || "unknown",
@@ -483,10 +538,20 @@ async function importUrl(rawUrl) {
     importBtn.textContent = "Import";
     const convertedMessage = response.result?.converted ? " (converted)" : "";
     setStatus(`Imported successfully${convertedMessage}.`, true);
+    setProgressState({
+      text: `Imported successfully${convertedMessage}.`,
+      kind: "success",
+      active: false,
+    });
     activeImportRequestId = "";
     await render();
   } catch (error) {
     setStatus(error?.message || "Import failed");
+    setProgressState({
+      text: error?.message || "Import failed",
+      kind: "error",
+      active: false,
+    });
     activeImportRequestId = "";
     await safeLog("popup", "Import failed in popup", {
       error: error?.message || "unknown",
@@ -651,6 +716,8 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   const prevState = changes[STORAGE_KEYS.importState].oldValue || null;
   if (nextState) {
     applyImportState(nextState);
+  } else {
+    setProgressState(null);
   }
   if ((prevState?.active || false) && !nextState?.active) {
     void render();

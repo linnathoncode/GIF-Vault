@@ -116,13 +116,101 @@ body {
 }
 
 .status {
-  font-size: 12px;
-  color: var(--muted);
-  padding: 0 calc(var(--input-pad-x) + var(--input-border));
-  min-height: 18px;
+  padding: 0;
+  height: 18px;
   display: flex;
   align-items: center;
   margin: 0;
+}
+
+.progress-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-top) 70%, var(--card) 30%);
+  overflow: hidden;
+  opacity: 0.55;
+  transform: scaleY(0.96);
+  transform-origin: center;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.progress-track.active {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.progress-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  width: 0;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, white 16%, transparent 84%) 0%,
+      transparent 42%,
+      color-mix(in srgb, black 8%, transparent 92%) 100%
+    ),
+    linear-gradient(
+      90deg,
+      #4f8a5b,
+      #6fa878
+    );
+  transition: width 220ms ease;
+}
+
+.progress-track.ok .progress-bar {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, white 14%, transparent 86%) 0%,
+      transparent 42%,
+      color-mix(in srgb, black 8%, transparent 92%) 100%
+    ),
+    linear-gradient(
+      90deg,
+      #5d9968,
+      #7bb684
+    );
+}
+
+.progress-label {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: calc(100% - 8px);
+  margin: 0 auto;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow:
+    0 1px 0 color-mix(in srgb, var(--card) 80%, transparent 20%),
+    0 0 3px color-mix(in srgb, var(--card) 72%, transparent 28%);
+}
+
+.status.ok .progress-label {
+  color: #f7fbf5;
+  text-shadow:
+    0 1px 0 rgba(27, 46, 32, 0.35),
+    0 0 2px rgba(27, 46, 32, 0.22);
+}
+
+:root[data-theme="dark"] .status.ok .progress-label {
+  color: #eef8f0;
+  text-shadow:
+    0 1px 0 rgba(15, 24, 17, 0.45),
+    0 0 2px rgba(15, 24, 17, 0.28);
 }
 
 .danger-btn {
