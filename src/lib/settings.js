@@ -53,6 +53,14 @@ const ICONS = {
 const POPUP_MENU = {
   pageSize: 18,
   copyFeedbackResetDelayMs: 900,
+  importProgressPercent: {
+    resolving: 16,
+    fetching: 40,
+    converting: 66,
+    saving: 88,
+    idle: 12,
+    complete: 100,
+  },
 };
 
 export {

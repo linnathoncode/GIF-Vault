@@ -35,4 +35,13 @@ function formatBytes(bytes, units = ["B", "KB", "MB", "GB"]) {
   return `${rounded} ${units[unitIndex]}`;
 }
 
-export { hostFromUrl, originPatternFromUrl, formatBytes };
+function isValidUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || "").trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export { hostFromUrl, originPatternFromUrl, formatBytes, isValidUrl };

@@ -8,7 +8,12 @@ import {
 import { fileExtensionFromMime } from "../lib/media.js";
 import { STORAGE_KEYS, ICONS, POPUP_MENU } from "../lib/settings.js";
 import { safeLog } from "../lib/log.js";
-import { formatBytes, hostFromUrl, originPatternFromUrl } from "../lib/ui.js";
+import {
+  formatBytes,
+  hostFromUrl,
+  isValidUrl,
+  originPatternFromUrl,
+} from "../lib/ui.js";
 import {
   applyDocumentTheme,
   getThemeMode,
@@ -43,29 +48,33 @@ let searchTerm = "";
 let themeMode = "light";
 let activeImportRequestId = "";
 let renderSequence = 0;
+const IMPORT_PROGRESS_PERCENT = POPUP_MENU.importProgressPercent;
 
+// Import progress and status UI.
 function getImportProgressPercent(state) {
   if (!state?.text) {
     return 0;
   }
   if (state.kind === "success") {
-    return 100;
+    return IMPORT_PROGRESS_PERCENT.complete;
   }
 
   const text = state.text.toLowerCase();
   if (text.includes("saving")) {
-    return 88;
+    return IMPORT_PROGRESS_PERCENT.saving;
   }
   if (text.includes("converting")) {
-    return 66;
+    return IMPORT_PROGRESS_PERCENT.converting;
   }
   if (text.includes("fetching")) {
-    return 40;
+    return IMPORT_PROGRESS_PERCENT.fetching;
   }
   if (text.includes("resolving")) {
-    return 16;
+    return IMPORT_PROGRESS_PERCENT.resolving;
   }
-  return state.active ? 12 : 100;
+  return state.active
+    ? IMPORT_PROGRESS_PERCENT.idle
+    : IMPORT_PROGRESS_PERCENT.complete;
 }
 
 function setProgressState(state) {
@@ -110,15 +119,85 @@ function applyImportState(state) {
   setProgressState(state);
 }
 
-function isValidUrl(rawUrl) {
-  try {
-    const parsed = new URL(String(rawUrl || "").trim());
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
+function setImportErrorState(text) {
+  setStatus(text, "error");
+  setProgressState({
+    text,
+    kind: "error",
+    active: false,
+  });
 }
 
+function setImportSuccessState(text) {
+  setStatus(text, "ok");
+  setProgressState({
+    text,
+    kind: "success",
+    active: false,
+  });
+}
+
+function getFilteredItems(items) {
+  const normalized = items.map((item) => ({
+    ...item,
+    favorite: Boolean(item.favorite),
+    name: item.name || "",
+  }));
+  const byTab =
+    currentTab === "favorites"
+      ? normalized.filter((item) => item.favorite)
+      : normalized;
+  const query = searchTerm.trim().toLowerCase();
+  const visibleItems = query
+    ? byTab.filter((item) => {
+        const haystack =
+          `${item.name || ""} ${item.sourceUrl || ""} ${item.mediaUrl || ""}`.toLowerCase();
+        return haystack.includes(query);
+      })
+    : byTab;
+
+  return { normalized, visibleItems, query };
+}
+
+function getPagedItemsMeta(items) {
+  const totalPages = Math.max(1, Math.ceil(items.length / POPUP_MENU.pageSize));
+  currentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (currentPage - 1) * POPUP_MENU.pageSize;
+
+  return {
+    totalPages,
+    pagedItemsMeta: items.slice(startIndex, startIndex + POPUP_MENU.pageSize),
+  };
+}
+
+function updatePager(totalPages) {
+  tabAllBtn.classList.toggle("active", currentTab === "all");
+  tabFavoritesBtn.classList.toggle("active", currentTab === "favorites");
+  prevPageBtn.disabled = currentPage <= 1;
+  nextPageBtn.disabled = currentPage >= totalPages;
+  pageIndicator.textContent = `Page ${currentPage} / ${totalPages}`;
+}
+
+function setCountText(normalized, visibleItems) {
+  const favoritesCount = normalized.filter((item) => item.favorite).length;
+  countEl.textContent =
+    currentTab === "favorites"
+      ? `${visibleItems.length} favorite(s)`
+      : `${normalized.length} saved | ${favoritesCount} favorite(s)`;
+}
+
+function createEmptyState(query) {
+  const empty = document.createElement("div");
+  empty.className = "empty";
+  empty.textContent = query
+    ? "No matches for your search."
+    : currentTab === "favorites"
+      ? "No favorites yet. Mark items as Favorite from the All tab."
+      : "Paste a URL above to import into GIF Vault.";
+  return empty;
+}
+
+// Preview URL lifecycle for visible media items.
 function buildPreviewUrl(item) {
   if (!(item.blob instanceof Blob)) {
     void safeLog("popup", "Skipped preview: blob is invalid", {
@@ -161,6 +240,7 @@ function pruneObjectUrlsForVisibleIds(visibleIds) {
   }
 }
 
+// Item actions that mutate stored media state.
 async function copyItemBlob(item) {
   const canWriteBlob =
     navigator.clipboard &&
@@ -250,6 +330,7 @@ async function renameItem(item) {
   await render();
 }
 
+// Card and media element construction for the grid.
 function createButton({ className, text, title, label, onClick }) {
   const button = document.createElement("button");
   button.className = className;
@@ -407,55 +488,22 @@ function buildCard(item) {
   return card;
 }
 
+// Grid rendering, filtering, and pagination.
 async function render() {
   const renderId = ++renderSequence;
   const items = await idbGetAllMedia();
   if (renderId !== renderSequence) {
     return;
   }
-  const normalized = items.map((item) => ({
-    ...item,
-    favorite: Boolean(item.favorite),
-    name: item.name || "",
-  }));
-  const byTab =
-    currentTab === "favorites"
-      ? normalized.filter((item) => item.favorite)
-      : normalized;
-  const query = searchTerm.trim().toLowerCase();
-  const visibleItems = query
-    ? byTab.filter((item) => {
-        const haystack =
-          `${item.name || ""} ${item.sourceUrl || ""} ${item.mediaUrl || ""}`.toLowerCase();
-        return haystack.includes(query);
-      })
-    : byTab;
-  const totalPages = Math.max(
-    1,
-    Math.ceil(visibleItems.length / POPUP_MENU.pageSize),
-  );
-  currentPage = Math.min(Math.max(1, currentPage), totalPages);
-  const startIndex = (currentPage - 1) * POPUP_MENU.pageSize;
-  const pagedItemsMeta = visibleItems.slice(
-    startIndex,
-    startIndex + POPUP_MENU.pageSize,
-  );
+  const { normalized, visibleItems, query } = getFilteredItems(items);
+  const { totalPages, pagedItemsMeta } = getPagedItemsMeta(visibleItems);
 
   await safeLog("popup", "Render media grid", {
     count: visibleItems.length,
     tab: currentTab,
   });
-  const favoritesCount = normalized.filter((item) => item.favorite).length;
-  countEl.textContent =
-    currentTab === "favorites"
-      ? `${visibleItems.length} favorite(s)`
-      : `${normalized.length} saved | ${favoritesCount} favorite(s)`;
-
-  tabAllBtn.classList.toggle("active", currentTab === "all");
-  tabFavoritesBtn.classList.toggle("active", currentTab === "favorites");
-  prevPageBtn.disabled = currentPage <= 1;
-  nextPageBtn.disabled = currentPage >= totalPages;
-  pageIndicator.textContent = `Page ${currentPage} / ${totalPages}`;
+  setCountText(normalized, visibleItems);
+  updatePager(totalPages);
 
   pruneObjectUrlsForVisibleIds(new Set(pagedItemsMeta.map((item) => item.id)));
 
@@ -464,14 +512,7 @@ async function render() {
     if (renderId !== renderSequence) {
       return;
     }
-    const empty = document.createElement("div");
-    empty.className = "empty";
-    empty.textContent = query
-      ? "No matches for your search."
-      : currentTab === "favorites"
-        ? "No favorites yet. Mark items as Favorite from the All tab."
-        : "Paste a URL above to import into GIF Vault.";
-    grid.appendChild(empty);
+    grid.appendChild(createEmptyState(query));
     return;
   }
 
@@ -496,6 +537,7 @@ async function render() {
   }
 }
 
+// Import flow and permission handoff.
 async function importUrl(rawUrl) {
   const url = String(rawUrl || "").trim();
   if (!url) {
@@ -503,12 +545,7 @@ async function importUrl(rawUrl) {
     return;
   }
   if (!isValidUrl(url)) {
-    setStatus("Please enter a valid URL.", "error");
-    setProgressState({
-      text: "Please enter a valid URL.",
-      kind: "error",
-      active: false,
-    });
+    setImportErrorState("Please enter a valid URL.");
     return;
   }
 
@@ -536,12 +573,7 @@ async function importUrl(rawUrl) {
       return;
     }
   } catch (error) {
-    setStatus(error?.message || "Import failed");
-    setProgressState({
-      text: error?.message || "Import failed",
-      kind: "error",
-      active: false,
-    });
+    setImportErrorState(error?.message || "Import failed");
     activeImportRequestId = "";
     await safeLog("popup", "Import failed in popup", {
       error: error?.message || "unknown",
@@ -563,12 +595,7 @@ async function importUrl(rawUrl) {
     importInput.value = "";
     importBtn.textContent = "Import";
     const convertedMessage = response.result?.converted ? " (converted)" : "";
-    setStatus(`Imported successfully${convertedMessage}.`, true);
-    setProgressState({
-      text: `Imported successfully${convertedMessage}.`,
-      kind: "success",
-      active: false,
-    });
+    setImportSuccessState(`Imported successfully${convertedMessage}.`);
     activeImportRequestId = "";
     await render();
   } catch (error) {
@@ -581,12 +608,7 @@ async function importUrl(rawUrl) {
       activeImportRequestId = "";
       return;
     }
-    setStatus(error?.message || "Import failed");
-    setProgressState({
-      text: error?.message || "Import failed",
-      kind: "error",
-      active: false,
-    });
+    setImportErrorState(error?.message || "Import failed");
     activeImportRequestId = "";
     await safeLog("popup", "Import failed in popup", {
       error: error?.message || "unknown",
@@ -624,6 +646,7 @@ async function openPermissionAssist(url, pageUrl, missingOrigins) {
   await chrome.tabs.create({ url: assistUrl.toString() });
 }
 
+// Popup bootstrap and event wiring.
 function applyImportAssistFromQuery() {
   const params = new URLSearchParams(window.location.search);
   const importUrl = params.get("importUrl") || "";
