@@ -177,6 +177,21 @@ body {
     );
 }
 
+.progress-track.error .progress-bar {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, white 12%, transparent 88%) 0%,
+      transparent 42%,
+      color-mix(in srgb, black 10%, transparent 90%) 100%
+    ),
+    linear-gradient(
+      90deg,
+      #8b2635,
+      #a13749
+    );
+}
+
 .progress-label {
   position: relative;
   z-index: 1;
@@ -211,6 +226,20 @@ body {
   text-shadow:
     0 1px 0 rgba(15, 24, 17, 0.45),
     0 0 2px rgba(15, 24, 17, 0.28);
+}
+
+.status.error .progress-label {
+  color: #fff8f8;
+  text-shadow:
+    0 1px 0 rgba(61, 18, 27, 0.32),
+    0 0 2px rgba(61, 18, 27, 0.18);
+}
+
+:root[data-theme="dark"] .status.error .progress-label {
+  color: #fbf0f2;
+  text-shadow:
+    0 1px 0 rgba(24, 8, 12, 0.42),
+    0 0 2px rgba(24, 8, 12, 0.22);
 }
 
 .danger-btn {

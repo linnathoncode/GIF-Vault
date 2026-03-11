@@ -74,18 +74,30 @@ function setProgressState(state) {
   }
 
   const percent = getImportProgressPercent(state);
-  const isVisible = Boolean(state?.active || state?.kind === "success");
+  const kind = state?.kind || "";
+  const isVisible = Boolean(
+    state?.active || kind === "success" || kind === "error",
+  );
   progressTrackEl.classList.toggle("active", isVisible);
-  progressTrackEl.classList.toggle("ok", state?.kind === "success");
+  progressTrackEl.classList.toggle("ok", kind === "success");
+  progressTrackEl.classList.toggle("error", kind === "error");
   progressBarEl.style.width = `${percent}%`;
   progressLabelEl.textContent = state?.text || "";
 }
 
-function setStatus(text, isOk = false) {
+function setStatus(text, kind = "") {
   if (progressLabelEl) {
     progressLabelEl.textContent = text;
   }
-  statusEl.className = isOk ? "status ok" : "status";
+  let normalizedKind = "";
+  if (kind === true) {
+    normalizedKind = "ok";
+  } else if (kind === false || kind == null) {
+    normalizedKind = "";
+  } else {
+    normalizedKind = String(kind);
+  }
+  statusEl.className = normalizedKind ? `status ${normalizedKind}` : "status";
 }
 
 function applyImportState(state) {
@@ -93,9 +105,18 @@ function applyImportState(state) {
     setProgressState(null);
     return;
   }
-  const isOk = state.kind === "success";
-  setStatus(state.text, isOk);
+  const statusKind = state.kind === "success" ? "ok" : state.kind || "";
+  setStatus(state.text, statusKind);
   setProgressState(state);
+}
+
+function isValidUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || "").trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function buildPreviewUrl(item) {
@@ -479,6 +500,15 @@ async function importUrl(rawUrl) {
   const url = String(rawUrl || "").trim();
   if (!url) {
     setStatus("Paste a URL first.");
+    return;
+  }
+  if (!isValidUrl(url)) {
+    setStatus("Please enter a valid URL.", "error");
+    setProgressState({
+      text: "Please enter a valid URL.",
+      kind: "error",
+      active: false,
+    });
     return;
   }
 

@@ -120,7 +120,7 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHi
     const contentType = (response.headers.get("content-type") || "").toLowerCase();
     if (!isSupportedMediaType(contentType)) {
       await safeLog("fetch", "Rejected non-media response", { resolvedMediaUrl, contentType });
-      throw new Error(`Resolved URL is not media (${contentType || "unknown"})`);
+      throw new Error(getReadableImportError(url, contentType));
     }
 
     const inputBlob = await response.blob();
@@ -401,6 +401,17 @@ function isSupportedMediaType(contentType) {
     return true;
   }
   return contentType.startsWith("image/") || contentType.startsWith("video/") || contentType.includes("octet-stream");
+}
+
+function getReadableImportError(url, contentType) {
+  const normalizedType = (contentType || "").toLowerCase();
+  if (normalizedType.startsWith("text/html")) {
+    return "Please enter a valid URL.";
+  }
+  if (isTwitterUrl(url)) {
+    return "Could not resolve media from that post URL.";
+  }
+  return `Resolved URL is not media (${contentType || "unknown"})`;
 }
 
 async function ensureOffscreenDocument() {
