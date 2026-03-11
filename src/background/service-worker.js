@@ -72,16 +72,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return;
   }
 
-  importFromUrl(message.url, message.pageUrl || "", message.requestId || "")
+  importFromUrl(
+    message.url,
+    message.pageUrl || "",
+    message.requestId || "",
+    message.resolvedMediaUrl || ""
+  )
     .then((result) => sendResponse({ ok: true, result }))
     .catch((error) => sendResponse({ ok: false, error: error?.message || "Import failed" }));
 
   return true;
 });
 
-async function importFromUrl(rawUrl, pageUrl, requestId = "") {
+async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHint = "") {
   const progressId = requestId || crypto.randomUUID();
   const url = String(rawUrl || "").trim();
+  const resolvedHint = String(resolvedMediaUrlHint || "").trim();
   if (!url) {
     await safeLog("import", "Rejected empty URL");
     throw new Error("Empty URL");
@@ -91,12 +97,16 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "") {
     await safeLog("import", "Import started", { url, pageUrl: pageUrl || "" });
     await ensureOriginAccess(url);
 
-    const resolvedMediaUrl = await resolveMediaUrl(url);
+    const resolvedMediaUrl = resolvedHint || await resolveMediaUrl(url);
     if (!resolvedMediaUrl) {
       await safeLog("resolve", "Failed to resolve media URL", { url });
       throw new Error("Could not resolve media URL");
     }
-    await safeLog("resolve", "Resolved media URL", { url, resolvedMediaUrl });
+    await safeLog("resolve", "Resolved media URL", {
+      url,
+      resolvedMediaUrl,
+      reusedResolvedUrl: Boolean(resolvedHint),
+    });
     await ensureOriginAccess(resolvedMediaUrl);
 
     await reportProgress(progressId, "Fetching media...", true, "info");
@@ -206,28 +216,36 @@ function isTwitterUrl(url) {
 }
 
 async function resolveMediaUrl(rawUrl) {
-  const expandedUrl = await expandUrl(rawUrl);
-
-  if (looksDirectMedia(expandedUrl)) {
-    return expandedUrl;
+  if (looksDirectMedia(rawUrl)) {
+    return rawUrl;
   }
 
-  const tweetId = extractTweetId(expandedUrl);
+  const directTweetId = extractTweetId(rawUrl);
+  const baseUrl = directTweetId ? rawUrl : await expandUrl(rawUrl);
+
+  if (looksDirectMedia(baseUrl)) {
+    return baseUrl;
+  }
+
+  const tweetId = directTweetId || extractTweetId(baseUrl);
   if (!tweetId) {
-    return expandedUrl;
+    return baseUrl;
   }
 
-  const fromSyndication = await resolveFromSyndication(tweetId);
+  const fromSyndicationPromise = resolveFromSyndication(tweetId);
+  const fromPagesPromise = resolveFromPages(tweetId, baseUrl);
+
+  const fromSyndication = await fromSyndicationPromise;
   if (fromSyndication) {
     return fromSyndication;
   }
 
-  const fromPages = await resolveFromPages(tweetId, expandedUrl);
+  const fromPages = await fromPagesPromise;
   if (fromPages) {
     return fromPages;
   }
 
-  return expandedUrl;
+  return baseUrl;
 }
 
 function looksDirectMedia(rawUrl) {
@@ -320,15 +338,15 @@ async function resolveFromSyndication(tweetId) {
 
 async function resolveFromPages(tweetId, originalUrl) {
   const candidates = [
+    `https://api.fxtwitter.com/status/${tweetId}`,
+    `https://api.vxtwitter.com/status/${tweetId}`,
+    `https://d.fxtwitter.com/i/status/${tweetId}`,
+    `https://fxtwitter.com/i/status/${tweetId}`,
+    `https://vxtwitter.com/i/status/${tweetId}`,
+    `https://fixupx.com/i/status/${tweetId}`,
     originalUrl,
     `https://x.com/i/status/${tweetId}`,
     `https://twitter.com/i/status/${tweetId}`,
-    `https://fixupx.com/i/status/${tweetId}`,
-    `https://fxtwitter.com/i/status/${tweetId}`,
-    `https://vxtwitter.com/i/status/${tweetId}`,
-    `https://d.fxtwitter.com/i/status/${tweetId}`,
-    `https://api.fxtwitter.com/status/${tweetId}`,
-    `https://api.vxtwitter.com/status/${tweetId}`
   ];
 
   for (const candidate of candidates) {

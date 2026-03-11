@@ -493,13 +493,9 @@ async function importUrl(rawUrl) {
   await safeLog("popup", "Import requested from popup", { url });
 
   try {
-    const resolution = await resolveForPermission(url);
-    const originsToRequest = new Set([
-      originPatternFromUrl(url),
-      originPatternFromUrl(resolution.resolvedMediaUrl || ""),
-    ]);
-
-    const missingOrigins = await findMissingOrigins(originsToRequest);
+    const missingOrigins = await findMissingOrigins(
+      new Set([originPatternFromUrl(url)]),
+    );
     if (missingOrigins.length > 0) {
       await openPermissionAssist(url, "", missingOrigins);
       setStatus(
@@ -546,6 +542,15 @@ async function importUrl(rawUrl) {
     activeImportRequestId = "";
     await render();
   } catch (error) {
+    if (String(error?.message || "").startsWith("Host access needed for ")) {
+      await openPermissionAssist(url, "", []);
+      setStatus(
+        `Additional site access is needed. Continue in the permission tab.`,
+      );
+      setProgressState(null);
+      activeImportRequestId = "";
+      return;
+    }
     setStatus(error?.message || "Import failed");
     setProgressState({
       text: error?.message || "Import failed",
@@ -587,22 +592,6 @@ async function openPermissionAssist(url, pageUrl, missingOrigins) {
     assistUrl.searchParams.set("origins", JSON.stringify(missingOrigins));
   }
   await chrome.tabs.create({ url: assistUrl.toString() });
-}
-
-async function resolveForPermission(url) {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      type: "RESOLVE_MEDIA_URL",
-      url,
-    });
-    if (response?.ok) {
-      return { resolvedMediaUrl: response.resolvedMediaUrl || "" };
-    }
-  } catch {
-    // Fallback to original URL only.
-  }
-
-  return { resolvedMediaUrl: "" };
 }
 
 function applyImportAssistFromQuery() {
