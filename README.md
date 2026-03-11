@@ -1,13 +1,13 @@
 # GIF Vault (Manifest V3)
 
-`GIF Vault` is a Chrome/Chromium extension for collecting GIFs and short media into a local vault, including Twitter/X status imports with local MP4-to-GIF conversion.
+`GIF Vault` is a Chrome/Chromium extension for collecting GIFs and short media into a local vault, including Twitter/X status imports and generic video-to-GIF conversion before save.
 
 ## Current Features
 - Context menu import for image/video elements
 - Manual URL import from the popup
-- Twitter/X status resolution with local MP4-to-GIF conversion when needed
+- Twitter/X status resolution with faster media lookup and local video-to-GIF conversion before save
 - IndexedDB-backed local vault for media and logs
-- Popup vault with pagination, favorites, search, rename, copy, drag/drop, and theme support
+- Popup vault with pagination, favorites, search, rename, copy, drag/drop, theme support, and import progress/error states
 - Dedicated logs page with storage usage and wrapped long-line output
 - Dedicated permission-assist page for runtime host-permission grants on unknown hosts
 - Shared extension-page helpers in `src/lib` for theme, UI formatting, and logging
@@ -69,7 +69,8 @@ If you do not want to build locally, download a prebuilt package from GitHub Rel
 
 | Version | Download Link | Installation Notes |
 | :--- | :--- | :--- |
-| **v1.3.3** | [GIF_Vault_v1.3.3.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.3.3/GIF_Vault_v1.3.3.zip) | Latest structured build. Uses stricter required host permissions plus runtime permission prompts through the permission-assist tab for unknown hosts. |
+| **v1.3.5** | [GIF_Vault_v1.3.5.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.3.5/GIF_Vault_v1.3.5.zip) | Latest release. Faster popup/manual import startup, optimized Twitter/X resolution, in-popup progress and error states, and all imported videos now convert to GIF before entering the vault. |
+| **v1.3.3** | [GIF_Vault_v1.3.3.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.3.3/GIF_Vault_v1.3.3.zip) | Earlier structured build. Uses stricter required host permissions plus runtime permission prompts through the permission-assist tab for unknown hosts, but lacks the newer popup progress/error UI and import-path optimizations. |
 | **v1.2.5** | [GIF_Vault_v1.2.5.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.2.5/GIF_Vault_v1.2.5.zip) | Older looser-permission release. Uses `notifications` and broader `<all_urls>` host access. |
 
 ## Privacy Policy
@@ -85,6 +86,6 @@ If you do not want to build locally, download a prebuilt package from GitHub Rel
 ## Notes
 - Data is stored in extension IndexedDB in the current browser profile.
 - Log retention is capped at 250 entries.
-- Twitter/X video-to-GIF conversion rejects media longer than 15 seconds.
+- All imported videos are converted to GIF before save and reject media longer than 15 seconds.
 - Private or protected Twitter/X media may fail to resolve.
 - FFmpeg conversion can be CPU and memory intensive on lower-end devices.
