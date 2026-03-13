@@ -117,7 +117,7 @@ body {
 
 .status {
   padding: 0;
-  height: 18px;
+  height: 22px;
   display: flex;
   align-items: center;
   margin: 0;
@@ -128,7 +128,7 @@ body {
   width: 100%;
   height: 100%;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 9px;
   background: color-mix(in srgb, var(--bg-top) 70%, var(--card) 30%);
   overflow: hidden;
   opacity: 0.55;
@@ -190,25 +190,24 @@ body {
   align-items: center;
   justify-content: center;
   width: fit-content;
-  max-width: calc(100% - 8px);
+  max-width: calc(100% - 6px);
   margin: 0 auto;
-  padding: 0 8px;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 0 9px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow:
-    0 1px 0 color-mix(in srgb, var(--card) 80%, transparent 20%),
-    0 0 3px color-mix(in srgb, var(--card) 72%, transparent 28%);
+  text-shadow: 0 1px 0 color-mix(in srgb, var(--card) 86%, transparent 14%);
 }
 
 .status.ok .progress-label {
-  color: #f7fbf5;
+  color: #f4fbf6;
   text-shadow:
-    0 1px 0 rgba(27, 46, 32, 0.35),
-    0 0 2px rgba(27, 46, 32, 0.22);
+    0 1px 0 rgba(20, 36, 25, 0.45),
+    0 0 1px rgba(20, 36, 25, 0.2);
 }
 
 :root[data-theme="dark"] .status.ok .progress-label {
@@ -219,10 +218,10 @@ body {
 }
 
 .status.error .progress-label {
-  color: #fff8f8;
+  color: #fff7f7;
   text-shadow:
-    0 1px 0 rgba(61, 18, 27, 0.32),
-    0 0 2px rgba(61, 18, 27, 0.18);
+    0 1px 0 rgba(48, 14, 22, 0.42),
+    0 0 1px rgba(48, 14, 22, 0.22);
 }
 
 :root[data-theme="dark"] .status.error .progress-label {
@@ -241,6 +240,9 @@ body {
   font-size: 12px;
   cursor: pointer;
   font-weight: 700;
+  transition:
+    transform 110ms ease,
+    filter 110ms ease;
 }
 
 .icon-btn {
@@ -258,6 +260,9 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition:
+    transform 110ms ease,
+    filter 110ms ease;
 }
 
 .icon-btn.logs-btn {
@@ -265,6 +270,17 @@ body {
   border-color: #8b2635;
   color: #e0e2db;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.logs-icon {
+  width: 19px;
+  height: 19px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .import-row {
@@ -282,7 +298,7 @@ body {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 8px var(--input-pad-x);
+  padding: 7px var(--input-pad-x);
   font-size: 12px;
 }
 
@@ -294,6 +310,9 @@ body {
   padding: 7px 10px;
   cursor: pointer;
   color: var(--text);
+  transition:
+    transform 110ms ease,
+    filter 110ms ease;
 }
 
 .btn.primary {
@@ -422,6 +441,25 @@ body {
   padding: 1px 5px;
   cursor: pointer;
   color: var(--text);
+  transition:
+    transform 110ms ease,
+    filter 110ms ease;
+}
+
+.btn:hover:not(:disabled),
+.icon-btn:hover:not(:disabled),
+.danger-btn:hover:not(:disabled),
+.name-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(0.96);
+}
+
+.btn:active:not(:disabled),
+.icon-btn:active:not(:disabled),
+.danger-btn:active:not(:disabled),
+.name-btn:active:not(:disabled) {
+  transform: scale(0.97);
+  filter: brightness(0.92);
 }
 
 .actions {

@@ -374,7 +374,7 @@ async function copyItemBlob(item) {
         id: item.id,
         mimeType: file.type,
       });
-      return true;
+      return { ok: true, method: "blob" };
     } catch (error) {
       await safeLog("popup", "Copy blob failed", {
         id: item.id,
@@ -386,14 +386,13 @@ async function copyItemBlob(item) {
   const canWriteText =
     navigator.clipboard && typeof navigator.clipboard.writeText === "function";
   if (canWriteText) {
+    const copiedUrl = item.mediaUrl || item.sourceUrl || "";
     try {
-      await navigator.clipboard.writeText(
-        item.mediaUrl || item.sourceUrl || "",
-      );
+      await navigator.clipboard.writeText(copiedUrl);
       await safeLog("popup", "Copy fallback succeeded (url text)", {
         id: item.id,
       });
-      return true;
+      return { ok: true, method: "url", copiedUrl };
     } catch (error) {
       await safeLog("popup", "Copy url fallback failed", {
         id: item.id,
@@ -402,7 +401,29 @@ async function copyItemBlob(item) {
     }
   }
 
-  return false;
+  return { ok: false, method: "none" };
+}
+
+function isVideoLikeUrl(url) {
+  return /\.(mp4|webm|mov|m4v)(?:$|[?#])/i.test(String(url || ""));
+}
+
+function setCopyStatus(item, result) {
+  if (!result?.ok) {
+    setStatus("Copy failed.", "error");
+    return;
+  }
+
+  if (result.method === "blob") {
+    setStatus("Copied GIF.", "ok");
+    return;
+  }
+
+  const copiedUrl = result.copiedUrl || "";
+  const isVideoLink =
+    String(item?.mimeType || "").startsWith("video/") || isVideoLikeUrl(copiedUrl);
+  const label = isVideoLink ? "Copied video link." : "Copied GIF link.";
+  setStatus(`${label} Tip: drag and drop the GIF preview to use the GIF directly.`);
 }
 
 async function removeItem(id) {
@@ -630,8 +651,9 @@ function buildCard(item) {
     label: "Copy",
   });
   copyBtn.addEventListener("click", async () => {
-    const ok = await copyItemBlob(item);
-    copyBtn.textContent = ok ? "\u2713" : "!";
+    const result = await copyItemBlob(item);
+    copyBtn.textContent = result.ok ? "\u2713" : "!";
+    setCopyStatus(item, result);
     setTimeout(() => {
       copyBtn.textContent = "\u29C9";
     }, popupMenuConfig.copyFeedbackResetDelayMs);

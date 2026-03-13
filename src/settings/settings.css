@@ -170,6 +170,9 @@ input:disabled {
   padding: 7px 12px;
   cursor: pointer;
   color: var(--text);
+  transition:
+    transform 110ms ease,
+    filter 110ms ease;
 }
 
 .btn.primary {
@@ -193,4 +196,19 @@ input:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition:
+    transform 110ms ease,
+    filter 110ms ease;
+}
+
+.btn:hover:not(:disabled),
+.icon-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(0.96);
+}
+
+.btn:active:not(:disabled),
+.icon-btn:active:not(:disabled) {
+  transform: scale(0.97);
+  filter: brightness(0.92);
 }

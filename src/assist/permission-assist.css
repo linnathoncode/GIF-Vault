@@ -115,13 +115,26 @@ button {
   padding: 10px 14px;
   font: inherit;
   cursor: pointer;
-  transition: transform 120ms ease, opacity 120ms ease;
+  transition:
+    transform 120ms ease,
+    opacity 120ms ease,
+    filter 120ms ease;
 }
 
 button:disabled {
   cursor: default;
   opacity: 0.65;
   transform: none;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(0.97);
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+  filter: brightness(0.93);
 }
 
 .primary {
