@@ -134,7 +134,9 @@ body {
   opacity: 0.55;
   transform: scaleY(0.96);
   transform-origin: center;
-  transition: opacity 140ms ease, transform 140ms ease;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
 }
 
 .progress-track.active {
@@ -154,11 +156,7 @@ body {
       transparent 42%,
       color-mix(in srgb, black 8%, transparent 92%) 100%
     ),
-    linear-gradient(
-      90deg,
-      #4f8a5b,
-      #6fa878
-    );
+    linear-gradient(90deg, #4f8a5b, #6fa878);
   transition: width 220ms ease;
 }
 
@@ -170,11 +168,7 @@ body {
       transparent 42%,
       color-mix(in srgb, black 8%, transparent 92%) 100%
     ),
-    linear-gradient(
-      90deg,
-      #5d9968,
-      #7bb684
-    );
+    linear-gradient(90deg, #5d9968, #7bb684);
 }
 
 .progress-track.error .progress-bar {
@@ -185,11 +179,7 @@ body {
       transparent 42%,
       color-mix(in srgb, black 10%, transparent 90%) 100%
     ),
-    linear-gradient(
-      90deg,
-      #8b2635,
-      #a13749
-    );
+    linear-gradient(90deg, #8b2635, #a13749);
 }
 
 .progress-label {

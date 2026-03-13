@@ -51,7 +51,7 @@ const ICONS = {
 };
 
 const POPUP_MENU = {
-  pageSize: 18,
+  pageSize: 12,
   copyFeedbackResetDelayMs: 900,
   importProgressPercent: {
     resolving: 16,
