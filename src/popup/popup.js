@@ -48,6 +48,7 @@ let searchTerm = "";
 let themeMode = "light";
 let activeImportRequestId = "";
 let renderSequence = 0;
+let pendingFocusRestore = null;
 const IMPORT_PROGRESS_PERCENT = POPUP_MENU.importProgressPercent;
 
 // Import progress and status UI.
@@ -292,6 +293,7 @@ async function copyItemBlob(item) {
 }
 
 async function removeItem(id) {
+  queueRemovalFocusRestore(id);
   await idbDelete(id);
   const objectUrl = objectUrlById.get(id);
   if (objectUrl) {
@@ -330,6 +332,61 @@ async function renameItem(item) {
   await render();
 }
 
+function queueRemovalFocusRestore(id) {
+  const cards = Array.from(grid.querySelectorAll(".item"));
+  const currentCard = document.activeElement?.closest(".item");
+  const fallbackIndex = cards.findIndex(
+    (card) => card.dataset.itemId === String(id),
+  );
+  const cardIndex = cards.indexOf(currentCard);
+  const sourceIndex = cardIndex >= 0 ? cardIndex : fallbackIndex;
+
+  pendingFocusRestore = {
+    type: "removal",
+    index: sourceIndex >= 0 ? sourceIndex : 0,
+  };
+}
+
+function focusFirstAvailableAction(card) {
+  if (!card) {
+    return false;
+  }
+
+  const nextTarget = card.querySelector(".btn.danger, .btn, .name-btn");
+  if (!(nextTarget instanceof HTMLElement)) {
+    return false;
+  }
+
+  nextTarget.focus();
+  return true;
+}
+
+function restorePendingFocus() {
+  if (!pendingFocusRestore) {
+    return;
+  }
+
+  const focusState = pendingFocusRestore;
+  pendingFocusRestore = null;
+
+  if (focusState.type !== "removal") {
+    return;
+  }
+
+  const cards = Array.from(grid.querySelectorAll(".item"));
+  if (cards.length === 0) {
+    importInput.focus();
+    return;
+  }
+
+  const targetIndex = Math.min(focusState.index, cards.length - 1);
+  if (focusFirstAvailableAction(cards[targetIndex])) {
+    return;
+  }
+
+  focusFirstAvailableAction(cards[targetIndex - 1] || cards[0]);
+}
+
 // Card and media element construction for the grid.
 function createButton({ className, text, title, label, onClick }) {
   const button = document.createElement("button");
@@ -351,6 +408,7 @@ function createButton({ className, text, title, label, onClick }) {
 function createInvalidCard(item) {
   const card = document.createElement("article");
   card.className = "item";
+  card.dataset.itemId = String(item.id);
   const meta = document.createElement("div");
   meta.className = "meta";
 
@@ -405,6 +463,7 @@ function buildCard(item) {
 
   const card = document.createElement("article");
   card.className = "item";
+  card.dataset.itemId = String(item.id);
   const media = createPreviewMedia(item, previewUrl);
 
   const meta = document.createElement("div");
@@ -505,6 +564,7 @@ async function render() {
       return;
     }
     grid.appendChild(createEmptyState(query));
+    restorePendingFocus();
     return;
   }
 
@@ -529,6 +589,8 @@ async function render() {
       });
     }
   }
+
+  restorePendingFocus();
 }
 
 // Import flow and permission handoff.
