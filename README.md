@@ -69,7 +69,7 @@ If you do not want to build locally, download a prebuilt package from GitHub Rel
 
 | Version | Download Link | Installation Notes |
 | :--- | :--- | :--- |
-| **v1.3.6** | [GIF_Vault_v1.3.6.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.3.6/GIF_Vault_v1.3.6.zip) | Latest release. Faster popup/manual import startup, optimized Twitter/X resolution, in-popup progress and error states, and all imported videos now convert to GIF before entering the vault. Minor `v1.3.6` updates: popup focus now stays in place after delete, and the vault page size is reduced from 18 items to 12. |
+| **v1.3.6** | [GIF_Vault_v1.3.6.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.3.6/GIF_Vault_v1.3.6.zip) | Latest release. Faster popup/manual import startup, optimized Twitter/X resolution, in-popup progress and error states, and all imported videos now convert to GIF before entering the vault. UI: popup focus now stays in place after delete, and the vault page size is reduced from 18 items to 12. |
 | **v1.3.3** | [GIF_Vault_v1.3.3.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.3.3/GIF_Vault_v1.3.3.zip) | Earlier structured build. Uses stricter required host permissions plus runtime permission prompts through the permission-assist tab for unknown hosts, but lacks the newer popup progress/error UI and import-path optimizations. |
 | **v1.2.5** | [GIF_Vault_v1.2.5.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.2.5/GIF_Vault_v1.2.5.zip) | Older looser-permission release. Uses `notifications` and broader `<all_urls>` host access. |
 
