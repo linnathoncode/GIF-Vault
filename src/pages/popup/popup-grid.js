@@ -246,7 +246,9 @@ export function createPopupGridController({
       button.title = "Confirm delete";
       button.setAttribute("aria-label", "Confirm delete");
     }
-    showTransientStatus("Click delete again to confirm.", "ok", 2000);
+    showTransientStatus("Click delete again to confirm.", "ok", 2000, {
+      forceTemporary: true,
+    });
     armedDeleteTimer = setTimeout(() => {
       clearArmedDelete();
     }, 2000);

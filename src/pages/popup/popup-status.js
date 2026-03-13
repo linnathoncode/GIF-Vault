@@ -144,11 +144,24 @@ export function createPopupStatusController({
     durationMs = 2000,
     options = {},
   ) {
-    const preserveProgress = options.preserveProgress ?? true;
+    const hasImportStateToRestore = Boolean(state.currentImportState?.text);
+    const preserveProgress =
+      options.preserveProgress ?? hasImportStateToRestore;
+    const forceTemporary = options.forceTemporary ?? false;
+    const shouldAutoClear = preserveProgress || forceTemporary;
+
     transientProgressSnapshot = preserveProgress ? captureProgressVisuals() : null;
     clearTransientStatusTimer();
-    transientStatusActive = true;
+    transientStatusActive = shouldAutoClear;
+    if (!preserveProgress) {
+      clearProgressVisuals({ clearText: false });
+    }
     setStatus(text, kind);
+
+    if (!shouldAutoClear) {
+      return;
+    }
+
     transientStatusTimer = setTimeout(() => {
       transientStatusTimer = 0;
       transientStatusActive = false;
