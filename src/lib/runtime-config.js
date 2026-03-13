@@ -19,6 +19,7 @@ const DEFAULT_RUNTIME_CONFIG = Object.freeze({
   }),
 });
 
+// Normalization helpers for stored runtime config.
 function normalizePositiveInt(value, fallback, min, max) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
   if (!Number.isFinite(parsed)) {
@@ -54,6 +55,7 @@ function normalizeBoolean(value, fallback) {
   return fallback;
 }
 
+// Runtime config schema normalization.
 function normalizeRuntimeConfig(raw) {
   const input = raw && typeof raw === "object" ? raw : {};
   const gifInput = input.gifConversion || {};
@@ -139,6 +141,7 @@ function normalizeRuntimeConfig(raw) {
   };
 }
 
+// Storage access for runtime config.
 function readFromStorage() {
   return new Promise((resolve) => {
     chrome.storage.local.get([STORAGE_KEYS.runtimeConfig], (result) => {
@@ -153,6 +156,7 @@ function writeToStorage(value) {
   });
 }
 
+// Public runtime config API.
 async function getRuntimeConfig() {
   const stored = await readFromStorage();
   return normalizeRuntimeConfig(stored || DEFAULT_RUNTIME_CONFIG);

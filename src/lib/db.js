@@ -1,5 +1,6 @@
 import { DB } from "./settings.js";
 
+// Database open and schema migration.
 function openDb() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB.name, DB.version);
@@ -60,6 +61,7 @@ function migrateMediaStore(tx, mediaStore) {
   };
 }
 
+// Shared transaction wrappers.
 function runMediaTx(mode, storeNames, fn) {
   return openDb().then(
     (db) =>
@@ -107,6 +109,7 @@ function runLogTx(mode, fn) {
   );
 }
 
+// Media metadata and blob persistence.
 function toMediaMetadata(item) {
   return {
     id: item.id,
@@ -232,6 +235,7 @@ function idbClear() {
   );
 }
 
+// Log storage helpers.
 function idbLog(stage, message, details = {}) {
   return runLogTx("readwrite", (store) => {
     const item = {

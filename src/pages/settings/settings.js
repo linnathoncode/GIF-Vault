@@ -1,17 +1,17 @@
-import { STORAGE_KEYS } from "../lib/settings.js";
+import { STORAGE_KEYS } from "../../lib/settings.js";
 import {
   getRuntimeConfig,
   normalizeRuntimeConfig,
   resetRuntimeConfig,
   setRuntimeConfig,
-} from "../lib/runtime-config.js";
+} from "../../lib/runtime-config.js";
 import {
   applyDocumentTheme,
   getThemeMode,
   setThemeMode,
   setThemeToggleGlyph,
   setToolbarIcon,
-} from "../lib/theme.js";
+} from "../../lib/theme.js";
 
 const formEl = document.getElementById("settingsForm");
 const statusEl = document.getElementById("status");
@@ -27,6 +27,7 @@ const hoverPreviewDelayField = document.getElementById(
 
 let themeMode = "light";
 
+// Small DOM helpers for form I/O.
 function setStatus(text, kind = "") {
   statusEl.textContent = text;
   statusEl.className = kind ? `status ${kind}` : "status";
@@ -63,6 +64,7 @@ function toInt(id) {
   return Number.parseInt(String(input?.value ?? ""), 10);
 }
 
+// Settings form serialization.
 function fillForm(config) {
   assignValue("gifFps", config.gifConversion.fps);
   assignValue("gifWidth", config.gifConversion.width);
@@ -103,6 +105,7 @@ function syncHoverPreviewDelayState() {
   }
 }
 
+// Theme handling for the settings page.
 function applyTheme(mode) {
   const theme = applyDocumentTheme(mode);
   setThemeToggleGlyph(themeToggleBtn, theme);
@@ -110,6 +113,7 @@ function applyTheme(mode) {
   themeMode = theme;
 }
 
+// Form events and storage sync.
 formEl.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -155,6 +159,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
+// Page bootstrap.
 async function init() {
   applyTheme(await getThemeMode());
   fillForm(await getRuntimeConfig());

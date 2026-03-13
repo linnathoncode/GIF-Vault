@@ -1,7 +1,7 @@
-import { STORAGE_KEYS } from "../lib/settings.js";
-import { safeLog } from "../lib/log.js";
-import { originPatternFromUrl } from "../lib/ui.js";
-import { applyDocumentTheme } from "../lib/theme.js";
+import { STORAGE_KEYS } from "../../lib/settings.js";
+import { safeLog } from "../../lib/log.js";
+import { originPatternFromUrl } from "../../lib/ui.js";
+import { applyDocumentTheme } from "../../lib/theme.js";
 
 const reasonEl = document.getElementById("reason");
 const originsEl = document.getElementById("origins");

@@ -19,33 +19,45 @@
   - removes `notifications`
   - keeps a smaller required host allowlist for core import sources
   - uses optional runtime host permissions for broader imports
-  - routes missing-host imports through `src/assist/permission-assist.html`
+  - routes missing-host imports through `src/pages/assist/permission-assist.html`
 
 ## Project Layout
 ```txt
 src/
   manifest.json
   assets/icons/
-  assist/
-    permission-assist.html
-    permission-assist.css
-    permission-assist.js
-  background/service-worker.js
-  popup/
-    popup.html
-    popup.css
-    popup.js
-  logs/
-    logs.html
-    logs.css
-    logs.js
+  background/
+    action-icon.js
+    import-service.js
+    media-resolver.js
+    service-worker.js
   offscreen/
     offscreen.html
     offscreen.js
+  pages/
+    assist/
+      permission-assist.html
+      permission-assist.css
+      permission-assist.js
+    logs/
+      logs.html
+      logs.css
+      logs.js
+    popup/
+      popup.html
+      popup.css
+      popup-grid.js
+      popup-status.js
+      popup.js
+    settings/
+      settings.html
+      settings.css
+      settings.js
   lib/
     db.js
     log.js
     media.js
+    runtime-config.js
     settings.js
     theme.js
     ui.js
@@ -53,6 +65,13 @@ src/
 
 dist/
 ```
+
+## Architecture Notes
+- `src/background/service-worker.js` is now a thin Chrome event/message adapter.
+- Background concerns are split into `action-icon.js`, `import-service.js`, and `media-resolver.js`.
+- UI-facing extension entrypoints live under `src/pages/`.
+- `src/pages/popup/popup.js` owns popup orchestration and delegates grid/status behavior to smaller local modules.
+- Shared storage, theme, logging, and formatting helpers stay in `src/lib/`.
 
 ## Build
 ```bash
