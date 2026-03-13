@@ -7,6 +7,10 @@ import {
 } from "../lib/db.js";
 import { fileExtensionFromMime } from "../lib/media.js";
 import { STORAGE_KEYS, ICONS, POPUP_MENU } from "../lib/settings.js";
+import {
+  getRuntimeConfig,
+  normalizeRuntimeConfig,
+} from "../lib/runtime-config.js";
 import { safeLog } from "../lib/log.js";
 import {
   formatBytes,
@@ -32,6 +36,7 @@ const statusEl = document.getElementById("status");
 const progressTrackEl = document.getElementById("progressTrack");
 const progressBarEl = document.getElementById("progressBar");
 const progressLabelEl = document.getElementById("progressLabel");
+const openSettingsBtn = document.getElementById("openSettingsBtn");
 const openLogsBtn = document.getElementById("openLogsBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 const tabAllBtn = document.getElementById("tabAllBtn");
@@ -40,16 +45,36 @@ const prevPageBtn = document.getElementById("prevPageBtn");
 const nextPageBtn = document.getElementById("nextPageBtn");
 const pageIndicator = document.getElementById("pageIndicator");
 const brandLogo = document.getElementById("brandLogo");
+const hoverPreviewEl = document.getElementById("hoverPreview");
+const hoverPreviewImgEl = document.getElementById("hoverPreviewImg");
 
 const objectUrlById = new Map();
-let currentTab = "all";
+let currentTab = POPUP_MENU.defaultTab;
 let currentPage = 1;
 let searchTerm = "";
 let themeMode = "light";
 let activeImportRequestId = "";
 let renderSequence = 0;
 let pendingFocusRestore = null;
-const IMPORT_PROGRESS_PERCENT = POPUP_MENU.importProgressPercent;
+let hoverPreviewTimer = 0;
+let hoverPreviewSrc = "";
+let hoverPointerX = 0;
+let hoverPointerY = 0;
+
+function defaultPopupMenuConfig() {
+  return {
+    pageSize: POPUP_MENU.pageSize,
+    defaultTab: POPUP_MENU.defaultTab,
+    hoverPreviewEnabled: POPUP_MENU.hoverPreviewEnabled,
+    hoverPreviewDelayMs: POPUP_MENU.hoverPreviewDelayMs,
+    copyFeedbackResetDelayMs: POPUP_MENU.copyFeedbackResetDelayMs,
+    importProgressPercent: {
+      ...POPUP_MENU.importProgressPercent,
+    },
+  };
+}
+
+let popupMenuConfig = defaultPopupMenuConfig();
 
 // Import progress and status UI.
 function getImportProgressPercent(state) {
@@ -57,25 +82,25 @@ function getImportProgressPercent(state) {
     return 0;
   }
   if (state.kind === "success") {
-    return IMPORT_PROGRESS_PERCENT.complete;
+    return popupMenuConfig.importProgressPercent.complete;
   }
 
   const text = state.text.toLowerCase();
   if (text.includes("saving")) {
-    return IMPORT_PROGRESS_PERCENT.saving;
+    return popupMenuConfig.importProgressPercent.saving;
   }
   if (text.includes("converting")) {
-    return IMPORT_PROGRESS_PERCENT.converting;
+    return popupMenuConfig.importProgressPercent.converting;
   }
   if (text.includes("fetching")) {
-    return IMPORT_PROGRESS_PERCENT.fetching;
+    return popupMenuConfig.importProgressPercent.fetching;
   }
   if (text.includes("resolving")) {
-    return IMPORT_PROGRESS_PERCENT.resolving;
+    return popupMenuConfig.importProgressPercent.resolving;
   }
   return state.active
-    ? IMPORT_PROGRESS_PERCENT.idle
-    : IMPORT_PROGRESS_PERCENT.complete;
+    ? popupMenuConfig.importProgressPercent.idle
+    : popupMenuConfig.importProgressPercent.complete;
 }
 
 function setProgressState(state) {
@@ -161,13 +186,19 @@ function getFilteredItems(items) {
 }
 
 function getPagedItemsMeta(items) {
-  const totalPages = Math.max(1, Math.ceil(items.length / POPUP_MENU.pageSize));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(items.length / popupMenuConfig.pageSize),
+  );
   currentPage = Math.min(Math.max(1, currentPage), totalPages);
-  const startIndex = (currentPage - 1) * POPUP_MENU.pageSize;
+  const startIndex = (currentPage - 1) * popupMenuConfig.pageSize;
 
   return {
     totalPages,
-    pagedItemsMeta: items.slice(startIndex, startIndex + POPUP_MENU.pageSize),
+    pagedItemsMeta: items.slice(
+      startIndex,
+      startIndex + popupMenuConfig.pageSize,
+    ),
   };
 }
 
@@ -225,6 +256,7 @@ function buildPreviewUrl(item) {
 }
 
 function cleanupObjectUrls() {
+  hideHoverPreview();
   for (const url of objectUrlById.values()) {
     URL.revokeObjectURL(url);
   }
@@ -239,6 +271,87 @@ function pruneObjectUrlsForVisibleIds(visibleIds) {
     URL.revokeObjectURL(url);
     objectUrlById.delete(id);
   }
+}
+
+function clearHoverPreviewTimer() {
+  if (!hoverPreviewTimer) {
+    return;
+  }
+  clearTimeout(hoverPreviewTimer);
+  hoverPreviewTimer = 0;
+}
+
+function positionHoverPreview(x, y) {
+  if (!hoverPreviewEl) {
+    return;
+  }
+
+  const margin = 0;
+  const offsetX = 0;
+  const offsetY = 0;
+  const previewRect = hoverPreviewEl.getBoundingClientRect();
+  const maxX = window.innerWidth - previewRect.width - margin;
+  const maxY = window.innerHeight - previewRect.height - margin;
+  let left = x + offsetX;
+  let top = y + offsetY;
+
+  if (left > maxX) {
+    left = Math.max(margin, x - previewRect.width - offsetX);
+  }
+  if (top > maxY) {
+    top = Math.max(margin, y - previewRect.height - offsetY);
+  }
+
+  hoverPreviewEl.style.left = `${Math.max(margin, left)}px`;
+  hoverPreviewEl.style.top = `${Math.max(margin, top)}px`;
+}
+
+function hideHoverPreview() {
+  clearHoverPreviewTimer();
+  if (!hoverPreviewEl || !hoverPreviewImgEl) {
+    return;
+  }
+
+  hoverPreviewEl.classList.remove("visible");
+  hoverPreviewEl.setAttribute("aria-hidden", "true");
+  hoverPreviewImgEl.removeAttribute("src");
+  hoverPreviewSrc = "";
+}
+
+function showHoverPreview(previewUrl) {
+  if (!popupMenuConfig.hoverPreviewEnabled) {
+    return;
+  }
+  if (!hoverPreviewEl || !hoverPreviewImgEl || !previewUrl) {
+    return;
+  }
+
+  if (hoverPreviewSrc !== previewUrl) {
+    hoverPreviewImgEl.src = previewUrl;
+    hoverPreviewSrc = previewUrl;
+  }
+
+  hoverPreviewEl.setAttribute("aria-hidden", "false");
+  hoverPreviewEl.classList.add("visible");
+  positionHoverPreview(hoverPointerX, hoverPointerY);
+}
+
+function updateHoverPointerPosition(event) {
+  hoverPointerX = event?.clientX ?? hoverPointerX;
+  hoverPointerY = event?.clientY ?? hoverPointerY;
+}
+
+function scheduleHoverPreview(previewUrl, event) {
+  if (!popupMenuConfig.hoverPreviewEnabled) {
+    hideHoverPreview();
+    return;
+  }
+  updateHoverPointerPosition(event);
+  clearHoverPreviewTimer();
+  hoverPreviewTimer = setTimeout(() => {
+    hoverPreviewTimer = 0;
+    showHoverPreview(previewUrl);
+  }, popupMenuConfig.hoverPreviewDelayMs);
 }
 
 // Item actions that mutate stored media state.
@@ -447,6 +560,17 @@ function createPreviewMedia(item, previewUrl) {
       mimeType: item.mimeType || "",
     });
   });
+  media.addEventListener("pointerenter", (event) => {
+    scheduleHoverPreview(previewUrl, event);
+  });
+  media.addEventListener("pointermove", (event) => {
+    updateHoverPointerPosition(event);
+    if (hoverPreviewEl?.classList.contains("visible")) {
+      positionHoverPreview(hoverPointerX, hoverPointerY);
+    }
+  });
+  media.addEventListener("pointerleave", hideHoverPreview);
+  media.addEventListener("pointercancel", hideHoverPreview);
   return media;
 }
 
@@ -510,7 +634,7 @@ function buildCard(item) {
     copyBtn.textContent = ok ? "\u2713" : "!";
     setTimeout(() => {
       copyBtn.textContent = "\u29C9";
-    }, POPUP_MENU.copyFeedbackResetDelayMs);
+    }, popupMenuConfig.copyFeedbackResetDelayMs);
   });
 
   const favoriteBtn = createButton({
@@ -541,6 +665,7 @@ function buildCard(item) {
 // Grid rendering, filtering, and pagination.
 // Because render is an async function renderId and renderSequence is used as a race guard here
 async function render() {
+  hideHoverPreview();
   const renderId = ++renderSequence;
   const items = await idbGetAllMedia();
   if (renderId !== renderSequence) {
@@ -722,6 +847,8 @@ importInput.addEventListener("keydown", (event) => {
     importUrl(importInput.value);
   }
 });
+grid.addEventListener("scroll", hideHoverPreview);
+window.addEventListener("blur", hideHoverPreview);
 
 clearAllBtn.addEventListener("click", async () => {
   const confirmed = window.confirm(
@@ -738,6 +865,14 @@ clearAllBtn.addEventListener("click", async () => {
 });
 
 window.addEventListener("unload", cleanupObjectUrls);
+openSettingsBtn.addEventListener("click", () => {
+  if (typeof chrome.runtime.openOptionsPage === "function") {
+    void chrome.runtime.openOptionsPage();
+    return;
+  }
+  const url = chrome.runtime.getURL("settings/settings.html");
+  void chrome.tabs.create({ url });
+});
 openLogsBtn.addEventListener("click", () => {
   const url = chrome.runtime.getURL("logs/logs.html");
   void chrome.tabs.create({ url });
@@ -808,9 +943,35 @@ function getImportState() {
 }
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== "local" || !changes[STORAGE_KEYS.importState]) {
+  if (areaName !== "local") {
     return;
   }
+
+  if (changes[STORAGE_KEYS.runtimeConfig]?.newValue) {
+    const previousDefaultTab = popupMenuConfig.defaultTab;
+    const normalized = normalizeRuntimeConfig(
+      changes[STORAGE_KEYS.runtimeConfig].newValue,
+    );
+    popupMenuConfig = {
+      ...normalized.popupMenu,
+      importProgressPercent: {
+        ...normalized.popupMenu.importProgressPercent,
+      },
+    };
+    if (previousDefaultTab !== popupMenuConfig.defaultTab) {
+      currentTab = popupMenuConfig.defaultTab;
+      currentPage = 1;
+    }
+    if (!popupMenuConfig.hoverPreviewEnabled) {
+      hideHoverPreview();
+    }
+    void render();
+  }
+
+  if (!changes[STORAGE_KEYS.importState]) {
+    return;
+  }
+
   const nextState = changes[STORAGE_KEYS.importState].newValue || null;
   const prevState = changes[STORAGE_KEYS.importState].oldValue || null;
   if (nextState) {
@@ -824,6 +985,17 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 async function init() {
+  const runtimeConfig = await getRuntimeConfig();
+  popupMenuConfig = {
+    ...runtimeConfig.popupMenu,
+    importProgressPercent: {
+      ...runtimeConfig.popupMenu.importProgressPercent,
+    },
+  };
+  if (!popupMenuConfig.hoverPreviewEnabled) {
+    hideHoverPreview();
+  }
+  currentTab = popupMenuConfig.defaultTab;
   applyTheme(await getThemeMode());
   applyImportAssistFromQuery();
   const importState = await getImportState();

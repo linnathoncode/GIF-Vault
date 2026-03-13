@@ -1,4 +1,5 @@
 import { GIF_CONVERSION } from "../lib/settings.js";
+import { normalizeRuntimeConfig } from "../lib/runtime-config.js";
 import { safeLog } from "../lib/log.js";
 import { FFmpeg } from "../vendor/@ffmpeg/ffmpeg/esm/index.js";
 import { fetchFile } from "../vendor/@ffmpeg/util/esm/index.js";
@@ -43,6 +44,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 async function convertMp4ToGif(message) {
   await ensureFfmpegLoaded();
+  const gifConversion = resolveGifConversionConfig(message?.gifConversion);
 
   const inputExtension =
     message.inputExtension === "webm" || message.inputExtension === "mp4"
@@ -58,18 +60,18 @@ async function convertMp4ToGif(message) {
   }
   await safeLog("offscreen", "Starting ffmpeg conversion", {
     inputBytes: inputData.length,
-    fps: GIF_CONVERSION.fps,
-    width: GIF_CONVERSION.width,
-    maxColors: GIF_CONVERSION.maxColors,
-    maxDurationSeconds: GIF_CONVERSION.maxDurationSeconds
+    fps: gifConversion.fps,
+    width: gifConversion.width,
+    maxColors: gifConversion.maxColors,
+    maxDurationSeconds: gifConversion.maxDurationSeconds
   });
 
   await ffmpeg.writeFile(inputName, inputData);
   const durationSeconds = await probeVideoDuration(inputName, probeName);
-  if (durationSeconds > GIF_CONVERSION.maxDurationSeconds) {
+  if (durationSeconds > gifConversion.maxDurationSeconds) {
     await safeLog("offscreen", "Rejected long video", {
       durationSeconds,
-      maxDurationSeconds: GIF_CONVERSION.maxDurationSeconds
+      maxDurationSeconds: gifConversion.maxDurationSeconds
     });
     await safeDeleteFile(inputName);
     await safeDeleteFile(probeName);
@@ -80,7 +82,7 @@ async function convertMp4ToGif(message) {
     "-i",
     inputName,
     "-vf",
-    `fps=${GIF_CONVERSION.fps},scale=${GIF_CONVERSION.width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=${GIF_CONVERSION.maxColors}:stats_mode=diff[p];[s1][p]paletteuse=dither=sierra2_4a`,
+    `fps=${gifConversion.fps},scale=${gifConversion.width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=${gifConversion.maxColors}:stats_mode=diff[p];[s1][p]paletteuse=dither=sierra2_4a`,
     "-loop",
     "0",
     outputName
@@ -108,6 +110,13 @@ async function convertMp4ToGif(message) {
     mimeType: "image/gif",
     filename: message.filename || `vault-${Date.now()}.gif`
   };
+}
+
+function resolveGifConversionConfig(rawConfig) {
+  const normalized = normalizeRuntimeConfig({
+    gifConversion: rawConfig || GIF_CONVERSION,
+  });
+  return normalized.gifConversion;
 }
 
 async function ensureFfmpegLoaded() {

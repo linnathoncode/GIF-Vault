@@ -1,6 +1,13 @@
 import { idbSave } from "../lib/db.js";
 import { extensionFromUrl } from "../lib/media.js";
-import { STORAGE_KEYS, CONTEXT_MENU, OFFSCREEN, GIF_CONVERSION, BADGE, ICONS } from "../lib/settings.js";
+import {
+  STORAGE_KEYS,
+  CONTEXT_MENU,
+  OFFSCREEN,
+  BADGE,
+  ICONS,
+} from "../lib/settings.js";
+import { getRuntimeConfig } from "../lib/runtime-config.js";
 import { safeLog } from "../lib/log.js";
 import { originPatternFromUrl } from "../lib/ui.js";
 
@@ -8,7 +15,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: CONTEXT_MENU.addToVaultId,
     title: "Add to GIF Vault",
-    contexts: ["image", "video"]
+    contexts: ["image", "video"],
   });
   void syncActionIconToTheme();
 });
@@ -21,7 +28,8 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local" || !changes[STORAGE_KEYS.themeMode]) {
     return;
   }
-  const nextTheme = changes[STORAGE_KEYS.themeMode].newValue === "dark" ? "dark" : "light";
+  const nextTheme =
+    changes[STORAGE_KEYS.themeMode].newValue === "dark" ? "dark" : "light";
   void setActionIcon(nextTheme);
 });
 
@@ -31,15 +39,24 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
   }
 
   try {
-    await safeLog("context-menu", "Context menu click received", { srcUrl: info.srcUrl, pageUrl: info.pageUrl || "" });
+    await safeLog("context-menu", "Context menu click received", {
+      srcUrl: info.srcUrl,
+      pageUrl: info.pageUrl || "",
+    });
     await importFromUrl(info.srcUrl, info.pageUrl || "");
     await showBadgeFallback(true);
   } catch (error) {
     if (String(error?.message || "").startsWith("Host access needed for ")) {
-      await openPermissionAssist(info.srcUrl, info.pageUrl || "", error.message);
+      await openPermissionAssist(
+        info.srcUrl,
+        info.pageUrl || "",
+        error.message,
+      );
     }
     await showBadgeFallback(false);
-    await safeLog("context-menu", "Context menu import failed", { error: error?.message || "unknown" });
+    await safeLog("context-menu", "Context menu import failed", {
+      error: error?.message || "unknown",
+    });
     // Context-menu saves are fire-and-forget.
   }
 });
@@ -55,8 +72,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     setActionIcon(theme)
       .then(() => sendResponse({ ok: true }))
       .catch(async (error) => {
-        await safeLog("theme", "SET_THEME_ICON failed", { theme, error: error?.message || "unknown" });
-        sendResponse({ ok: false, error: error?.message || "Failed to set icon" });
+        await safeLog("theme", "SET_THEME_ICON failed", {
+          theme,
+          error: error?.message || "unknown",
+        });
+        sendResponse({
+          ok: false,
+          error: error?.message || "Failed to set icon",
+        });
       });
     return true;
   }
@@ -64,7 +87,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "RESOLVE_MEDIA_URL") {
     resolveMediaUrl(message.url || "")
       .then((resolvedMediaUrl) => sendResponse({ ok: true, resolvedMediaUrl }))
-      .catch((error) => sendResponse({ ok: false, error: error?.message || "Resolve failed" }));
+      .catch((error) =>
+        sendResponse({ ok: false, error: error?.message || "Resolve failed" }),
+      );
     return true;
   }
 
@@ -76,16 +101,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     message.url,
     message.pageUrl || "",
     message.requestId || "",
-    message.resolvedMediaUrl || ""
+    message.resolvedMediaUrl || "",
   )
     .then((result) => sendResponse({ ok: true, result }))
-    .catch((error) => sendResponse({ ok: false, error: error?.message || "Import failed" }));
+    .catch((error) =>
+      sendResponse({ ok: false, error: error?.message || "Import failed" }),
+    );
 
   return true;
 });
 
-async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHint = "") {
+async function importFromUrl(
+  rawUrl,
+  pageUrl,
+  requestId = "",
+  resolvedMediaUrlHint = "",
+) {
   const progressId = requestId || crypto.randomUUID();
+  const runtimeConfig = await getRuntimeConfig();
+  const gifConversionConfig = runtimeConfig.gifConversion;
   const url = String(rawUrl || "").trim();
   const resolvedHint = String(resolvedMediaUrlHint || "").trim();
   if (!url) {
@@ -97,7 +131,7 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHi
     await safeLog("import", "Import started", { url, pageUrl: pageUrl || "" });
     await ensureOriginAccess(url);
 
-    const resolvedMediaUrl = resolvedHint || await resolveMediaUrl(url);
+    const resolvedMediaUrl = resolvedHint || (await resolveMediaUrl(url));
     if (!resolvedMediaUrl) {
       await safeLog("resolve", "Failed to resolve media URL", { url });
       throw new Error("Could not resolve media URL");
@@ -112,14 +146,25 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHi
     await reportProgress(progressId, "Fetching media...", true, "info");
     const response = await fetch(resolvedMediaUrl);
     if (!response.ok) {
-      await safeLog("fetch", "Fetch failed", { resolvedMediaUrl, status: response.status });
+      await safeLog("fetch", "Fetch failed", {
+        resolvedMediaUrl,
+        status: response.status,
+      });
       throw new Error("Failed to fetch media");
     }
-    await safeLog("fetch", "Fetch succeeded", { resolvedMediaUrl, status: response.status });
+    await safeLog("fetch", "Fetch succeeded", {
+      resolvedMediaUrl,
+      status: response.status,
+    });
 
-    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    const contentType = (
+      response.headers.get("content-type") || ""
+    ).toLowerCase();
     if (!isSupportedMediaType(contentType)) {
-      await safeLog("fetch", "Rejected non-media response", { resolvedMediaUrl, contentType });
+      await safeLog("fetch", "Rejected non-media response", {
+        resolvedMediaUrl,
+        contentType,
+      });
       throw new Error(getReadableImportError(url, contentType));
     }
 
@@ -135,19 +180,29 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHi
     let converted = false;
 
     if (isVideoMedia) {
-      await reportProgress(progressId, "Converting video to GIF...", true, "info");
-      await safeLog("convert", "Video detected, offscreen conversion requested", {
-        resolvedMediaUrl,
-        sourceUrl: url,
-        extension: ext,
-        mimeType: inputBlob.type || "",
-        isTwitterSource: isTwitterUrl(url)
-      });
+      await reportProgress(
+        progressId,
+        "Converting video to GIF...",
+        true,
+        "info",
+      );
+      await safeLog(
+        "convert",
+        "Video detected, offscreen conversion requested",
+        {
+          resolvedMediaUrl,
+          sourceUrl: url,
+          extension: ext,
+          mimeType: inputBlob.type || "",
+          isTwitterSource: isTwitterUrl(url),
+        },
+      );
       try {
         const convertedPayload = await convertInOffscreen(
           resolvedMediaUrl,
           `vault-${Date.now()}.gif`,
-          ext
+          ext,
+          gifConversionConfig,
         );
         const rebuiltBlob = blobFromConvertedPayload(convertedPayload);
         await safeLog("convert", "Offscreen conversion response received", {
@@ -155,10 +210,12 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHi
           mimeType: convertedPayload?.mimeType || "",
           reason: convertedPayload?.reason || "",
           hasGifBase64: Boolean(convertedPayload?.gifBase64),
-          gifBase64Length: convertedPayload?.gifBase64 ? convertedPayload.gifBase64.length : 0,
+          gifBase64Length: convertedPayload?.gifBase64
+            ? convertedPayload.gifBase64.length
+            : 0,
           gifByteLength: convertedPayload?.gifByteLength || 0,
           hasGifBuffer: Boolean(convertedPayload?.gifBuffer),
-          rebuiltBlobSize: rebuiltBlob?.size || 0
+          rebuiltBlobSize: rebuiltBlob?.size || 0,
         });
 
         if (rebuiltBlob && rebuiltBlob.size > 0) {
@@ -169,22 +226,26 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHi
           await safeLog("convert", "Offscreen payload had no usable blob", {
             mimeType: convertedPayload?.mimeType || "",
             reason: convertedPayload?.reason || "",
-            extension: ext
+            extension: ext,
           });
           throw new Error("Could not convert video to GIF.");
         }
       } catch (error) {
         if (String(error?.message || "").startsWith("VIDEO_TOO_LONG:")) {
-          const seconds = Number.parseFloat(String(error.message).split(":")[1] || "0");
+          const seconds = Number.parseFloat(
+            String(error.message).split(":")[1] || "0",
+          );
           await safeLog("convert", "Rejected long video in background", {
             durationSeconds: seconds,
-            maxDurationSeconds: GIF_CONVERSION.maxDurationSeconds
+            maxDurationSeconds: gifConversionConfig.maxDurationSeconds,
           });
-          throw new Error(`Video is too long (${seconds.toFixed(1)}s). Max allowed is ${GIF_CONVERSION.maxDurationSeconds}s.`);
+          throw new Error(
+            `Video is too long (${gifConversionConfig.maxDurationSeconds}s/${seconds.toFixed(1)}s). You can change the max allowed video length in Settings.`,
+          );
         }
         await safeLog("convert", "Offscreen conversion failed", {
           error: error?.message || "unknown",
-          extension: ext
+          extension: ext,
         });
         throw new Error(error?.message || "Could not convert video to GIF.");
       }
@@ -201,7 +262,7 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHi
       kind: finalMime.startsWith("video/") ? "video" : "image",
       blob: finalBlob,
       converted,
-      savedAt: Date.now()
+      savedAt: Date.now(),
     };
 
     await idbSave(item);
@@ -210,10 +271,15 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHi
       kind: item.kind,
       mimeType: item.mimeType,
       blobSize: item.blob?.size || 0,
-      converted: item.converted
+      converted: item.converted,
     });
     await notifyVaultUpdated(item.id);
-    await reportProgress(progressId, "Imported successfully.", false, "success");
+    await reportProgress(
+      progressId,
+      "Imported successfully.",
+      false,
+      "success",
+    );
     return { id: item.id, kind: item.kind, converted };
   } catch (error) {
     const message = error?.message || "Import failed";
@@ -225,7 +291,11 @@ async function importFromUrl(rawUrl, pageUrl, requestId = "", resolvedMediaUrlHi
 function isTwitterUrl(url) {
   try {
     const host = new URL(url).host.toLowerCase();
-    return host.includes("twitter.com") || host.includes("x.com") || host.includes("twimg.com");
+    return (
+      host.includes("twitter.com") ||
+      host.includes("x.com") ||
+      host.includes("twimg.com")
+    );
   } catch {
     return false;
   }
@@ -272,7 +342,14 @@ function looksDirectMedia(rawUrl) {
       return true;
     }
     const path = url.pathname.toLowerCase();
-    return path.endsWith(".gif") || path.endsWith(".mp4") || path.endsWith(".webm") || path.endsWith(".png") || path.endsWith(".jpg") || path.endsWith(".jpeg");
+    return (
+      path.endsWith(".gif") ||
+      path.endsWith(".mp4") ||
+      path.endsWith(".webm") ||
+      path.endsWith(".png") ||
+      path.endsWith(".jpg") ||
+      path.endsWith(".jpeg")
+    );
   } catch {
     return false;
   }
@@ -344,7 +421,11 @@ async function resolveFromSyndication(tweetId) {
     const data = await response.json();
     const urls = collectVideoUrls(data);
     const picked = pickBestVideoUrl(urls);
-    await safeLog("resolve", "Syndication lookup finished", { tweetId, foundCount: urls.length, picked: picked || "" });
+    await safeLog("resolve", "Syndication lookup finished", {
+      tweetId,
+      foundCount: urls.length,
+      picked: picked || "",
+    });
     return picked;
   } catch {
     await safeLog("resolve", "Syndication lookup failed", { tweetId });
@@ -374,7 +455,11 @@ async function resolveFromPages(tweetId, originalUrl) {
     const urls = extractVideoUrlsFromText(text);
     const picked = pickBestVideoUrl(urls);
     if (picked) {
-      await safeLog("resolve", "Resolved from page fallback", { tweetId, candidate, picked });
+      await safeLog("resolve", "Resolved from page fallback", {
+        tweetId,
+        candidate,
+        picked,
+      });
       return picked;
     }
   }
@@ -396,10 +481,11 @@ async function fetchText(url) {
 }
 
 function extractVideoUrlsFromText(text) {
-  const normalized = text
-    .replace(/\\u0026/gi, "&")
-    .replace(/\\\//g, "/");
-  const matches = normalized.match(/https:\/\/video\.twimg\.com\/[^"'\\\s<>()]+\.mp4[^"'\\\s<>()]*/gi) || [];
+  const normalized = text.replace(/\\u0026/gi, "&").replace(/\\\//g, "/");
+  const matches =
+    normalized.match(
+      /https:\/\/video\.twimg\.com\/[^"'\\\s<>()]+\.mp4[^"'\\\s<>()]*/gi,
+    ) || [];
   return [...new Set(matches)];
 }
 
@@ -416,7 +502,11 @@ function isSupportedMediaType(contentType) {
   if (!contentType) {
     return true;
   }
-  return contentType.startsWith("image/") || contentType.startsWith("video/") || contentType.includes("octet-stream");
+  return (
+    contentType.startsWith("image/") ||
+    contentType.startsWith("video/") ||
+    contentType.includes("octet-stream")
+  );
 }
 
 function getReadableImportError(url, contentType) {
@@ -438,22 +528,30 @@ async function ensureOffscreenDocument() {
   await chrome.offscreen.createDocument({
     url: OFFSCREEN.url,
     reasons: ["BLOBS"],
-    justification: "Convert imported MP4 media into GIF in background"
+    justification: "Convert imported MP4 media into GIF in background",
   });
 }
 
-async function convertInOffscreen(url, filename, inputExtension = "") {
+async function convertInOffscreen(
+  url,
+  filename,
+  inputExtension = "",
+  gifConversion = null,
+) {
   await ensureOffscreenDocument();
 
   const response = await chrome.runtime.sendMessage({
     type: "OFFSCREEN_CONVERT_MP4",
     url,
     filename,
-    inputExtension
+    inputExtension,
+    gifConversion,
   });
 
   if (!response?.ok) {
-    await safeLog("convert", "Offscreen conversion failed", { error: response?.error || "unknown" });
+    await safeLog("convert", "Offscreen conversion failed", {
+      error: response?.error || "unknown",
+    });
     throw new Error(response?.error || "Offscreen conversion failed");
   }
 
@@ -509,15 +607,19 @@ async function ensureOriginAccess(rawUrl) {
   }
 
   const hasAccess = await chrome.permissions.contains({
-    origins: [originPattern]
+    origins: [originPattern],
   });
 
   if (hasAccess) {
     return;
   }
 
-  await safeLog("permissions", "Missing host access for origin", { origin: originPattern });
-  throw new Error(`Host access needed for ${originPattern}. Use popup import to grant access.`);
+  await safeLog("permissions", "Missing host access for origin", {
+    origin: originPattern,
+  });
+  throw new Error(
+    `Host access needed for ${originPattern}. Use popup import to grant access.`,
+  );
 }
 
 async function reportProgress(requestId, text, active = true, kind = "info") {
@@ -528,8 +630,8 @@ async function reportProgress(requestId, text, active = true, kind = "info") {
         text,
         kind,
         active: Boolean(active),
-        updatedAt: Date.now()
-      }
+        updatedAt: Date.now(),
+      },
     });
 
     await chrome.runtime.sendMessage({
@@ -537,7 +639,7 @@ async function reportProgress(requestId, text, active = true, kind = "info") {
       requestId,
       text,
       kind,
-      active: Boolean(active)
+      active: Boolean(active),
     });
   } catch {
     // Popup may be closed; ignore progress delivery failures.
@@ -548,7 +650,7 @@ async function notifyVaultUpdated(itemId) {
   try {
     await chrome.runtime.sendMessage({
       type: "VAULT_UPDATED",
-      itemId
+      itemId,
     });
   } catch {
     // Popup may be closed; ignore.
@@ -573,10 +675,10 @@ function inferName(sourceUrl, mediaUrl) {
 async function showBadgeFallback(ok) {
   try {
     await chrome.action.setBadgeBackgroundColor({
-      color: ok ? BADGE.okColor : BADGE.errorColor
+      color: ok ? BADGE.okColor : BADGE.errorColor,
     });
     await chrome.action.setBadgeText({
-      text: ok ? BADGE.okText : BADGE.errorText
+      text: ok ? BADGE.okText : BADGE.errorText,
     });
     // Best-effort clear; if worker sleeps early, badge may persist until next action.
     setTimeout(() => {
@@ -605,7 +707,9 @@ async function setActionIcon(theme) {
 
 async function openPermissionAssist(url, pageUrl, reason) {
   try {
-    const assistUrl = new URL(chrome.runtime.getURL("assist/permission-assist.html"));
+    const assistUrl = new URL(
+      chrome.runtime.getURL("assist/permission-assist.html"),
+    );
     assistUrl.searchParams.set("url", url || "");
     if (pageUrl) {
       assistUrl.searchParams.set("pageUrl", pageUrl);
@@ -614,9 +718,15 @@ async function openPermissionAssist(url, pageUrl, reason) {
       assistUrl.searchParams.set("reason", reason);
     }
     await chrome.tabs.create({ url: assistUrl.toString() });
-    await safeLog("context-menu", "Opened permission assist tab", { url, pageUrl, reason });
+    await safeLog("context-menu", "Opened permission assist tab", {
+      url,
+      pageUrl,
+      reason,
+    });
   } catch (error) {
-    await safeLog("context-menu", "Failed to open permission assist tab", { error: error?.message || "unknown" });
+    await safeLog("context-menu", "Failed to open permission assist tab", {
+      error: error?.message || "unknown",
+    });
   }
 }
 
@@ -628,17 +738,21 @@ async function setIconWithImageData(iconPaths) {
       {
         imageData: {
           16: imageData16,
-          32: imageData32
-        }
+          32: imageData32,
+        },
       },
       () => {
         const error = chrome.runtime.lastError;
         if (error) {
-          reject(new Error(error.message || "Failed to set action icon via imageData"));
+          reject(
+            new Error(
+              error.message || "Failed to set action icon via imageData",
+            ),
+          );
           return;
         }
         resolve();
-      }
+      },
     );
   });
 }

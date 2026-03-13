@@ -38,6 +38,7 @@
       "48": "assets/icons/icon-light-48.png"
     }
   },
+  "options_page": "settings/settings.html",
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
