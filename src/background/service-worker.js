@@ -11,6 +11,9 @@ import { getRuntimeConfig } from "../lib/runtime-config.js";
 import { safeLog } from "../lib/log.js";
 import { originPatternFromUrl } from "../lib/ui.js";
 
+const importAbortControllerById = new Map();
+const terminatedImportIds = new Set();
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: CONTEXT_MENU.addToVaultId,
@@ -93,6 +96,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "TERMINATE_IMPORT") {
+    terminateImport(message.requestId || "")
+      .then((terminated) => sendResponse({ ok: true, terminated }))
+      .catch((error) =>
+        sendResponse({
+          ok: false,
+          error: error?.message || "Terminate failed",
+        }),
+      );
+    return true;
+  }
+
   if (message.type !== "IMPORT_URL") {
     return;
   }
@@ -118,6 +133,8 @@ async function importFromUrl(
   resolvedMediaUrlHint = "",
 ) {
   const progressId = requestId || crypto.randomUUID();
+  const abortController = new AbortController();
+  importAbortControllerById.set(progressId, abortController);
   const runtimeConfig = await getRuntimeConfig();
   const gifConversionConfig = runtimeConfig.gifConversion;
   const url = String(rawUrl || "").trim();
@@ -128,10 +145,12 @@ async function importFromUrl(
   }
   await reportProgress(progressId, "Resolving media URL...", true, "info");
   try {
+    throwIfTerminated(progressId);
     await safeLog("import", "Import started", { url, pageUrl: pageUrl || "" });
     await ensureOriginAccess(url);
 
     const resolvedMediaUrl = resolvedHint || (await resolveMediaUrl(url));
+    throwIfTerminated(progressId);
     if (!resolvedMediaUrl) {
       await safeLog("resolve", "Failed to resolve media URL", { url });
       throw new Error("Could not resolve media URL");
@@ -144,7 +163,10 @@ async function importFromUrl(
     await ensureOriginAccess(resolvedMediaUrl);
 
     await reportProgress(progressId, "Fetching media...", true, "info");
-    const response = await fetch(resolvedMediaUrl);
+    const response = await fetch(resolvedMediaUrl, {
+      signal: abortController.signal,
+    });
+    throwIfTerminated(progressId);
     if (!response.ok) {
       await safeLog("fetch", "Fetch failed", {
         resolvedMediaUrl,
@@ -169,6 +191,7 @@ async function importFromUrl(
     }
 
     const inputBlob = await response.blob();
+    throwIfTerminated(progressId);
     const ext = extensionFromUrl(resolvedMediaUrl, inputBlob.type);
     const isVideoMedia =
       (inputBlob.type || "").startsWith("video/") ||
@@ -204,6 +227,7 @@ async function importFromUrl(
           ext,
           gifConversionConfig,
         );
+        throwIfTerminated(progressId);
         const rebuiltBlob = blobFromConvertedPayload(convertedPayload);
         await safeLog("convert", "Offscreen conversion response received", {
           converted: Boolean(convertedPayload?.converted),
@@ -251,6 +275,7 @@ async function importFromUrl(
       }
     }
 
+    throwIfTerminated(progressId);
     await reportProgress(progressId, "Saving to vault...", true, "info");
     const item = {
       id: crypto.randomUUID(),
@@ -282,9 +307,39 @@ async function importFromUrl(
     );
     return { id: item.id, kind: item.kind, converted };
   } catch (error) {
-    const message = error?.message || "Import failed";
+    const message =
+      error?.name === "AbortError" ||
+      error?.message === "IMPORT_TERMINATED"
+        ? "Import terminated by user."
+        : error?.message || "Import failed";
     await reportProgress(progressId, message, false, "error");
-    throw error;
+    throw new Error(message);
+  } finally {
+    importAbortControllerById.delete(progressId);
+    terminatedImportIds.delete(progressId);
+  }
+}
+
+async function terminateImport(requestId) {
+  const id = String(requestId || "").trim();
+  if (!id) {
+    throw new Error("Missing requestId");
+  }
+
+  terminatedImportIds.add(id);
+  const controller = importAbortControllerById.get(id);
+  if (controller) {
+    controller.abort();
+  }
+
+  await safeLog("import", "Terminate import requested", { requestId: id });
+  await reportProgress(id, "Import terminated by user.", false, "error");
+  return Boolean(controller);
+}
+
+function throwIfTerminated(requestId) {
+  if (terminatedImportIds.has(requestId)) {
+    throw new Error("IMPORT_TERMINATED");
   }
 }
 

@@ -203,28 +203,28 @@ body {
   text-shadow: 0 1px 0 color-mix(in srgb, var(--card) 86%, transparent 14%);
 }
 
-.status.ok .progress-label {
+.progress-track.ok .progress-label {
   color: #f4fbf6;
   text-shadow:
     0 1px 0 rgba(20, 36, 25, 0.45),
     0 0 1px rgba(20, 36, 25, 0.2);
 }
 
-:root[data-theme="dark"] .status.ok .progress-label {
+:root[data-theme="dark"] .progress-track.ok .progress-label {
   color: #eef8f0;
   text-shadow:
     0 1px 0 rgba(15, 24, 17, 0.45),
     0 0 2px rgba(15, 24, 17, 0.28);
 }
 
-.status.error .progress-label {
+.progress-track.error .progress-label {
   color: #fff7f7;
   text-shadow:
     0 1px 0 rgba(48, 14, 22, 0.42),
     0 0 1px rgba(48, 14, 22, 0.22);
 }
 
-:root[data-theme="dark"] .status.error .progress-label {
+:root[data-theme="dark"] .progress-track.error .progress-label {
   color: #fbf0f2;
   text-shadow:
     0 1px 0 rgba(24, 8, 12, 0.42),
@@ -485,6 +485,13 @@ body {
   background: #8b2635;
   border-color: #8b2635;
   color: #e0e2db;
+}
+
+.btn.danger.delete-armed {
+  background: #f4b400;
+  border-color: #f4b400;
+  color: #2e3532;
+  font-weight: 900;
 }
 
 .btn.favorite-active {

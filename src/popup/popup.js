@@ -60,6 +60,14 @@ let hoverPreviewTimer = 0;
 let hoverPreviewSrc = "";
 let hoverPointerX = 0;
 let hoverPointerY = 0;
+let armedDeleteItemId = "";
+let armedDeleteTimer = 0;
+let armedDeleteButton = null;
+let currentImportState = null;
+let transientStatusTimer = 0;
+let transientStatusActive = false;
+let suppressNextStoredImportStateRemoval = false;
+let transientProgressSnapshot = null;
 
 function defaultPopupMenuConfig() {
   return {
@@ -108,6 +116,11 @@ function setProgressState(state) {
     return;
   }
 
+  if (!state) {
+    clearProgressVisuals();
+    return;
+  }
+
   const percent = getImportProgressPercent(state);
   const kind = state?.kind || "";
   const isVisible = Boolean(
@@ -118,6 +131,42 @@ function setProgressState(state) {
   progressTrackEl.classList.toggle("error", kind === "error");
   progressBarEl.style.width = `${percent}%`;
   progressLabelEl.textContent = state?.text || "";
+}
+
+function clearProgressVisuals(options = {}) {
+  if (!progressTrackEl || !progressBarEl || !progressLabelEl) {
+    return;
+  }
+  const clearText = options.clearText !== false;
+  progressTrackEl.classList.remove("active", "ok", "error");
+  progressBarEl.style.width = "0%";
+  if (clearText) {
+    progressLabelEl.textContent = "";
+  }
+}
+
+function captureProgressVisuals() {
+  if (!progressTrackEl || !progressBarEl || !progressLabelEl) {
+    return null;
+  }
+  return {
+    active: progressTrackEl.classList.contains("active"),
+    ok: progressTrackEl.classList.contains("ok"),
+    error: progressTrackEl.classList.contains("error"),
+    width: progressBarEl.style.width || "0%",
+    text: progressLabelEl.textContent || "",
+  };
+}
+
+function restoreProgressVisuals(snapshot) {
+  if (!snapshot || !progressTrackEl || !progressBarEl || !progressLabelEl) {
+    return;
+  }
+  progressTrackEl.classList.toggle("active", Boolean(snapshot.active));
+  progressTrackEl.classList.toggle("ok", Boolean(snapshot.ok));
+  progressTrackEl.classList.toggle("error", Boolean(snapshot.error));
+  progressBarEl.style.width = snapshot.width || "0%";
+  progressLabelEl.textContent = snapshot.text || "";
 }
 
 function setStatus(text, kind = "") {
@@ -135,7 +184,59 @@ function setStatus(text, kind = "") {
   statusEl.className = normalizedKind ? `status ${normalizedKind}` : "status";
 }
 
-function applyImportState(state) {
+function clearTransientStatusTimer() {
+  if (!transientStatusTimer) {
+    return;
+  }
+  clearTimeout(transientStatusTimer);
+  transientStatusTimer = 0;
+}
+
+function clearTransientStatus() {
+  transientStatusActive = false;
+  clearTransientStatusTimer();
+  transientProgressSnapshot = null;
+}
+
+function showTransientStatus(
+  text,
+  kind = "",
+  durationMs = 2000,
+  options = {},
+) {
+  const preserveProgress =
+    options.preserveProgress ?? true;
+  transientProgressSnapshot = preserveProgress ? captureProgressVisuals() : null;
+  clearTransientStatusTimer();
+  transientStatusActive = true;
+  setStatus(text, kind);
+  transientStatusTimer = setTimeout(() => {
+    transientStatusTimer = 0;
+    transientStatusActive = false;
+    if (currentImportState?.text) {
+      transientProgressSnapshot = null;
+      applyImportState(currentImportState, { force: true });
+      return;
+    }
+    if (transientProgressSnapshot) {
+      restoreProgressVisuals(transientProgressSnapshot);
+      transientProgressSnapshot = null;
+      return;
+    }
+    setStatus("");
+  }, durationMs);
+}
+
+function applyImportState(state, options = {}) {
+  currentImportState = state?.text ? state : null;
+  if (state?.active) {
+    activeImportRequestId = state.requestId || activeImportRequestId;
+  } else if (state?.requestId && state.requestId === activeImportRequestId) {
+    activeImportRequestId = "";
+  }
+  if (transientStatusActive && !options.force) {
+    return;
+  }
   if (!state || !state.text) {
     setProgressState(null);
     return;
@@ -145,7 +246,36 @@ function applyImportState(state) {
   setProgressState(state);
 }
 
+function syncImportActionButton() {
+  const isActiveImport = Boolean(currentImportState?.active);
+  importBtn.textContent = isActiveImport ? "Terminate" : "Import";
+}
+
+async function terminateImport() {
+  const requestId = activeImportRequestId || currentImportState?.requestId || "";
+  if (!requestId) {
+    showTransientStatus("No active import to terminate.", "error");
+    return;
+  }
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: "TERMINATE_IMPORT",
+      requestId,
+    });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Terminate failed");
+    }
+    showTransientStatus("Import termination requested.", "ok");
+  } catch (error) {
+    showTransientStatus(error?.message || "Terminate failed.", "error");
+  }
+}
+
 function setImportErrorState(text) {
+  clearTransientStatus();
+  currentImportState = null;
+  syncImportActionButton();
   setStatus(text, "error");
   setProgressState({
     text,
@@ -155,6 +285,9 @@ function setImportErrorState(text) {
 }
 
 function setImportSuccessState(text) {
+  clearTransientStatus();
+  currentImportState = null;
+  syncImportActionButton();
   setStatus(text, "ok");
   setProgressState({
     text,
@@ -257,6 +390,8 @@ function buildPreviewUrl(item) {
 
 function cleanupObjectUrls() {
   hideHoverPreview();
+  clearArmedDelete();
+  clearTransientStatus();
   for (const url of objectUrlById.values()) {
     URL.revokeObjectURL(url);
   }
@@ -354,6 +489,42 @@ function scheduleHoverPreview(previewUrl, event) {
   }, popupMenuConfig.hoverPreviewDelayMs);
 }
 
+function resetDeleteButton(button) {
+  if (!(button instanceof HTMLElement)) {
+    return;
+  }
+  button.classList.remove("delete-armed");
+  button.textContent = "\u2715";
+  button.title = "Delete";
+  button.setAttribute("aria-label", "Delete");
+}
+
+function clearArmedDelete() {
+  if (armedDeleteTimer) {
+    clearTimeout(armedDeleteTimer);
+    armedDeleteTimer = 0;
+  }
+  resetDeleteButton(armedDeleteButton);
+  armedDeleteItemId = "";
+  armedDeleteButton = null;
+}
+
+function armDeleteButton(button, itemId) {
+  clearArmedDelete();
+  armedDeleteItemId = String(itemId);
+  armedDeleteButton = button;
+  if (button instanceof HTMLElement) {
+    button.classList.add("delete-armed");
+    button.textContent = "\u2713";
+    button.title = "Confirm delete";
+    button.setAttribute("aria-label", "Confirm delete");
+  }
+  showTransientStatus("Click delete again to confirm.", "ok", 2000);
+  armedDeleteTimer = setTimeout(() => {
+    clearArmedDelete();
+  }, 2000);
+}
+
 // Item actions that mutate stored media state.
 async function copyItemBlob(item) {
   const canWriteBlob =
@@ -410,12 +581,12 @@ function isVideoLikeUrl(url) {
 
 function setCopyStatus(item, result) {
   if (!result?.ok) {
-    setStatus("Copy failed.", "error");
+    showTransientStatus("Copy failed.", "error");
     return;
   }
 
   if (result.method === "blob") {
-    setStatus("Copied GIF.", "ok");
+    showTransientStatus("Copied GIF.", "ok");
     return;
   }
 
@@ -423,7 +594,10 @@ function setCopyStatus(item, result) {
   const isVideoLink =
     String(item?.mimeType || "").startsWith("video/") || isVideoLikeUrl(copiedUrl);
   const label = isVideoLink ? "Copied video link." : "Copied GIF link.";
-  setStatus(`${label} Tip: drag and drop the GIF preview to use the GIF directly.`);
+  showTransientStatus(
+    `${label} Tip: drag and drop the GIF preview to use the GIF directly.`,
+    "ok",
+  );
 }
 
 async function removeItem(id) {
@@ -675,7 +849,15 @@ function buildCard(item) {
     text: "\u2715",
     title: "Delete",
     label: "Delete",
-    onClick: () => removeItem(item.id),
+  });
+  removeBtn.addEventListener("click", () => {
+    if (armedDeleteItemId === String(item.id)) {
+      clearArmedDelete();
+      showTransientStatus("GIF deleted.", "ok");
+      void removeItem(item.id);
+      return;
+    }
+    armDeleteButton(removeBtn, item.id);
   });
 
   actions.append(copyBtn, favoriteBtn, removeBtn);
@@ -688,6 +870,7 @@ function buildCard(item) {
 // Because render is an async function renderId and renderSequence is used as a race guard here
 async function render() {
   hideHoverPreview();
+  clearArmedDelete();
   const renderId = ++renderSequence;
   const items = await idbGetAllMedia();
   if (renderId !== renderSequence) {
@@ -742,6 +925,7 @@ async function render() {
 
 // Import flow and permission handoff.
 async function importUrl(rawUrl) {
+  clearTransientStatus();
   const url = String(rawUrl || "").trim();
   if (!url) {
     setStatus("Paste a URL first.");
@@ -754,6 +938,13 @@ async function importUrl(rawUrl) {
 
   const requestId = crypto.randomUUID();
   activeImportRequestId = requestId;
+  currentImportState = {
+    requestId,
+    text: "Starting import...",
+    kind: "info",
+    active: true,
+  };
+  syncImportActionButton();
   setStatus("Starting import...");
   setProgressState({
     text: "Starting import...",
@@ -773,6 +964,8 @@ async function importUrl(rawUrl) {
       );
       setProgressState(null);
       activeImportRequestId = "";
+      currentImportState = null;
+      syncImportActionButton();
       return;
     }
   } catch (error) {
@@ -809,6 +1002,8 @@ async function importUrl(rawUrl) {
       );
       setProgressState(null);
       activeImportRequestId = "";
+      currentImportState = null;
+      syncImportActionButton();
       return;
     }
     setImportErrorState(error?.message || "Import failed");
@@ -863,7 +1058,13 @@ function applyImportAssistFromQuery() {
   }
 }
 
-importBtn.addEventListener("click", () => importUrl(importInput.value));
+importBtn.addEventListener("click", () => {
+  if (currentImportState?.active) {
+    void terminateImport();
+    return;
+  }
+  void importUrl(importInput.value);
+});
 importInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     importUrl(importInput.value);
@@ -881,7 +1082,7 @@ clearAllBtn.addEventListener("click", async () => {
   }
   await idbClear();
   cleanupObjectUrls();
-  setStatus("Vault cleared.", true);
+  showTransientStatus("Vault cleared.", "ok");
   await safeLog("popup", "Vault cleared");
   await render();
 });
@@ -943,6 +1144,7 @@ chrome.runtime.onMessage.addListener((message) => {
     return;
   }
   applyImportState(message);
+  syncImportActionButton();
 });
 
 function applyTheme(mode) {
@@ -961,6 +1163,12 @@ function getImportState() {
     chrome.storage.local.get([STORAGE_KEYS.importState], (result) => {
       resolve(result[STORAGE_KEYS.importState] || null);
     });
+  });
+}
+
+function clearStoredImportState() {
+  return new Promise((resolve) => {
+    chrome.storage.local.remove([STORAGE_KEYS.importState], resolve);
   });
 }
 
@@ -996,11 +1204,19 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
   const nextState = changes[STORAGE_KEYS.importState].newValue || null;
   const prevState = changes[STORAGE_KEYS.importState].oldValue || null;
+  if (!nextState && suppressNextStoredImportStateRemoval) {
+    suppressNextStoredImportStateRemoval = false;
+    return;
+  }
   if (nextState) {
     applyImportState(nextState);
   } else {
-    setProgressState(null);
+    currentImportState = null;
+    if (!transientStatusActive) {
+      setProgressState(null);
+    }
   }
+  syncImportActionButton();
   if ((prevState?.active || false) && !nextState?.active) {
     void render();
   }
@@ -1021,9 +1237,16 @@ async function init() {
   applyTheme(await getThemeMode());
   applyImportAssistFromQuery();
   const importState = await getImportState();
-  if (importState?.active) {
+  if (importState?.text) {
     applyImportState(importState);
+    if (!importState.active) {
+      suppressNextStoredImportStateRemoval = true;
+      await clearStoredImportState();
+    }
+  } else {
+    currentImportState = importState || null;
   }
+  syncImportActionButton();
   await render();
 }
 
