@@ -56,6 +56,24 @@ body {
   padding: 12px;
 }
 
+.notice-panel {
+  border-left: 4px solid var(--accent-line);
+}
+
+.notice-panel strong {
+  display: block;
+  font-size: 13px;
+  color: var(--accent-text);
+  margin-bottom: 4px;
+}
+
+.notice-panel p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .header {
   display: flex;
   align-items: center;
@@ -85,11 +103,14 @@ h2 {
   gap: 10px;
 }
 
-.hover-preview-row {
+.hover-preview-group {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--accent-bg);
 }
 
 .field {
@@ -103,15 +124,25 @@ h2 {
   color: var(--muted);
 }
 
-.checkbox-field {
-  align-content: start;
+.toggle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 600;
+  width: fit-content;
 }
 
-.checkbox-field input[type="checkbox"] {
+.toggle-row input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  margin: 2px 0 0;
+  margin: 0;
   padding: 0;
+}
+
+.delay-field {
+  max-width: 280px;
 }
 
 .field.disabled span {
@@ -211,4 +242,10 @@ input:disabled {
 .icon-btn:active:not(:disabled) {
   transform: scale(0.97);
   filter: brightness(0.92);
+}
+
+@media (max-width: 640px) {
+  .delay-field {
+    max-width: 100%;
+  }
 }

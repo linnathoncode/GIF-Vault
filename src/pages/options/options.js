@@ -21,7 +21,7 @@ const hoverPreviewEnabledInput = document.getElementById(
   "popupHoverPreviewEnabled",
 );
 const hoverPreviewDelayInput = document.getElementById(
-  "popupHovqerPreviewDelayMs",
+  "popupHoverPreviewDelayMs",
 );
 const hoverPreviewDelayField = document.getElementById(
   "popupHoverPreviewDelayField",
