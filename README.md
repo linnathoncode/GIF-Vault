@@ -64,6 +64,11 @@ npm run build
 
 In PowerShell on some systems, use `npm.cmd run build` if `npm.ps1` is blocked by execution policy.
 
+## Chrome Web Store
+Install directly from the Chrome Web Store:
+
+- https://chromewebstore.google.com/detail/kcpmhpeolcdfbbfndkhfnbhmfknfjelp
+
 ## Release Download
 If you do not want to build locally, download a prebuilt package from GitHub Releases.
 
