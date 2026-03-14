@@ -44,7 +44,7 @@ On some PowerShell setups, use `npm.cmd run build` if `npm.ps1` is blocked by ex
 
 ## Chrome Web Store
 
-- `https://chromewebstore.google.com/detail/kcpmhpeolcdfbbfndkhfnbhmfknfjelp?utm_source=item-share-cb`
+- [Install from Chrome Web Store](https://chromewebstore.google.com/detail/kcpmhpeolcdfbbfndkhfnbhmfknfjelp?utm_source=item-share-cb)
 
 ## Release Downloads
 
@@ -59,7 +59,7 @@ If you prefer prebuilt packages, download from GitHub Releases:
 
 ## Privacy Policy
 
-- `https://linnathoncode.github.io/GIF-Vault/privacy-policy.html`
+- [Privacy Policy](https://linnathoncode.github.io/GIF-Vault/privacy-policy.html)
 
 ## Load Unpacked
 
