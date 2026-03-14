@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "GIF Vault",
+  "name": "GIF Vault: Save, Convert & Organize",
   "version": "1.4.0",
   "description": "Save, organize, and convert GIFs/videos from web URLs and X/Twitter posts into a local searchable vault.",
   "icons": {
