@@ -1,6 +1,7 @@
 const STORAGE_KEYS = {
   themeMode: "themeMode",
   importState: "importState",
+  runtimeConfig: "runtimeConfig",
 };
 
 const CONTEXT_MENU = {
@@ -52,11 +53,15 @@ const ICONS = {
 
 const POPUP_MENU = {
   pageSize: 12,
+  defaultTab: "all",
+  hoverPreviewEnabled: true,
+  hoverPreviewDelayMs: 500,
   copyFeedbackResetDelayMs: 900,
   importProgressPercent: {
     resolving: 16,
     fetching: 40,
-    converting: 66,
+    checking: 58,
+    converting: 72,
     saving: 88,
     idle: 12,
     complete: 100,

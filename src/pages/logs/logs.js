@@ -1,13 +1,13 @@
-import { idbGetLogs, idbClearLogs } from "../lib/db.js";
-import { STORAGE_KEYS } from "../lib/settings.js";
-import { formatBytes } from "../lib/ui.js";
+import { idbGetLogs, idbClearLogs } from "../../lib/db.js";
+import { STORAGE_KEYS } from "../../lib/settings.js";
+import { formatBytes } from "../../lib/ui.js";
 import {
   applyDocumentTheme,
   getThemeMode,
   setThemeMode,
   setThemeToggleGlyph,
   setToolbarIcon
-} from "../lib/theme.js";
+} from "../../lib/theme.js";
 
 const logsEl = document.getElementById("logs");
 const statusEl = document.getElementById("status");

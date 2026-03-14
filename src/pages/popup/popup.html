@@ -10,7 +10,7 @@
   <main class="container">
     <section class="panel header">
       <div class="brand">
-        <img id="brandLogo" class="brand-logo" src="../assets/icons/icon-dark-128.png" alt="GIF Vault logo" />
+        <img id="brandLogo" class="brand-logo" src="../../assets/icons/icon-dark-128.png" alt="GIF Vault logo" />
         <div>
         <h1 class="title">GIF Vault</h1>
         <div id="count" class="count">0 saved</div>
@@ -18,7 +18,14 @@
       </div>
       <div class="header-actions">
         <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme">&#9790;</button>
-        <button id="openLogsBtn" class="icon-btn logs-btn" type="button" title="Open Logs" aria-label="Open Logs">&#128203;</button>
+        <button id="openOptionsBtn" class="icon-btn" type="button" title="Open Options" aria-label="Open Options">&#9881;</button>
+        <button id="openLogsBtn" class="icon-btn logs-btn" type="button" title="Open Logs" aria-label="Open Logs">
+          <svg class="logs-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7 4h8l4 4v12H7z" />
+            <path d="M15 4v4h4" />
+            <path d="M10 12h6M10 15h6M10 18h4" />
+          </svg>
+        </button>
         <button id="clearAllBtn" class="danger-btn" type="button">Clear all</button>
       </div>
     </section>
@@ -49,6 +56,9 @@
 
     <section id="grid" class="grid" aria-live="polite"></section>
   </main>
+  <div id="hoverPreview" class="hover-preview" aria-hidden="true">
+    <img id="hoverPreviewImg" class="hover-preview-img" alt="" />
+  </div>
 
   <script type="module" src="popup.js"></script>
 </body>

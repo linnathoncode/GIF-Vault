@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GIF Vault Options</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="wrap">
+    <section class="panel header">
+      <div>
+        <h1 class="title">GIF Vault Options</h1>
+        <div class="subtitle">Adjust UI and GIF conversion constants</div>
+      </div>
+      <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme">&#9790;</button>
+    </section>
+
+    <section class="panel notice-panel" aria-label="Options warning">
+      <strong>Use defaults when possible.</strong>
+      <p>
+        Changing these settings can increase CPU usage, memory usage, and storage size.
+        Default settings are recommended for stability and predictable performance.
+      </p>
+    </section>
+
+    <form id="optionsForm" class="form-grid" novalidate>
+      <section class="panel">
+        <h2>GIF Conversion</h2>
+        <div class="field-grid">
+          <label class="field">
+            <span>FPS (1-30)</span>
+            <input id="gifFps" name="gifFps" type="number" min="1" max="30" step="1" required>
+          </label>
+          <label class="field">
+            <span>Width (120-1920)</span>
+            <input id="gifWidth" name="gifWidth" type="number" min="120" max="1920" step="1" required>
+          </label>
+          <label class="field">
+            <span>Max Colors (2-256)</span>
+            <input id="gifMaxColors" name="gifMaxColors" type="number" min="2" max="256" step="1" required>
+          </label>
+          <label class="field">
+            <span>Max Duration Seconds (1-60)</span>
+            <input id="gifMaxDurationSeconds" name="gifMaxDurationSeconds" type="number" min="1" max="60" step="1" required>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Popup UI</h2>
+        <div class="field-grid">
+          <label class="field">
+            <span>Default Tab</span>
+            <select id="popupDefaultTab" name="popupDefaultTab">
+              <option value="all">All</option>
+              <option value="favorites">Favorites</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Page Size (1-60)</span>
+            <input id="popupPageSize" name="popupPageSize" type="number" min="1" max="60" step="1" required>
+          </label>
+          <div class="hover-preview-group">
+            <label class="toggle-row" for="popupHoverPreviewEnabled">
+              <input id="popupHoverPreviewEnabled" name="popupHoverPreviewEnabled" type="checkbox">
+              <span>Enable Hover Preview</span>
+            </label>
+            <label id="popupHoverPreviewDelayField" class="field delay-field">
+              <span>Preview Delay ms (500-5000)</span>
+              <input id="popupHoverPreviewDelayMs" name="popupHoverPreviewDelayMs" type="number" min="500" max="5000" step="100" required>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel actions-panel">
+        <div id="status" class="status" aria-live="polite">Loading options...</div>
+        <div class="actions">
+          <button id="resetBtn" class="btn" type="button">Reset defaults</button>
+          <button id="saveBtn" class="btn primary" type="submit">Save options</button>
+        </div>
+      </section>
+    </form>
+  </main>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>
