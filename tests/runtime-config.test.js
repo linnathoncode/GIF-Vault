@@ -29,6 +29,7 @@ describe("runtime config normalization", () => {
         importProgressPercent: {
           resolving: -5,
           fetching: 101,
+          checking: "58",
           converting: "not-a-number",
           saving: "88",
           idle: null,
@@ -55,6 +56,7 @@ describe("runtime config normalization", () => {
       importProgressPercent: {
         resolving: 0,
         fetching: 100,
+        checking: 58,
         converting: DEFAULT_RUNTIME_CONFIG.popupMenu.importProgressPercent.converting,
         saving: 88,
         idle: DEFAULT_RUNTIME_CONFIG.popupMenu.importProgressPercent.idle,

@@ -30,6 +30,9 @@ export function createPopupStatusController({
     if (text.includes("saving")) {
       return popupMenuConfig.importProgressPercent.saving;
     }
+    if (text.includes("checking video length")) {
+      return popupMenuConfig.importProgressPercent.checking;
+    }
     if (text.includes("converting")) {
       return popupMenuConfig.importProgressPercent.converting;
     }

@@ -23,6 +23,7 @@ async function importFromUrl(
 ) {
   const progressId = requestId || crypto.randomUUID();
   const abortController = new AbortController();
+  const ensureImportActive = () => throwIfTerminated(progressId, abortController);
   importAbortControllerById.set(progressId, abortController);
 
   const runtimeConfig = await getRuntimeConfig();
@@ -36,12 +37,12 @@ async function importFromUrl(
 
   await reportProgress(progressId, "Resolving media URL...", true, "info");
   try {
-    throwIfTerminated(progressId);
+    ensureImportActive();
     await safeLog("import", "Import started", { url, pageUrl: pageUrl || "" });
     await ensureOriginAccess(url);
 
     const resolvedMediaUrl = resolvedHint || (await resolveMediaUrl(url));
-    throwIfTerminated(progressId);
+    ensureImportActive();
     if (!resolvedMediaUrl) {
       await safeLog("resolve", "Failed to resolve media URL", { url });
       throw new Error("Could not resolve media URL");
@@ -57,7 +58,7 @@ async function importFromUrl(
     const response = await fetch(resolvedMediaUrl, {
       signal: abortController.signal,
     });
-    throwIfTerminated(progressId);
+    ensureImportActive();
     if (!response.ok) {
       await safeLog("fetch", "Fetch failed", {
         resolvedMediaUrl,
@@ -80,7 +81,7 @@ async function importFromUrl(
     }
 
     const inputBlob = await response.blob();
-    throwIfTerminated(progressId);
+    ensureImportActive();
     const ext = extensionFromUrl(resolvedMediaUrl, inputBlob.type);
     const isVideoMedia =
       (inputBlob.type || "").startsWith("video/") ||
@@ -92,7 +93,7 @@ async function importFromUrl(
     let converted = false;
 
     if (isVideoMedia) {
-      await reportProgress(progressId, "Converting video to GIF...", true, "info");
+      await reportProgress(progressId, "Checking video length...", true, "info");
       await safeLog("convert", "Video detected, offscreen conversion requested", {
         resolvedMediaUrl,
         sourceUrl: url,
@@ -101,13 +102,36 @@ async function importFromUrl(
         isTwitterSource: isTwitterUrl(url),
       });
       try {
+        const inputBytes = new Uint8Array(await inputBlob.arrayBuffer());
+        ensureImportActive();
+        const durationSeconds = await probeDurationInOffscreen({
+          url: resolvedMediaUrl,
+          inputExtension: ext,
+          inputBytes,
+        });
+        ensureImportActive();
+        if (durationSeconds > gifConversionConfig.maxDurationSeconds) {
+          await safeLog("convert", "Rejected long video in background", {
+            durationSeconds,
+            maxDurationSeconds: gifConversionConfig.maxDurationSeconds,
+          });
+          throw new Error(
+            `Video too long (${gifConversionConfig.maxDurationSeconds}s/${durationSeconds.toFixed(1)}s). Change length limit in Options.`,
+          );
+        }
+
+        await reportProgress(progressId, "Converting video to GIF...", true, "info");
         const convertedPayload = await convertInOffscreen(
-          resolvedMediaUrl,
-          `vault-${Date.now()}.gif`,
-          ext,
-          gifConversionConfig,
+          {
+            url: resolvedMediaUrl,
+            requestId: progressId,
+            filename: `vault-${Date.now()}.gif`,
+            inputExtension: ext,
+            gifConversion: gifConversionConfig,
+            inputBytes,
+          },
         );
-        throwIfTerminated(progressId);
+        ensureImportActive();
         const rebuiltBlob = blobFromConvertedPayload(convertedPayload);
         await safeLog("convert", "Offscreen conversion response received", {
           converted: Boolean(convertedPayload?.converted),
@@ -135,18 +159,6 @@ async function importFromUrl(
           throw new Error("Could not convert video to GIF.");
         }
       } catch (error) {
-        if (String(error?.message || "").startsWith("VIDEO_TOO_LONG:")) {
-          const seconds = Number.parseFloat(
-            String(error.message).split(":")[1] || "0",
-          );
-          await safeLog("convert", "Rejected long video in background", {
-            durationSeconds: seconds,
-            maxDurationSeconds: gifConversionConfig.maxDurationSeconds,
-          });
-          throw new Error(
-            `Video is too long (${gifConversionConfig.maxDurationSeconds}s/${seconds.toFixed(1)}s). You can change the max allowed video length in Settings.`,
-          );
-        }
         await safeLog("convert", "Offscreen conversion failed", {
           error: error?.message || "unknown",
           extension: ext,
@@ -155,7 +167,7 @@ async function importFromUrl(
       }
     }
 
-    throwIfTerminated(progressId);
+    ensureImportActive();
     await reportProgress(progressId, "Saving to vault...", true, "info");
     const item = {
       id: crypto.randomUUID(),
@@ -211,8 +223,11 @@ async function terminateImport(requestId) {
   return Boolean(controller);
 }
 
-function throwIfTerminated(requestId) {
-  if (terminatedImportIds.has(requestId)) {
+function throwIfTerminated(requestId, abortController = null) {
+  if (
+    terminatedImportIds.has(requestId) ||
+    Boolean(abortController?.signal?.aborted)
+  ) {
     throw new Error("IMPORT_TERMINATED");
   }
 }
@@ -230,20 +245,24 @@ async function ensureOffscreenDocument() {
   });
 }
 
-async function convertInOffscreen(
+async function convertInOffscreen({
   url,
+  requestId = "",
   filename,
   inputExtension = "",
   gifConversion = null,
-) {
+  inputBytes = null,
+}) {
   await ensureOffscreenDocument();
 
   const response = await chrome.runtime.sendMessage({
     type: "OFFSCREEN_CONVERT_MP4",
     url,
+    requestId,
     filename,
     inputExtension,
     gifConversion,
+    inputBytes,
   });
   if (!response?.ok) {
     await safeLog("convert", "Offscreen conversion failed", {
@@ -253,6 +272,33 @@ async function convertInOffscreen(
   }
 
   return response.payload;
+}
+
+async function probeDurationInOffscreen({
+  url,
+  inputExtension = "",
+  inputBytes = null,
+}) {
+  await ensureOffscreenDocument();
+
+  const response = await chrome.runtime.sendMessage({
+    type: "OFFSCREEN_PROBE_VIDEO_DURATION",
+    url,
+    inputExtension,
+    inputBytes,
+  });
+  if (!response?.ok) {
+    await safeLog("convert", "Offscreen probe failed", {
+      error: response?.error || "unknown",
+    });
+    throw new Error(response?.error || "Could not check video length.");
+  }
+
+  const durationSeconds = Number(response?.durationSeconds);
+  if (!Number.isFinite(durationSeconds) || durationSeconds < 0) {
+    throw new Error("Could not determine video duration.");
+  }
+  return durationSeconds;
 }
 
 function blobFromConvertedPayload(payload) {

@@ -16,30 +16,49 @@ ffmpeg.on("log", ({ message }) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message || message.type !== "OFFSCREEN_CONVERT_MP4") {
+  if (!message) {
     return;
   }
 
-  void safeLog("offscreen", "Conversion request received", {
-    url: message.url || "",
-    filename: message.filename || ""
-  });
-
-  convertMp4ToGif(message)
-    .then(async (payload) => {
-      await safeLog("offscreen", "Conversion routine completed", {
-        converted: Boolean(payload?.converted),
-        mimeType: payload?.mimeType || "",
-        reason: payload?.reason || ""
+  if (message.type === "OFFSCREEN_PROBE_VIDEO_DURATION") {
+    void safeLog("offscreen", "Probe request received", {
+      url: message.url || "",
+      hasInputBytes: Boolean(message.inputBytes),
+    });
+    probeDuration(message)
+      .then((durationSeconds) => sendResponse({ ok: true, durationSeconds }))
+      .catch(async (error) => {
+        await safeLog("offscreen", "Probe routine failed", {
+          error: error?.message || "unknown",
+        });
+        sendResponse({ ok: false, error: error?.message || "Probe failed" });
       });
-      sendResponse({ ok: true, payload });
-    })
-    .catch(async (error) => {
-      await safeLog("offscreen", "Conversion routine failed", { error: error?.message || "unknown" });
-      sendResponse({ ok: false, error: error?.message || "Conversion failed" });
+    return true;
+  }
+
+  if (message.type === "OFFSCREEN_CONVERT_MP4") {
+    void safeLog("offscreen", "Conversion request received", {
+      url: message.url || "",
+      filename: message.filename || "",
+      hasInputBytes: Boolean(message.inputBytes),
     });
 
-  return true;
+    convertMp4ToGif(message)
+      .then(async (payload) => {
+        await safeLog("offscreen", "Conversion routine completed", {
+          converted: Boolean(payload?.converted),
+          mimeType: payload?.mimeType || "",
+          reason: payload?.reason || ""
+        });
+        sendResponse({ ok: true, payload });
+      })
+      .catch(async (error) => {
+        await safeLog("offscreen", "Conversion routine failed", { error: error?.message || "unknown" });
+        sendResponse({ ok: false, error: error?.message || "Conversion failed" });
+      });
+
+    return true;
+  }
 });
 
 async function convertMp4ToGif(message) {
@@ -52,9 +71,8 @@ async function convertMp4ToGif(message) {
       : "mp4";
   const inputName = `input-${Date.now()}.${inputExtension}`;
   const outputName = `output-${Date.now()}.gif`;
-  const probeName = `probe-${Date.now()}.txt`;
 
-  const inputData = await fetchFile(message.url);
+  const inputData = await getInputData(message);
   if (!(inputData instanceof Uint8Array) || inputData.length === 0) {
     throw new Error("Input media bytes are empty");
   }
@@ -67,16 +85,6 @@ async function convertMp4ToGif(message) {
   });
 
   await ffmpeg.writeFile(inputName, inputData);
-  const durationSeconds = await probeVideoDuration(inputName, probeName);
-  if (durationSeconds > gifConversion.maxDurationSeconds) {
-    await safeLog("offscreen", "Rejected long video", {
-      durationSeconds,
-      maxDurationSeconds: gifConversion.maxDurationSeconds
-    });
-    await safeDeleteFile(inputName);
-    await safeDeleteFile(probeName);
-    throw new Error(`VIDEO_TOO_LONG:${durationSeconds.toFixed(2)}`);
-  }
 
   await ffmpeg.exec([
     "-i",
@@ -95,7 +103,6 @@ async function convertMp4ToGif(message) {
 
   await safeDeleteFile(inputName);
   await safeDeleteFile(outputName);
-  await safeDeleteFile(probeName);
 
   const gifBase64 = uint8ToBase64(outputData);
   await safeLog("offscreen", "ffmpeg conversion finished", {
@@ -110,6 +117,50 @@ async function convertMp4ToGif(message) {
     mimeType: "image/gif",
     filename: message.filename || `vault-${Date.now()}.gif`
   };
+}
+
+async function probeDuration(message) {
+  await ensureFfmpegLoaded();
+
+  const inputExtension =
+    message.inputExtension === "webm" || message.inputExtension === "mp4"
+      ? message.inputExtension
+      : "mp4";
+  const inputName = `input-${Date.now()}.${inputExtension}`;
+  const probeName = `probe-${Date.now()}.txt`;
+  const inputData = await getInputData(message);
+  if (!(inputData instanceof Uint8Array) || inputData.length === 0) {
+    throw new Error("Input media bytes are empty");
+  }
+
+  await ffmpeg.writeFile(inputName, inputData);
+  try {
+    return await probeVideoDuration(inputName, probeName);
+  } finally {
+    await safeDeleteFile(inputName);
+    await safeDeleteFile(probeName);
+  }
+}
+
+async function getInputData(message) {
+  const inputBytes = message?.inputBytes;
+  if (inputBytes instanceof Uint8Array) {
+    return inputBytes;
+  }
+  if (inputBytes instanceof ArrayBuffer) {
+    return new Uint8Array(inputBytes);
+  }
+  if (ArrayBuffer.isView(inputBytes)) {
+    return new Uint8Array(
+      inputBytes.buffer,
+      inputBytes.byteOffset,
+      inputBytes.byteLength,
+    );
+  }
+  if (message?.url) {
+    return fetchFile(message.url);
+  }
+  return new Uint8Array();
 }
 
 function resolveGifConversionConfig(rawConfig) {

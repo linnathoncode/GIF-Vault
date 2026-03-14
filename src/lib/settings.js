@@ -60,7 +60,8 @@ const POPUP_MENU = {
   importProgressPercent: {
     resolving: 16,
     fetching: 40,
-    converting: 66,
+    checking: 58,
+    converting: 72,
     saving: 88,
     idle: 12,
     complete: 100,

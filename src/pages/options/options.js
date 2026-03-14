@@ -13,14 +13,16 @@ import {
   setToolbarIcon,
 } from "../../lib/theme.js";
 
-const formEl = document.getElementById("settingsForm");
+const formEl = document.getElementById("optionsForm");
 const statusEl = document.getElementById("status");
 const resetBtn = document.getElementById("resetBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 const hoverPreviewEnabledInput = document.getElementById(
   "popupHoverPreviewEnabled",
 );
-const hoverPreviewDelayInput = document.getElementById("popupHoverPreviewDelayMs");
+const hoverPreviewDelayInput = document.getElementById(
+  "popupHovqerPreviewDelayMs",
+);
 const hoverPreviewDelayField = document.getElementById(
   "popupHoverPreviewDelayField",
 );
@@ -64,7 +66,7 @@ function toInt(id) {
   return Number.parseInt(String(input?.value ?? ""), 10);
 }
 
-// Settings form serialization.
+// Options form serialization.
 function fillForm(config) {
   assignValue("gifFps", config.gifConversion.fps);
   assignValue("gifWidth", config.gifConversion.width);
@@ -72,7 +74,10 @@ function fillForm(config) {
   assignValue("gifMaxDurationSeconds", config.gifConversion.maxDurationSeconds);
 
   assignValue("popupDefaultTab", config.popupMenu.defaultTab);
-  assignChecked("popupHoverPreviewEnabled", config.popupMenu.hoverPreviewEnabled);
+  assignChecked(
+    "popupHoverPreviewEnabled",
+    config.popupMenu.hoverPreviewEnabled,
+  );
   assignValue("popupPageSize", config.popupMenu.pageSize);
   assignValue("popupHoverPreviewDelayMs", config.popupMenu.hoverPreviewDelayMs);
   syncHoverPreviewDelayState();
@@ -105,7 +110,7 @@ function syncHoverPreviewDelayState() {
   }
 }
 
-// Theme handling for the settings page.
+// Theme handling for the options page.
 function applyTheme(mode) {
   const theme = applyDocumentTheme(mode);
   setThemeToggleGlyph(themeToggleBtn, theme);
@@ -125,7 +130,7 @@ formEl.addEventListener("submit", async (event) => {
   const normalized = normalizeRuntimeConfig(readFormConfig());
   await setRuntimeConfig(normalized);
   fillForm(normalized);
-  setStatus("Settings saved. Reopen popup to apply UI changes.", "ok");
+  setStatus("Options saved. Reopen popup to apply UI changes.", "ok");
 });
 
 resetBtn.addEventListener("click", async () => {
@@ -155,7 +160,9 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 
   if (changes[STORAGE_KEYS.runtimeConfig]?.newValue) {
-    fillForm(normalizeRuntimeConfig(changes[STORAGE_KEYS.runtimeConfig].newValue));
+    fillForm(
+      normalizeRuntimeConfig(changes[STORAGE_KEYS.runtimeConfig].newValue),
+    );
   }
 });
 

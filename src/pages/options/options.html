@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GIF Vault Settings</title>
-  <link rel="stylesheet" href="settings.css">
+  <title>GIF Vault Options</title>
+  <link rel="stylesheet" href="options.css">
 </head>
 <body>
   <main class="wrap">
     <section class="panel header">
       <div>
-        <h1 class="title">GIF Vault Settings</h1>
+        <h1 class="title">GIF Vault Options</h1>
         <div class="subtitle">Adjust UI and GIF conversion constants</div>
       </div>
       <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme">&#9790;</button>
     </section>
 
-    <form id="settingsForm" class="form-grid" novalidate>
+    <form id="optionsForm" class="form-grid" novalidate>
       <section class="panel">
         <h2>GIF Conversion</h2>
         <div class="field-grid">
@@ -67,15 +67,15 @@
       </section>
 
       <section class="panel actions-panel">
-        <div id="status" class="status" aria-live="polite">Loading settings...</div>
+        <div id="status" class="status" aria-live="polite">Loading options...</div>
         <div class="actions">
           <button id="resetBtn" class="btn" type="button">Reset defaults</button>
-          <button id="saveBtn" class="btn primary" type="submit">Save settings</button>
+          <button id="saveBtn" class="btn primary" type="submit">Save options</button>
         </div>
       </section>
     </form>
   </main>
 
-  <script type="module" src="settings.js"></script>
+  <script type="module" src="options.js"></script>
 </body>
 </html>

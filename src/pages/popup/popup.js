@@ -27,7 +27,7 @@ const refs = {
   importInput: document.getElementById("importInput"),
   nextPageBtn: document.getElementById("nextPageBtn"),
   openLogsBtn: document.getElementById("openLogsBtn"),
-  openSettingsBtn: document.getElementById("openSettingsBtn"),
+  openOptionsBtn: document.getElementById("openOptionsBtn"),
   pageIndicator: document.getElementById("pageIndicator"),
   prevPageBtn: document.getElementById("prevPageBtn"),
   progressBarEl: document.getElementById("progressBar"),
@@ -49,7 +49,6 @@ const state = {
   popupMenuConfig: defaultPopupMenuConfig(),
   renderSequence: 0,
   searchTerm: "",
-  suppressNextStoredImportStateRemoval: false,
   themeMode: "light",
 };
 
@@ -296,12 +295,12 @@ refs.clearAllBtn.addEventListener("click", async () => {
 });
 
 window.addEventListener("unload", gridController.cleanupObjectUrls);
-refs.openSettingsBtn.addEventListener("click", () => {
+refs.openOptionsBtn.addEventListener("click", () => {
   if (typeof chrome.runtime.openOptionsPage === "function") {
     void chrome.runtime.openOptionsPage();
     return;
   }
-  const url = chrome.runtime.getURL("pages/settings/settings.html");
+  const url = chrome.runtime.getURL("pages/options/options.html");
   void chrome.tabs.create({ url });
 });
 refs.openLogsBtn.addEventListener("click", () => {
@@ -387,10 +386,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (changes[STORAGE_KEYS.importState]?.newValue || changes[STORAGE_KEYS.importState]?.oldValue) {
     const nextState = changes[STORAGE_KEYS.importState].newValue || null;
     const prevState = changes[STORAGE_KEYS.importState].oldValue || null;
-    if (!nextState && state.suppressNextStoredImportStateRemoval) {
-      state.suppressNextStoredImportStateRemoval = false;
-      return;
-    }
     if (nextState) {
       statusController.applyImportState(nextState);
     } else {
@@ -427,9 +422,17 @@ async function init() {
 
   const importState = await getImportState();
   if (importState?.text) {
-    statusController.applyImportState(importState);
-    if (!importState.active) {
-      state.suppressNextStoredImportStateRemoval = true;
+    if (importState.active) {
+      statusController.applyImportState(importState);
+    } else {
+      state.currentImportState = null;
+      statusController.setProgressState(null);
+      statusController.showTransientStatus(
+        importState.text,
+        importState.kind === "success" ? "ok" : importState.kind || "",
+        2200,
+        { preserveProgress: false, forceTemporary: true },
+      );
       await clearStoredImportState();
     }
   } else {

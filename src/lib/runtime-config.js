@@ -126,6 +126,10 @@ function normalizeRuntimeConfig(raw) {
           progressInput.fetching,
           defaultProgress.fetching,
         ),
+        checking: normalizeProgressValue(
+          progressInput.checking,
+          defaultProgress.checking,
+        ),
         converting: normalizeProgressValue(
           progressInput.converting,
           defaultProgress.converting,

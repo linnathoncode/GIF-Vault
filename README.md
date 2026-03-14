@@ -49,10 +49,10 @@ src/
       popup-grid.js
       popup-status.js
       popup.js
-    settings/
-      settings.html
-      settings.css
-      settings.js
+    options/
+      options.html
+      options.css
+      options.js
   lib/
     db.js
     log.js
