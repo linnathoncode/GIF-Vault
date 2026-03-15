@@ -15,35 +15,40 @@ function isTwitterUrl(url) {
 }
 
 async function resolveMediaUrl(rawUrl) {
+  const urls = await resolveMediaUrls(rawUrl);
+  return urls[0] || String(rawUrl || "");
+}
+
+async function resolveMediaUrls(rawUrl) {
   if (looksDirectMedia(rawUrl)) {
-    return rawUrl;
+    return [rawUrl];
   }
 
   const directTweetId = extractTweetId(rawUrl);
   const baseUrl = directTweetId ? rawUrl : await expandUrl(rawUrl);
   if (looksDirectMedia(baseUrl)) {
-    return baseUrl;
+    return [baseUrl];
   }
 
   const tweetId = directTweetId || extractTweetId(baseUrl);
   if (!tweetId) {
-    return baseUrl;
+    return [baseUrl];
   }
 
   const fromSyndicationPromise = resolveFromSyndication(tweetId);
   const fromPagesPromise = resolveFromPages(tweetId, baseUrl);
 
   const fromSyndication = await fromSyndicationPromise;
-  if (fromSyndication) {
+  if (fromSyndication.length > 0) {
     return fromSyndication;
   }
 
   const fromPages = await fromPagesPromise;
-  if (fromPages) {
+  if (fromPages.length > 0) {
     return fromPages;
   }
 
-  return baseUrl;
+  return [baseUrl];
 }
 
 function looksDirectMedia(rawUrl) {
@@ -78,45 +83,112 @@ function extractTweetId(rawUrl) {
   }
 }
 
-function collectVideoUrls(value, acc = []) {
+function collectMediaUrls(value, acc = []) {
   if (!value) {
     return acc;
   }
   if (typeof value === "string") {
-    if (value.includes("video.twimg.com") && value.includes(".mp4")) {
+    if (isLikelyTweetVideoUrl(value) || isLikelyTweetImageUrl(value)) {
       acc.push(value);
     }
     return acc;
   }
   if (Array.isArray(value)) {
     for (const part of value) {
-      collectVideoUrls(part, acc);
+      collectMediaUrls(part, acc);
     }
     return acc;
   }
   if (typeof value === "object") {
     for (const part of Object.values(value)) {
-      collectVideoUrls(part, acc);
+      collectMediaUrls(part, acc);
     }
   }
   return acc;
 }
 
-function pickBestVideoUrl(urls) {
+function isLikelyTweetVideoUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.host.toLowerCase();
+    if (!host.includes("video.twimg.com")) {
+      return false;
+    }
+    return url.pathname.toLowerCase().includes(".mp4");
+  } catch {
+    return false;
+  }
+}
+
+function isLikelyTweetImageUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.host.toLowerCase();
+    if (!host.includes("pbs.twimg.com")) {
+      return false;
+    }
+
+    const path = url.pathname.toLowerCase();
+    if (!path.includes("/media/")) {
+      return false;
+    }
+
+    if (
+      path.endsWith(".gif") ||
+      path.endsWith(".png") ||
+      path.endsWith(".jpg") ||
+      path.endsWith(".jpeg") ||
+      path.endsWith(".webp")
+    ) {
+      return true;
+    }
+
+    const format = (url.searchParams.get("format") || "").toLowerCase();
+    return ["gif", "png", "jpg", "jpeg", "webp"].includes(format);
+  } catch {
+    return false;
+  }
+}
+
+function mediaSortScore(url) {
+  if (isLikelyTweetVideoUrl(url)) {
+    const sizeMatch = url.match(/\/vid\/(\d+)x(\d+)\//);
+    const area = sizeMatch ? Number(sizeMatch[1]) * Number(sizeMatch[2]) : 0;
+    return 1_000_000 + area;
+  }
+
+  if (isLikelyTweetImageUrl(url)) {
+    const name = (() => {
+      try {
+        return new URL(url).searchParams.get("name") || "";
+      } catch {
+        return "";
+      }
+    })();
+
+    if (name === "orig") {
+      return 500_000;
+    }
+    if (name === "4096x4096" || name === "large") {
+      return 400_000;
+    }
+    if (name === "medium") {
+      return 300_000;
+    }
+    return 200_000;
+  }
+
+  return 0;
+}
+
+function sortMediaUrls(urls) {
   if (!urls.length) {
-    return "";
+    return [];
   }
 
   const unique = [...new Set(urls)];
-  unique.sort((a, b) => {
-    const aMatch = a.match(/\/vid\/(\d+)x(\d+)\//);
-    const bMatch = b.match(/\/vid\/(\d+)x(\d+)\//);
-    const aArea = aMatch ? Number(aMatch[1]) * Number(aMatch[2]) : 0;
-    const bArea = bMatch ? Number(bMatch[1]) * Number(bMatch[2]) : 0;
-    return bArea - aArea;
-  });
-
-  return unique[0];
+  unique.sort((a, b) => mediaSortScore(b) - mediaSortScore(a));
+  return unique;
 }
 
 async function resolveFromSyndication(tweetId) {
@@ -128,17 +200,16 @@ async function resolveFromSyndication(tweetId) {
     }
 
     const data = await response.json();
-    const urls = collectVideoUrls(data);
-    const picked = pickBestVideoUrl(urls);
+    const urls = sortMediaUrls(collectMediaUrls(data));
     await safeLog("resolve", "Syndication lookup finished", {
       tweetId,
       foundCount: urls.length,
-      picked: picked || "",
+      picked: urls[0] || "",
     });
-    return picked;
+    return urls;
   } catch {
     await safeLog("resolve", "Syndication lookup failed", { tweetId });
-    return "";
+    return [];
   }
 }
 
@@ -161,20 +232,20 @@ async function resolveFromPages(tweetId, originalUrl) {
       continue;
     }
 
-    const urls = extractVideoUrlsFromText(text);
-    const picked = pickBestVideoUrl(urls);
-    if (picked) {
+    const urls = sortMediaUrls(extractMediaUrlsFromText(text));
+    if (urls.length > 0) {
       await safeLog("resolve", "Resolved from page fallback", {
         tweetId,
         candidate,
-        picked,
+        picked: urls[0],
+        foundCount: urls.length,
       });
-      return picked;
+      return urls;
     }
   }
 
   await safeLog("resolve", "Page fallback failed", { tweetId });
-  return "";
+  return [];
 }
 
 async function fetchText(url) {
@@ -189,13 +260,18 @@ async function fetchText(url) {
   }
 }
 
-function extractVideoUrlsFromText(text) {
+function extractMediaUrlsFromText(text) {
   const normalized = text.replace(/\\u0026/gi, "&").replace(/\\\//g, "/");
-  const matches =
+  const videoMatches =
     normalized.match(
       /https:\/\/video\.twimg\.com\/[^"'\\\s<>()]+\.mp4[^"'\\\s<>()]*/gi,
     ) || [];
-  return [...new Set(matches)];
+  const imageMatches =
+    normalized.match(/https:\/\/pbs\.twimg\.com\/media\/[^"'\\\s<>()]+/gi) || [];
+  const merged = [...videoMatches, ...imageMatches];
+  return [...new Set(merged)].filter(
+    (rawUrl) => isLikelyTweetVideoUrl(rawUrl) || isLikelyTweetImageUrl(rawUrl),
+  );
 }
 
 async function expandUrl(rawUrl) {
@@ -234,4 +310,5 @@ export {
   isSupportedMediaType,
   isTwitterUrl,
   resolveMediaUrl,
+  resolveMediaUrls,
 };

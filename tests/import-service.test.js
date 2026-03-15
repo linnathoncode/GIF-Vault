@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
   idbSave: vi.fn(),
   getRuntimeConfig: vi.fn(),
   safeLog: vi.fn(),
-  resolveMediaUrl: vi.fn(),
+  resolveMediaUrls: vi.fn(),
   isSupportedMediaType: vi.fn(),
   getReadableImportError: vi.fn(),
   isTwitterUrl: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock("../src/lib/log.js", () => ({
 }));
 
 vi.mock("../src/background/media-resolver.js", () => ({
-  resolveMediaUrl: mocks.resolveMediaUrl,
+  resolveMediaUrls: mocks.resolveMediaUrls,
   isSupportedMediaType: mocks.isSupportedMediaType,
   getReadableImportError: mocks.getReadableImportError,
   isTwitterUrl: mocks.isTwitterUrl,
@@ -97,7 +97,7 @@ describe("import service long-video gate", () => {
         maxDurationSeconds: 15,
       },
     });
-    mocks.resolveMediaUrl.mockResolvedValue("https://video.example.com/clip.mp4");
+    mocks.resolveMediaUrls.mockResolvedValue(["https://video.example.com/clip.mp4"]);
     mocks.isSupportedMediaType.mockReturnValue(true);
     mocks.getReadableImportError.mockReturnValue("Resolved URL is not media");
     mocks.isTwitterUrl.mockReturnValue(false);
@@ -148,5 +148,60 @@ describe("import service long-video gate", () => {
     expect(messageTypes).toContain("OFFSCREEN_PROBE_VIDEO_DURATION");
     expect(messageTypes).toContain("OFFSCREEN_CONVERT_MP4");
     expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("imports all resolved media URLs from a tweet", async () => {
+    globalThis.fetch = vi.fn(async (url) => ({
+      ok: true,
+      status: 200,
+      headers: {
+        get: () =>
+          String(url).includes("video.example.com") ? "video/mp4" : "image/jpeg",
+      },
+      blob: async () =>
+        String(url).includes("video.example.com")
+          ? new Blob([new Uint8Array([1, 2, 3, 4])], { type: "video/mp4" })
+          : new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/jpeg" }),
+    }));
+
+    sendMessageMock.mockImplementation(async (message) => {
+      if (message?.type === "OFFSCREEN_PROBE_VIDEO_DURATION") {
+        return { ok: true, durationSeconds: 7.4 };
+      }
+      if (message?.type === "OFFSCREEN_CONVERT_MP4") {
+        return {
+          ok: true,
+          payload: {
+            converted: true,
+            mimeType: "image/gif",
+            gifBuffer: new Uint8Array([71, 73, 70, 56, 57, 97]).buffer,
+          },
+        };
+      }
+      return { ok: true };
+    });
+
+    mocks.resolveMediaUrls.mockResolvedValue([
+      "https://video.example.com/clip.mp4",
+      "https://image.example.com/pic.jpg",
+    ]);
+    mocks.originPatternFromUrl.mockImplementation((url) => {
+      if (String(url).includes("video.example.com")) {
+        return "https://video.example.com/*";
+      }
+      if (String(url).includes("image.example.com")) {
+        return "https://image.example.com/*";
+      }
+      return "https://x.com/*";
+    });
+
+    await expect(
+      importFromUrl("https://x.com/i/status/3", "", "request-3"),
+    ).resolves.toMatchObject({
+      importedCount: 2,
+      convertedCount: 1,
+    });
+
+    expect(mocks.idbSave).toHaveBeenCalledTimes(2);
   });
 });

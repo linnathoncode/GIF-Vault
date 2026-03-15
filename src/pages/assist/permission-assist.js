@@ -16,6 +16,7 @@ const pageUrl = (params.get("pageUrl") || "").trim();
 const reason = (params.get("reason") || "Additional host access is required.").trim();
 
 let pendingOrigins = [];
+let resolvedMediaUrls = [];
 let isBusy = false;
 
 init().catch(async (error) => {
@@ -71,10 +72,15 @@ async function collectMissingOrigins(url) {
     url
   }).catch(() => ({ ok: false, resolvedMediaUrl: "" }));
 
+  resolvedMediaUrls = Array.isArray(resolution?.resolvedMediaUrls)
+    ? resolution.resolvedMediaUrls.filter(Boolean)
+    : [];
+
   const origins = new Set([
     originPatternFromUrl(url),
     originPatternFromUrl(pageUrl),
-    originPatternFromUrl(resolution?.ok ? resolution.resolvedMediaUrl || "" : "")
+    originPatternFromUrl(resolution?.ok ? resolution.resolvedMediaUrl || "" : ""),
+    ...resolvedMediaUrls.map((mediaUrl) => originPatternFromUrl(mediaUrl)),
   ]);
 
   const missing = [];
@@ -116,15 +122,18 @@ async function grantAndImport() {
       type: "IMPORT_URL",
       url: importUrl,
       pageUrl,
-      requestId
+      requestId,
+      resolvedMediaUrl: resolvedMediaUrls,
     });
 
     if (!response?.ok) {
       throw new Error(response?.error || "Import failed");
     }
 
-    const convertedMessage = response.result?.converted ? " (converted)" : "";
-    setStatus(`Imported successfully${convertedMessage}. Closing...`, "ok");
+    const importedCount = Number(response.result?.importedCount) || 1;
+    const convertedCount = Number(response.result?.convertedCount) || 0;
+    const successMessage = buildImportSuccessMessage(importUrl, importedCount, convertedCount);
+    setStatus(`${successMessage} Closing...`, "ok");
     await safeLog("permissions", "Assist import completed", {
       url: importUrl,
       converted: Boolean(response.result?.converted)
@@ -174,5 +183,37 @@ async function closeCurrentTabSoon() {
     return;
   }
   window.close();
+}
+
+function isTweetUrl(rawUrl) {
+  try {
+    const host = new URL(rawUrl).host.toLowerCase();
+    return host.includes("x.com") || host.includes("twitter.com");
+  } catch {
+    return false;
+  }
+}
+
+function buildImportSuccessMessage(sourceUrl, importedCount, convertedCount) {
+  const parts = [];
+  if (importedCount > 1 && isTweetUrl(sourceUrl)) {
+    parts.push(`Tweet contains ${importedCount} media items.`);
+  }
+
+  if (importedCount > 1) {
+    parts.push(`Imported ${importedCount} items successfully.`);
+  } else {
+    parts.push("Imported successfully.");
+  }
+
+  if (convertedCount > 1) {
+    parts.push(`${convertedCount} converted.`);
+  } else if (convertedCount === 1 && importedCount > 1) {
+    parts.push("1 converted.");
+  } else if (convertedCount === 1) {
+    parts.push("Converted.");
+  }
+
+  return parts.join(" ");
 }
 

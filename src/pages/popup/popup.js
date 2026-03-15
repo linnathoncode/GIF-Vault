@@ -173,10 +173,10 @@ async function importUrl(rawUrl) {
 
     refs.importInput.value = "";
     refs.importBtn.textContent = "Import";
-    const convertedMessage = response.result?.converted ? " (converted)" : "";
-    statusController.setImportSuccessState(
-      `Imported successfully${convertedMessage}.`,
-    );
+    const importedCount = Number(response.result?.importedCount) || 1;
+    const convertedCount = Number(response.result?.convertedCount) || 0;
+    const successMessage = buildImportSuccessMessage(url, importedCount, convertedCount);
+    statusController.setImportSuccessState(successMessage);
     state.activeImportRequestId = "";
     await gridController.render();
   } catch (error) {
@@ -197,6 +197,38 @@ async function importUrl(rawUrl) {
       error: error?.message || "unknown",
     });
   }
+}
+
+function isTweetUrl(rawUrl) {
+  try {
+    const host = new URL(rawUrl).host.toLowerCase();
+    return host.includes("x.com") || host.includes("twitter.com");
+  } catch {
+    return false;
+  }
+}
+
+function buildImportSuccessMessage(sourceUrl, importedCount, convertedCount) {
+  const parts = [];
+  if (importedCount > 1 && isTweetUrl(sourceUrl)) {
+    parts.push(`Tweet contains ${importedCount} media items.`);
+  }
+
+  if (importedCount > 1) {
+    parts.push(`Imported ${importedCount} items successfully.`);
+  } else {
+    parts.push("Imported successfully.");
+  }
+
+  if (convertedCount > 1) {
+    parts.push(`${convertedCount} converted.`);
+  } else if (convertedCount === 1 && importedCount > 1) {
+    parts.push("1 converted.");
+  } else if (convertedCount === 1) {
+    parts.push("Converted.");
+  }
+
+  return parts.join(" ");
 }
 
 async function findMissingOrigins(origins) {

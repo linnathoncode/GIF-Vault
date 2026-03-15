@@ -8,7 +8,7 @@ import {
   getReadableImportError,
   isSupportedMediaType,
   isTwitterUrl,
-  resolveMediaUrl,
+  resolveMediaUrls,
 } from "./media-resolver.js";
 
 const importAbortControllerById = new Map();
@@ -29,7 +29,7 @@ async function importFromUrl(
   const runtimeConfig = await getRuntimeConfig();
   const gifConversionConfig = runtimeConfig.gifConversion;
   const url = String(rawUrl || "").trim();
-  const resolvedHint = String(resolvedMediaUrlHint || "").trim();
+  const resolvedHints = normalizeResolvedHints(resolvedMediaUrlHint);
   if (!url) {
     await safeLog("import", "Rejected empty URL");
     throw new Error("Empty URL");
@@ -41,158 +41,57 @@ async function importFromUrl(
     await safeLog("import", "Import started", { url, pageUrl: pageUrl || "" });
     await ensureOriginAccess(url);
 
-    const resolvedMediaUrl = resolvedHint || (await resolveMediaUrl(url));
+    const resolvedMediaUrls =
+      resolvedHints.length > 0 ? resolvedHints : await resolveMediaUrls(url);
     ensureImportActive();
-    if (!resolvedMediaUrl) {
+    if (!resolvedMediaUrls.length) {
       await safeLog("resolve", "Failed to resolve media URL", { url });
       throw new Error("Could not resolve media URL");
     }
     await safeLog("resolve", "Resolved media URL", {
       url,
-      resolvedMediaUrl,
-      reusedResolvedUrl: Boolean(resolvedHint),
+      resolvedMediaUrl: resolvedMediaUrls[0],
+      resolvedMediaUrlCount: resolvedMediaUrls.length,
+      reusedResolvedUrl: resolvedHints.length > 0,
     });
-    await ensureOriginAccess(resolvedMediaUrl);
-
-    await reportProgress(progressId, "Fetching media...", true, "info");
-    const response = await fetch(resolvedMediaUrl, {
-      signal: abortController.signal,
-    });
-    ensureImportActive();
-    if (!response.ok) {
-      await safeLog("fetch", "Fetch failed", {
-        resolvedMediaUrl,
-        status: response.status,
-      });
-      throw new Error("Failed to fetch media");
-    }
-    await safeLog("fetch", "Fetch succeeded", {
-      resolvedMediaUrl,
-      status: response.status,
-    });
-
-    const contentType = (response.headers.get("content-type") || "").toLowerCase();
-    if (!isSupportedMediaType(contentType)) {
-      await safeLog("fetch", "Rejected non-media response", {
-        resolvedMediaUrl,
-        contentType,
-      });
-      throw new Error(getReadableImportError(url, contentType));
-    }
-
-    const inputBlob = await response.blob();
-    ensureImportActive();
-    const ext = extensionFromUrl(resolvedMediaUrl, inputBlob.type);
-    const isVideoMedia =
-      (inputBlob.type || "").startsWith("video/") ||
-      ext === "mp4" ||
-      ext === "webm";
-
-    let finalBlob = inputBlob;
-    let finalMime = inputBlob.type || "image/gif";
-    let converted = false;
-
-    if (isVideoMedia) {
-      await reportProgress(progressId, "Checking video length...", true, "info");
-      await safeLog("convert", "Video detected, offscreen conversion requested", {
-        resolvedMediaUrl,
+    const savedItems = [];
+    for (let index = 0; index < resolvedMediaUrls.length; index += 1) {
+      const resolvedMediaUrl = resolvedMediaUrls[index];
+      ensureImportActive();
+      await ensureOriginAccess(resolvedMediaUrl);
+      const current = index + 1;
+      const total = resolvedMediaUrls.length;
+      const suffix = total > 1 ? ` (${current}/${total})` : "";
+      await reportProgress(progressId, `Fetching media${suffix}...`, true, "info");
+      const item = await importResolvedMedia({
         sourceUrl: url,
-        extension: ext,
-        mimeType: inputBlob.type || "",
-        isTwitterSource: isTwitterUrl(url),
+        resolvedMediaUrl,
+        pageUrl,
+        progressId,
+        abortController,
+        gifConversionConfig,
+        ensureImportActive,
       });
-      try {
-        const inputBytes = new Uint8Array(await inputBlob.arrayBuffer());
-        ensureImportActive();
-        const durationSeconds = await probeDurationInOffscreen({
-          url: resolvedMediaUrl,
-          inputExtension: ext,
-          inputBytes,
-        });
-        ensureImportActive();
-        if (durationSeconds > gifConversionConfig.maxDurationSeconds) {
-          await safeLog("convert", "Rejected long video in background", {
-            durationSeconds,
-            maxDurationSeconds: gifConversionConfig.maxDurationSeconds,
-          });
-          throw new Error(
-            `Video too long (${gifConversionConfig.maxDurationSeconds}s/${durationSeconds.toFixed(1)}s). Change length limit in Options.`,
-          );
-        }
-
-        await reportProgress(progressId, "Converting video to GIF...", true, "info");
-        const convertedPayload = await convertInOffscreen(
-          {
-            url: resolvedMediaUrl,
-            requestId: progressId,
-            filename: `vault-${Date.now()}.gif`,
-            inputExtension: ext,
-            gifConversion: gifConversionConfig,
-            inputBytes,
-          },
-        );
-        ensureImportActive();
-        const rebuiltBlob = blobFromConvertedPayload(convertedPayload);
-        await safeLog("convert", "Offscreen conversion response received", {
-          converted: Boolean(convertedPayload?.converted),
-          mimeType: convertedPayload?.mimeType || "",
-          reason: convertedPayload?.reason || "",
-          hasGifBase64: Boolean(convertedPayload?.gifBase64),
-          gifBase64Length: convertedPayload?.gifBase64
-            ? convertedPayload.gifBase64.length
-            : 0,
-          gifByteLength: convertedPayload?.gifByteLength || 0,
-          hasGifBuffer: Boolean(convertedPayload?.gifBuffer),
-          rebuiltBlobSize: rebuiltBlob?.size || 0,
-        });
-
-        if (rebuiltBlob && rebuiltBlob.size > 0) {
-          finalBlob = rebuiltBlob;
-          finalMime = convertedPayload.mimeType || "image/gif";
-          converted = Boolean(convertedPayload.converted);
-        } else {
-          await safeLog("convert", "Offscreen payload had no usable blob", {
-            mimeType: convertedPayload?.mimeType || "",
-            reason: convertedPayload?.reason || "",
-            extension: ext,
-          });
-          throw new Error("Could not convert video to GIF.");
-        }
-      } catch (error) {
-        await safeLog("convert", "Offscreen conversion failed", {
-          error: error?.message || "unknown",
-          extension: ext,
-        });
-        throw new Error(error?.message || "Could not convert video to GIF.");
-      }
+      ensureImportActive();
+      savedItems.push(item);
+      await notifyVaultUpdated(item.id);
     }
 
-    ensureImportActive();
-    await reportProgress(progressId, "Saving to vault...", true, "info");
-    const item = {
-      id: crypto.randomUUID(),
-      name: inferName(url, resolvedMediaUrl),
-      sourceUrl: url,
-      mediaUrl: resolvedMediaUrl,
-      pageUrl: pageUrl || "",
-      mimeType: finalMime,
-      kind: finalMime.startsWith("video/") ? "video" : "image",
-      blob: finalBlob,
-      converted,
-      savedAt: Date.now(),
+    await reportProgress(
+      progressId,
+      savedItems.length > 1
+        ? `Imported ${savedItems.length} items successfully.`
+        : "Imported successfully.",
+      false,
+      "success",
+    );
+    return {
+      id: savedItems[0]?.id || "",
+      kind: savedItems[0]?.kind || "image",
+      converted: savedItems.some((item) => item.converted),
+      importedCount: savedItems.length,
+      convertedCount: savedItems.filter((item) => item.converted).length,
     };
-
-    await idbSave(item);
-    await safeLog("save", "Media saved to IndexedDB", {
-      id: item.id,
-      kind: item.kind,
-      mimeType: item.mimeType,
-      blobSize: item.blob?.size || 0,
-      converted: item.converted,
-    });
-    await notifyVaultUpdated(item.id);
-    await reportProgress(progressId, "Imported successfully.", false, "success");
-    return { id: item.id, kind: item.kind, converted };
   } catch (error) {
     const message =
       error?.name === "AbortError" || error?.message === "IMPORT_TERMINATED"
@@ -204,6 +103,162 @@ async function importFromUrl(
     importAbortControllerById.delete(progressId);
     terminatedImportIds.delete(progressId);
   }
+}
+
+function normalizeResolvedHints(resolvedMediaUrlHint) {
+  if (Array.isArray(resolvedMediaUrlHint)) {
+    return [...new Set(resolvedMediaUrlHint.map((url) => String(url || "").trim()).filter(Boolean))];
+  }
+
+  const single = String(resolvedMediaUrlHint || "").trim();
+  return single ? [single] : [];
+}
+
+async function importResolvedMedia({
+  sourceUrl,
+  resolvedMediaUrl,
+  pageUrl,
+  progressId,
+  abortController,
+  gifConversionConfig,
+  ensureImportActive,
+}) {
+  ensureImportActive();
+  const response = await fetch(resolvedMediaUrl, {
+    signal: abortController.signal,
+  });
+  ensureImportActive();
+  if (!response.ok) {
+    await safeLog("fetch", "Fetch failed", {
+      resolvedMediaUrl,
+      status: response.status,
+    });
+    throw new Error("Failed to fetch media");
+  }
+  await safeLog("fetch", "Fetch succeeded", {
+    resolvedMediaUrl,
+    status: response.status,
+  });
+
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  if (!isSupportedMediaType(contentType)) {
+    await safeLog("fetch", "Rejected non-media response", {
+      resolvedMediaUrl,
+      contentType,
+    });
+    throw new Error(getReadableImportError(sourceUrl, contentType));
+  }
+
+  const inputBlob = await response.blob();
+  ensureImportActive();
+  const ext = extensionFromUrl(resolvedMediaUrl, inputBlob.type);
+  const isVideoMedia =
+    (inputBlob.type || "").startsWith("video/") ||
+    ext === "mp4" ||
+    ext === "webm";
+
+  let finalBlob = inputBlob;
+  let finalMime = inputBlob.type || "image/gif";
+  let converted = false;
+
+  if (isVideoMedia) {
+    await reportProgress(progressId, "Checking video length...", true, "info");
+    await safeLog("convert", "Video detected, offscreen conversion requested", {
+      resolvedMediaUrl,
+      sourceUrl,
+      extension: ext,
+      mimeType: inputBlob.type || "",
+      isTwitterSource: isTwitterUrl(sourceUrl),
+    });
+    try {
+      const inputBytes = new Uint8Array(await inputBlob.arrayBuffer());
+      ensureImportActive();
+      const durationSeconds = await probeDurationInOffscreen({
+        url: resolvedMediaUrl,
+        inputExtension: ext,
+        inputBytes,
+      });
+      ensureImportActive();
+      if (durationSeconds > gifConversionConfig.maxDurationSeconds) {
+        await safeLog("convert", "Rejected long video in background", {
+          durationSeconds,
+          maxDurationSeconds: gifConversionConfig.maxDurationSeconds,
+        });
+        throw new Error(
+          `Video too long (${gifConversionConfig.maxDurationSeconds}s/${durationSeconds.toFixed(1)}s). Change length limit in Options.`,
+        );
+      }
+
+      await reportProgress(progressId, "Converting video to GIF...", true, "info");
+      const convertedPayload = await convertInOffscreen({
+        url: resolvedMediaUrl,
+        requestId: progressId,
+        filename: `vault-${Date.now()}.gif`,
+        inputExtension: ext,
+        gifConversion: gifConversionConfig,
+        inputBytes,
+      });
+      ensureImportActive();
+      const rebuiltBlob = blobFromConvertedPayload(convertedPayload);
+      await safeLog("convert", "Offscreen conversion response received", {
+        converted: Boolean(convertedPayload?.converted),
+        mimeType: convertedPayload?.mimeType || "",
+        reason: convertedPayload?.reason || "",
+        hasGifBase64: Boolean(convertedPayload?.gifBase64),
+        gifBase64Length: convertedPayload?.gifBase64
+          ? convertedPayload.gifBase64.length
+          : 0,
+        gifByteLength: convertedPayload?.gifByteLength || 0,
+        hasGifBuffer: Boolean(convertedPayload?.gifBuffer),
+        rebuiltBlobSize: rebuiltBlob?.size || 0,
+      });
+
+      if (rebuiltBlob && rebuiltBlob.size > 0) {
+        finalBlob = rebuiltBlob;
+        finalMime = convertedPayload.mimeType || "image/gif";
+        converted = Boolean(convertedPayload.converted);
+      } else {
+        await safeLog("convert", "Offscreen payload had no usable blob", {
+          mimeType: convertedPayload?.mimeType || "",
+          reason: convertedPayload?.reason || "",
+          extension: ext,
+        });
+        throw new Error("Could not convert video to GIF.");
+      }
+    } catch (error) {
+      await safeLog("convert", "Offscreen conversion failed", {
+        error: error?.message || "unknown",
+        extension: ext,
+      });
+      throw new Error(error?.message || "Could not convert video to GIF.");
+    }
+  }
+
+  await reportProgress(progressId, "Saving to vault...", true, "info");
+  ensureImportActive();
+  const item = {
+    id: crypto.randomUUID(),
+    name: inferName(sourceUrl, resolvedMediaUrl),
+    sourceUrl,
+    mediaUrl: resolvedMediaUrl,
+    pageUrl: pageUrl || "",
+    mimeType: finalMime,
+    kind: finalMime.startsWith("video/") ? "video" : "image",
+    blob: finalBlob,
+    converted,
+    savedAt: Date.now(),
+  };
+
+  await idbSave(item);
+  ensureImportActive();
+  await safeLog("save", "Media saved to IndexedDB", {
+    id: item.id,
+    kind: item.kind,
+    mimeType: item.mimeType,
+    blobSize: item.blob?.size || 0,
+    converted: item.converted,
+  });
+  return item;
 }
 
 async function terminateImport(requestId) {

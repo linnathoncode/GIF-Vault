@@ -6,7 +6,7 @@ import {
   syncActionIconToTheme,
 } from "./action-icon.js";
 import { importFromUrl, terminateImport } from "./import-service.js";
-import { resolveMediaUrl } from "./media-resolver.js";
+import { resolveMediaUrls } from "./media-resolver.js";
 
 // Service worker lifecycle and browser event wiring.
 chrome.runtime.onInstalled.addListener(() => {
@@ -67,8 +67,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === "RESOLVE_MEDIA_URL") {
-    resolveMediaUrl(message.url || "")
-      .then((resolvedMediaUrl) => sendResponse({ ok: true, resolvedMediaUrl }))
+    resolveMediaUrls(message.url || "")
+      .then((resolvedMediaUrls) =>
+        sendResponse({
+          ok: true,
+          resolvedMediaUrl: resolvedMediaUrls[0] || "",
+          resolvedMediaUrls,
+        }),
+      )
       .catch((error) =>
         sendResponse({ ok: false, error: error?.message || "Resolve failed" }),
       );

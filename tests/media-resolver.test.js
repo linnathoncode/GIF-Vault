@@ -4,6 +4,7 @@ import {
   isSupportedMediaType,
   isTwitterUrl,
   resolveMediaUrl,
+  resolveMediaUrls,
 } from "../src/background/media-resolver.js";
 
 function makeResponse({ ok = true, url = "", text = "", json = {} } = {}) {
@@ -95,6 +96,37 @@ describe("media resolver", () => {
     expect(globalThis.fetch).not.toHaveBeenCalledWith(statusUrl);
   });
 
+  it("returns multiple tweet media URLs when available", async () => {
+    globalThis.fetch = vi.fn(async (url) => {
+      if (String(url).includes("cdn.syndication.twimg.com")) {
+        return makeResponse({
+          ok: true,
+          json: {
+            mediaDetails: [
+              {
+                variants: [
+                  "https://video.twimg.com/ext_tw_video/1/pu/vid/640x360/a.mp4",
+                  "https://video.twimg.com/ext_tw_video/1/pu/vid/1280x720/a.mp4",
+                ],
+              },
+              {
+                media_url_https: "https://pbs.twimg.com/media/ExampleId?format=jpg&name=orig",
+              },
+            ],
+          },
+        });
+      }
+      return makeResponse({ ok: false });
+    });
+
+    const resolved = await resolveMediaUrls("https://x.com/user/status/5555555");
+    expect(resolved).toEqual([
+      "https://video.twimg.com/ext_tw_video/1/pu/vid/1280x720/a.mp4",
+      "https://video.twimg.com/ext_tw_video/1/pu/vid/640x360/a.mp4",
+      "https://pbs.twimg.com/media/ExampleId?format=jpg&name=orig",
+    ]);
+  });
+
   it("falls back to page scraping when syndication fails", async () => {
     // Arrange: force syndication miss, then provide page text with escaped URL.
     globalThis.fetch = vi.fn(async (url) => {
@@ -118,6 +150,27 @@ describe("media resolver", () => {
     expect(resolved).toBe(
       "https://video.twimg.com/ext_tw_video/1/pu/vid/640x360/b.mp4?tag=12&foo=bar",
     );
+  });
+
+  it("resolves tweet image media from syndication payload", async () => {
+    globalThis.fetch = vi.fn(async (url) => {
+      if (String(url).includes("cdn.syndication.twimg.com")) {
+        return makeResponse({
+          ok: true,
+          json: {
+            mediaDetails: [
+              {
+                media_url_https: "https://pbs.twimg.com/media/ExampleId?format=jpg&name=orig",
+              },
+            ],
+          },
+        });
+      }
+      return makeResponse({ ok: false });
+    });
+
+    const resolved = await resolveMediaUrl("https://x.com/user/status/22222222");
+    expect(resolved).toBe("https://pbs.twimg.com/media/ExampleId?format=jpg&name=orig");
   });
 
   it("keeps invalid-url messaging precedence over twitter-specific messaging", () => {
