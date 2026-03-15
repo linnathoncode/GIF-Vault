@@ -29,6 +29,9 @@ export function createPopupGridController({
   } = refs;
 
   const objectUrlById = new Map();
+  const selectedItemIds = new Set();
+  let latestItemById = new Map();
+  let latestVisiblePageIds = new Set();
   let hoverPreviewTimer = 0;
   let hoverPreviewSrc = "";
   let hoverPointerX = 0;
@@ -236,17 +239,106 @@ export function createPopupGridController({
     armedDeleteButton = null;
   }
 
-  function armDeleteButton(button, itemId) {
+  function selectionHintText(count) {
+    return count > 1
+      ? `${count} selected. Favorite/Delete act on selected cards.`
+      : "Shift+Click cards to multi-select.";
+  }
+
+  function showSelectionHint(count) {
+    showTransientStatus(selectionHintText(count), "ok", 1200, {
+      forceTemporary: true,
+      preserveProgress: false,
+    });
+  }
+
+  function updateSelectionForRender() {
+    const next = new Set();
+    for (const id of selectedItemIds) {
+      if (latestVisiblePageIds.has(id)) {
+        next.add(id);
+      }
+    }
+    selectedItemIds.clear();
+    for (const id of next) {
+      selectedItemIds.add(id);
+    }
+  }
+
+  function setCardSelected(card, selected) {
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+    card.classList.toggle("selected", selected);
+    card.setAttribute("aria-selected", selected ? "true" : "false");
+  }
+
+  function toggleCardSelection(itemId, card) {
+    const id = String(itemId);
+    if (selectedItemIds.has(id)) {
+      selectedItemIds.delete(id);
+      setCardSelected(card, false);
+    } else {
+      selectedItemIds.add(id);
+      setCardSelected(card, true);
+    }
+    showSelectionHint(selectedItemIds.size);
+  }
+
+  function removeCardFromSelection(itemId, card) {
+    const id = String(itemId);
+    if (!selectedItemIds.has(id)) {
+      return false;
+    }
+
+    selectedItemIds.delete(id);
+    setCardSelected(card, false);
+    showSelectionHint(selectedItemIds.size);
+    return true;
+  }
+
+  function clearAllSelections() {
+    if (selectedItemIds.size === 0) {
+      return;
+    }
+
+    selectedItemIds.clear();
+    for (const card of grid.querySelectorAll(".item.selected")) {
+      setCardSelected(card, false);
+    }
+  }
+
+  function resolveTargetIdsForAction(fallbackItemId) {
+    const fallbackId = String(fallbackItemId || "");
+    if (
+      fallbackId &&
+      selectedItemIds.size > 1 &&
+      selectedItemIds.has(fallbackId)
+    ) {
+      return [...selectedItemIds];
+    }
+    return fallbackId ? [fallbackId] : [];
+  }
+
+  function armDeleteButton(button, actionKey, count = 1) {
     clearArmedDelete();
-    armedDeleteItemId = String(itemId);
+    armedDeleteItemId = String(actionKey);
     armedDeleteButton = button;
     if (button instanceof HTMLElement) {
       button.classList.add("delete-armed");
       button.textContent = "\u2713";
-      button.title = "Confirm delete";
-      button.setAttribute("aria-label", "Confirm delete");
+      button.title =
+        count > 1 ? `Confirm delete ${count} items` : "Confirm delete";
+      button.setAttribute(
+        "aria-label",
+        count > 1 ? `Confirm delete ${count} items` : "Confirm delete",
+      );
     }
-    showTransientStatus("Click delete again to confirm.", "ok", 2000, {
+    const hint =
+      count > 1
+        ? `Click delete again to remove ${count} selected items.`
+        : "Click delete again to confirm.";
+    showTransientStatus(hint, "ok", 2000, {
       forceTemporary: true,
     });
     armedDeleteTimer = setTimeout(() => {
@@ -329,26 +421,51 @@ export function createPopupGridController({
     );
   }
 
-  async function removeItem(id) {
-    queueRemovalFocusRestore(id);
-    await idbDelete(id);
-    const objectUrl = objectUrlById.get(id);
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl);
-      objectUrlById.delete(id);
+  async function removeItems(ids, focusItemId = "") {
+    const targetIds = [...new Set((ids || []).map((id) => String(id)).filter(Boolean))];
+    if (!targetIds.length) {
+      return;
+    }
+
+    clearAllSelections();
+    queueRemovalFocusRestore(focusItemId || targetIds[0]);
+    await Promise.all(targetIds.map((id) => idbDelete(id)));
+
+    for (const id of targetIds) {
+      const objectUrl = objectUrlById.get(id);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        objectUrlById.delete(id);
+      }
+      selectedItemIds.delete(id);
     }
     await render();
   }
 
-  async function toggleFavorite(item) {
-    const next = {
-      ...item,
-      favorite: !Boolean(item.favorite),
-    };
-    await idbSave(next);
+  async function setFavoriteForItems(ids, favorite) {
+    const targetIds = [...new Set((ids || []).map((id) => String(id)).filter(Boolean))];
+    if (!targetIds.length) {
+      return;
+    }
+
+    clearAllSelections();
+
+    const updates = targetIds
+      .map((id) => latestItemById.get(id))
+      .filter(Boolean)
+      .map((item) => ({
+        ...item,
+        favorite: Boolean(favorite),
+      }));
+    if (!updates.length) {
+      return;
+    }
+
+    await Promise.all(updates.map((item) => idbSave(item)));
     await safeLog("popup", "Favorite toggled", {
-      id: item.id,
-      favorite: next.favorite,
+      ids: updates.map((item) => item.id),
+      favorite: Boolean(favorite),
+      count: updates.length,
     });
     await render();
   }
@@ -360,6 +477,7 @@ export function createPopupGridController({
       return;
     }
 
+    clearAllSelections();
     const normalized = nextName.trim();
     const updated = {
       ...item,
@@ -463,7 +581,8 @@ export function createPopupGridController({
       createButton({
         className: "btn",
         text: "Remove",
-        onClick: () => removeItem(item.id),
+        title: "Delete",
+        onClick: () => removeItems([item.id], item.id),
       }),
     );
 
@@ -511,6 +630,7 @@ export function createPopupGridController({
     const card = document.createElement("article");
     card.className = "item";
     card.dataset.itemId = String(item.id);
+    setCardSelected(card, selectedItemIds.has(String(item.id)));
     const media = createPreviewMedia(item, previewUrl);
 
     const meta = document.createElement("div");
@@ -552,6 +672,7 @@ export function createPopupGridController({
       label: "Copy",
     });
     copyBtn.addEventListener("click", async () => {
+      clearAllSelections();
       const result = await copyItemBlob(item);
       copyBtn.textContent = result.ok ? "\u2713" : "!";
       setCopyStatus(item, result);
@@ -563,9 +684,13 @@ export function createPopupGridController({
     const favoriteBtn = createButton({
       className: "btn",
       text: item.favorite ? "\u2605" : "\u2606",
-      title: item.favorite ? "Unfavorite" : "Favorite",
-      label: item.favorite ? "Unfavorite" : "Favorite",
-      onClick: () => toggleFavorite(item),
+      title: `${item.favorite ? "Unfavorite" : "Favorite"} (batch applies to selected cards)`,
+      label: `${item.favorite ? "Unfavorite" : "Favorite"} (batch applies to selected cards)`,
+      onClick: () => {
+        const targetIds = resolveTargetIdsForAction(item.id);
+        const nextFavorite = !Boolean(item.favorite);
+        void setFavoriteForItems(targetIds, nextFavorite);
+      },
     });
     if (item.favorite) {
       favoriteBtn.classList.add("favorite-active");
@@ -578,18 +703,60 @@ export function createPopupGridController({
       label: "Delete",
     });
     removeBtn.addEventListener("click", () => {
-      if (armedDeleteItemId === String(item.id)) {
+      const targetIds = resolveTargetIdsForAction(item.id);
+      const actionKey = targetIds.length > 1
+        ? `batch:${[...targetIds].sort().join(",")}`
+        : String(item.id);
+
+      if (armedDeleteItemId === actionKey) {
         clearArmedDelete();
-        showTransientStatus("GIF deleted.", "ok");
-        void removeItem(item.id);
+        const count = targetIds.length;
+        showTransientStatus(
+          count > 1 ? `${count} GIFs deleted.` : "GIF deleted.",
+          "ok",
+        );
+        void removeItems(targetIds, item.id);
         return;
       }
-      armDeleteButton(removeBtn, item.id);
+      armDeleteButton(removeBtn, actionKey, targetIds.length);
     });
 
     actions.append(copyBtn, favoriteBtn, removeBtn);
     meta.append(nameRow, urlText, sizeText, actions);
     card.append(media, meta);
+    card.addEventListener("mousedown", (event) => {
+      const rawTarget = event.target;
+      if (!(rawTarget instanceof Element)) {
+        return;
+      }
+      if (rawTarget.closest(".btn, .name-btn")) {
+        return;
+      }
+      if (event.button !== 0) {
+        return;
+      }
+      if (event.shiftKey) {
+        event.preventDefault();
+      }
+    });
+    card.addEventListener("click", (event) => {
+      const rawTarget = event.target;
+      if (!(rawTarget instanceof Element)) {
+        return;
+      }
+      if (rawTarget.closest(".btn, .name-btn")) {
+        return;
+      }
+      if (event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      if (event.shiftKey) {
+        toggleCardSelection(item.id, card);
+        return;
+      }
+      removeCardFromSelection(item.id, card);
+    });
     return card;
   }
 
@@ -603,7 +770,12 @@ export function createPopupGridController({
     }
 
     const { normalized, visibleItems, query } = getFilteredItems(items);
+    latestItemById = new Map(normalized.map((item) => [String(item.id), item]));
     const { totalPages, pagedItemsMeta } = getPagedItemsMeta(visibleItems);
+    latestVisiblePageIds = new Set(
+      pagedItemsMeta.map((item) => String(item.id)),
+    );
+    updateSelectionForRender();
     await safeLog("popup", "Render media grid", {
       count: visibleItems.length,
       tab: state.currentTab,
