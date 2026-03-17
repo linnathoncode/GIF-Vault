@@ -99,12 +99,13 @@ async function importFromUrl(
       convertedCount: savedItems.filter((item) => item.converted).length,
     };
   } catch (error) {
-      const message =
+    const isTerminatedError =
       error?.name === "AbortError" ||
-      error?.message === UI_MESSAGES.import.importTerminatedError
-        ? UI_MESSAGES.import.importTerminated
-        : error?.message || UI_MESSAGES.import.importFailed;
-    if (savedItems.length > 0) {
+      error?.message === UI_MESSAGES.import.importTerminatedError;
+    const message = isTerminatedError
+      ? UI_MESSAGES.import.importTerminated
+      : error?.message || UI_MESSAGES.import.importFailed;
+    if (savedItems.length > 0 && !isTerminatedError) {
       await rollbackSavedItems(savedItems);
     }
     if (message === UI_MESSAGES.import.hostAccessRequired) {

@@ -268,4 +268,44 @@ describe("import service long-video gate", () => {
     expect(mocks.idbSave).toHaveBeenCalledTimes(1);
     expect(mocks.idbDelete).toHaveBeenCalledTimes(1);
   });
+
+  it("does not roll back already-saved items on user-terminated import", async () => {
+    let fetchCount = 0;
+    globalThis.fetch = vi.fn(async () => {
+      fetchCount += 1;
+      if (fetchCount === 1) {
+        return {
+          ok: true,
+          status: 200,
+          headers: {
+            get: () => "image/jpeg",
+          },
+          blob: async () =>
+            new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/jpeg" }),
+        };
+      }
+
+      const abortError = new Error("The operation was aborted.");
+      abortError.name = "AbortError";
+      throw abortError;
+    });
+
+    mocks.resolveMediaUrls.mockResolvedValue([
+      "https://image.example.com/first.jpg",
+      "https://image.example.com/second.jpg",
+    ]);
+    mocks.originPatternFromUrl.mockImplementation((url) => {
+      if (String(url).includes("image.example.com")) {
+        return "https://image.example.com/*";
+      }
+      return "https://x.com/*";
+    });
+
+    await expect(importFromUrl("https://x.com/i/status/6", "")).rejects.toThrow(
+      UI_MESSAGES.import.importTerminated,
+    );
+
+    expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+    expect(mocks.idbDelete).not.toHaveBeenCalled();
+  });
 });
