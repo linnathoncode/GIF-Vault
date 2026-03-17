@@ -76,6 +76,19 @@ PowerShell note:
 - Import progress bar and transient status are controlled by `popup-status.js`.
 - Grid item actions and selection hints are handled by `popup-grid.js`.
 
+### Progress Bar Behavior Contract (Important)
+- Progress UI source of truth is `STORAGE_KEYS.importState` + `IMPORT_PROGRESS` runtime messages.
+- Permission/access guidance must stay on the assist page; do not inject host-access text into popup progress.
+- Popup-owned import outcomes (success/error/terminate/permission handoff) must clear stored `importState` after handling to prevent replay on next popup open.
+- Clearing popup-owned stored state must not wipe the live progress UI in the same session:
+  - use `clearStoredImportStatePreservingUi()` in `popup.js`
+  - rely on one-shot guard `state.suppressNextImportStateClearUiReset` in storage-change handling
+- Restore flow for inactive stored state must clear storage before transient display:
+  - implemented in `src/pages/popup/popup-import-state.js`
+- Expected reopen behavior:
+  - popup-owned outcomes should not reappear as ghost hints
+  - background/context-menu outcomes can still appear when popup is opened later
+
 ## Permissions Model
 Required permissions:
 - `contextMenus`
@@ -124,6 +137,9 @@ Rules:
 - Multi-select delete now arms all selected cards with a danger `!` state.
 - Armed multi-select delete is canceled if selection changes.
 - Header count now includes selected item count and supports overflow-safe truncation.
+- Added atomic batch import rollback for real per-item failures.
+- User-terminated imports no longer trigger rollback of already-saved items.
+- Fixed popup ghost progress-message replay and added restore/clear ordering safeguards.
 
 ## Operational Notes
 - Load extension from `dist/` in browser developer mode.
