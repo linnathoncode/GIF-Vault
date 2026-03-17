@@ -303,13 +303,21 @@ function clearStoredImportState() {
 }
 
 refs.importBtn.addEventListener("click", () => {
+  gridController.clearSelections();
   if (state.currentImportState?.active) {
     void terminateImport();
     return;
   }
   void importUrl(refs.importInput.value);
 });
+refs.importInput.addEventListener("click", () => {
+  gridController.clearSelections();
+});
+refs.importInput.addEventListener("focus", () => {
+  gridController.clearSelections();
+});
 refs.importInput.addEventListener("keydown", (event) => {
+  gridController.clearSelections();
   if (event.key === "Enter") {
     void importUrl(refs.importInput.value);
   }
@@ -350,16 +358,25 @@ refs.themeToggleBtn.addEventListener("click", async () => {
   await setThemeMode(state.themeMode);
 });
 refs.tabAllBtn.addEventListener("click", async () => {
+  gridController.clearSelections();
   state.currentTab = "all";
   state.currentPage = 1;
   await gridController.render();
 });
 refs.tabFavoritesBtn.addEventListener("click", async () => {
+  gridController.clearSelections();
   state.currentTab = "favorites";
   state.currentPage = 1;
   await gridController.render();
 });
+refs.searchInput.addEventListener("click", () => {
+  gridController.clearSelections();
+});
+refs.searchInput.addEventListener("focus", () => {
+  gridController.clearSelections();
+});
 refs.searchInput.addEventListener("input", async () => {
+  gridController.clearSelections();
   state.searchTerm = refs.searchInput.value || "";
   state.currentPage = 1;
   await gridController.render();

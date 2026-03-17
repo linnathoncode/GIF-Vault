@@ -92,6 +92,10 @@ body {
   min-width: 0;
 }
 
+.brand-text {
+  min-width: 0;
+}
+
 .brand-logo {
   width: 26px;
   height: 26px;
@@ -108,11 +112,18 @@ body {
 .title {
   margin: 0;
   font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .count {
+  display: block;
   font-size: 12px;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status {

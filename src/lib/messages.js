@@ -68,6 +68,7 @@ export const UI_MESSAGES = Object.freeze({
     favoritesCount: (count) => `${count} favorite(s)`,
     savedAndFavoritesCount: (savedCount, favoriteCount) =>
       `${savedCount} saved | ${favoriteCount} favorite(s)`,
+    selectedCount: (count) => `${count} selected`,
     sizeLabel: (size) => `Size: ${size}`,
   }),
   import: Object.freeze({

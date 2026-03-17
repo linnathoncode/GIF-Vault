@@ -1,0 +1,105 @@
+# AGENTS.md
+
+## Workspace Context
+- Date snapshot: 2026-03-17
+- Workspace: `c:\Users\MONSTER\Desktop\GIF_Manager`
+- Shell: `powershell`
+- Timezone: `Europe/Istanbul`
+
+## Release State
+- Branch: `test`
+- HEAD: `fd8ed17a542b0645a6fcab7f539f4f30bbe5a47e`
+- Version: `1.4.1`
+
+## Project Purpose
+GIF Vault is a Manifest V3 Chrome/Opera extension that saves GIFs and short media into a local vault.
+
+Core capabilities:
+- Save media via context menu and popup URL import.
+- Resolve Twitter/X post URLs to direct media URLs.
+- Convert supported video inputs (mp4/webm) to GIF in an offscreen document.
+- Persist media and logs in IndexedDB.
+- Browse with pagination, favorites, search, rename, copy, and delete controls.
+
+## Source Layout
+- `src/manifest.json`: MV3 manifest.
+- `src/background/service-worker.js`: Chrome event/message routing.
+- `src/background/import-service.js`: Import orchestration, permission checks, progress reporting.
+- `src/background/media-resolver.js`: URL/media resolution.
+- `src/background/action-icon.js`: Toolbar icon/badge helpers.
+- `src/offscreen/offscreen.js`: FFmpeg offscreen conversion path.
+- `src/pages/popup/`: Popup UI (`popup.js`, `popup-grid.js`, `popup-status.js`, `popup.css`, `popup.html`).
+- `src/pages/assist/`: Permission assist page.
+- `src/pages/logs/`: Logs page.
+- `src/pages/settings/`: Settings page.
+- `src/lib/`: Shared helpers (`db.js`, `theme.js`, `ui.js`, `log.js`, `runtime-config.js`, `messages.js`).
+
+## Build and Test
+- Build: `npm.cmd run build`
+- Verify: `npm.cmd run build:verify`
+- Tests: `npm.cmd test`
+
+PowerShell note:
+- `npm.ps1` may be blocked by execution policy in this environment; use `npm.cmd`.
+
+## Architecture Notes
+### Import Pipeline
+- `importFromUrl(rawUrl, pageUrl, requestId, resolvedMediaUrlHint)` runs in background.
+- Pipeline order: permission check -> media resolve -> fetch -> optional convert -> save -> notify.
+- Progress updates are written to `chrome.storage.local` and sent as runtime messages.
+
+### Storage
+- IndexedDB splits metadata and blob payloads.
+- Popup fetches metadata first, then hydrates blobs for visible page items.
+- `chrome.storage.local` holds lightweight runtime state (theme/import status).
+
+### Popup UI
+- Uses paginated grid, favorites tab, search, rename, and two-step delete confirmation.
+- Import progress bar and transient status are controlled by `popup-status.js`.
+- Grid item actions and selection hints are handled by `popup-grid.js`.
+
+## Permissions Model
+Required permissions:
+- `contextMenus`
+- `storage`
+- `offscreen`
+
+Required host permissions are scoped to core supported hosts.
+Optional host permissions:
+- `https://*/*`
+- `http://*/*`
+
+### Host Access Flow
+Current intended flow for missing host access:
+1. Background detects missing origin permission.
+2. Background opens `pages/assist/permission-assist.html` in a tab.
+3. User grants permissions from assist page in a direct user gesture.
+4. Assist page sends `IMPORT_URL` to background.
+
+Do not move permission request logic back to popup/background gesture-less paths.
+
+## Centralized Messages (New)
+User-facing hints/messages are centralized in:
+- `src/lib/messages.js`
+
+Rules:
+- Reuse `UI_MESSAGES` constants/functions instead of hardcoded UI strings.
+- Keep popup/import/assist user text in this module.
+- Favor message builders for count-based strings.
+
+### Permission vs Progress Feedback Rule (Important)
+- Permission messaging belongs to the assist page.
+- Popup progress bar must not show host-access hint text.
+- In `import-service.js`, host-access failures clear progress state without pushing the access hint into `IMPORT_PROGRESS` text.
+- Regression coverage exists in `tests/import-service.test.js` to ensure host-access hint text is not sent to popup progress messages.
+
+## Recent Key Changes
+- Added `src/lib/messages.js` and moved popup/import/assist/grid text into it.
+- Fixed progress-bar overflow handling for long messages.
+- Removed duplicate feedback by preventing permission-access hints from being injected into popup progress updates.
+- Added test coverage for host-access/progress isolation.
+
+## Operational Notes
+- Load extension from `dist/` in browser developer mode.
+- `release/` contains local package artifacts.
+- Avoid reverting permission-assist UX without a stronger, gesture-safe alternative.

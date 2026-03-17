@@ -9,6 +9,35 @@ import { formatBytes, hostFromUrl } from "../../lib/ui.js";
 import { safeLog } from "../../lib/log.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
 
+export function selectionIdsChanged(previousIds, nextIds) {
+  const before = [...previousIds].map((id) => String(id)).sort();
+  const after = [...nextIds].map((id) => String(id)).sort();
+  if (before.length !== after.length) {
+    return true;
+  }
+  for (let i = 0; i < before.length; i += 1) {
+    if (before[i] !== after[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function shouldCancelArmedDeleteOnSelectionChange(
+  armedDeleteActionKey,
+  previousSelectionIds,
+  nextSelectionIds,
+) {
+  return (
+    Boolean(armedDeleteActionKey) &&
+    selectionIdsChanged(previousSelectionIds, nextSelectionIds)
+  );
+}
+
+export function armedDeleteGlyph(count) {
+  return count > 1 ? "!" : "\u2713";
+}
+
 // Vault filtering, rendering, and item actions.
 export function createPopupGridController({
   refs,
@@ -25,6 +54,7 @@ export function createPopupGridController({
     nextPageBtn,
     pageIndicator,
     prevPageBtn,
+    searchInput,
     tabAllBtn,
     tabFavoritesBtn,
   } = refs;
@@ -39,7 +69,10 @@ export function createPopupGridController({
   let hoverPointerY = 0;
   let armedDeleteItemId = "";
   let armedDeleteTimer = 0;
-  let armedDeleteButton = null;
+  let armedDeleteButtons = [];
+  let latestVisibleItemCount = 0;
+  let latestSavedItemCount = 0;
+  let latestFavoritesCount = 0;
 
   function getFilteredItems(items) {
     const normalized = items.map((item) => ({
@@ -89,15 +122,25 @@ export function createPopupGridController({
     );
   }
 
-  function setCountText(normalized, visibleItems) {
-    const favoritesCount = normalized.filter((item) => item.favorite).length;
-    countEl.textContent =
+  function refreshCountTextFromCache() {
+    const selectedCount = selectedItemIds.size;
+    const baseText =
       state.currentTab === "favorites"
-        ? UI_MESSAGES.grid.favoritesCount(visibleItems.length)
+        ? UI_MESSAGES.grid.favoritesCount(latestVisibleItemCount)
         : UI_MESSAGES.grid.savedAndFavoritesCount(
-            normalized.length,
-            favoritesCount,
+            latestSavedItemCount,
+            latestFavoritesCount,
           );
+    countEl.textContent = selectedCount > 0
+      ? `${baseText} | ${UI_MESSAGES.grid.selectedCount(selectedCount)}`
+      : baseText;
+  }
+
+  function setCountText(normalized, visibleItems) {
+    latestSavedItemCount = normalized.length;
+    latestVisibleItemCount = visibleItems.length;
+    latestFavoritesCount = normalized.filter((item) => item.favorite).length;
+    refreshCountTextFromCache();
   }
 
   function createEmptyState(query) {
@@ -241,9 +284,11 @@ export function createPopupGridController({
       clearTimeout(armedDeleteTimer);
       armedDeleteTimer = 0;
     }
-    resetDeleteButton(armedDeleteButton);
+    for (const button of armedDeleteButtons) {
+      resetDeleteButton(button);
+    }
     armedDeleteItemId = "";
-    armedDeleteButton = null;
+    armedDeleteButtons = [];
   }
 
   function selectionHintText(count) {
@@ -281,6 +326,7 @@ export function createPopupGridController({
   }
 
   function toggleCardSelection(itemId, card) {
+    const previousSelection = new Set(selectedItemIds);
     const id = String(itemId);
     if (selectedItemIds.has(id)) {
       selectedItemIds.delete(id);
@@ -289,10 +335,21 @@ export function createPopupGridController({
       selectedItemIds.add(id);
       setCardSelected(card, true);
     }
+    if (
+      shouldCancelArmedDeleteOnSelectionChange(
+        armedDeleteItemId,
+        previousSelection,
+        selectedItemIds,
+      )
+    ) {
+      clearArmedDelete();
+    }
+    refreshCountTextFromCache();
     showSelectionHint(selectedItemIds.size);
   }
 
   function removeCardFromSelection(itemId, card) {
+    const previousSelection = new Set(selectedItemIds);
     const id = String(itemId);
     if (!selectedItemIds.has(id)) {
       return false;
@@ -300,6 +357,16 @@ export function createPopupGridController({
 
     selectedItemIds.delete(id);
     setCardSelected(card, false);
+    if (
+      shouldCancelArmedDeleteOnSelectionChange(
+        armedDeleteItemId,
+        previousSelection,
+        selectedItemIds,
+      )
+    ) {
+      clearArmedDelete();
+    }
+    refreshCountTextFromCache();
     showSelectionHint(selectedItemIds.size);
     return true;
   }
@@ -313,6 +380,12 @@ export function createPopupGridController({
     for (const card of grid.querySelectorAll(".item.selected")) {
       setCardSelected(card, false);
     }
+    refreshCountTextFromCache();
+  }
+
+  function clearSelections() {
+    clearArmedDelete();
+    clearAllSelections();
   }
 
   function resolveTargetIdsForAction(fallbackItemId) {
@@ -327,24 +400,39 @@ export function createPopupGridController({
     return fallbackId ? [fallbackId] : [];
   }
 
-  function armDeleteButton(button, actionKey, count = 1) {
+  function armDeleteButton(button, actionKey, count = 1, targetIds = []) {
     clearArmedDelete();
     armedDeleteItemId = String(actionKey);
-    armedDeleteButton = button;
-    if (button instanceof HTMLElement) {
-      button.classList.add("delete-armed");
-      button.textContent = "\u2713";
-      button.title =
-        count > 1
-          ? UI_MESSAGES.grid.confirmDeleteTitleMany(count)
-          : UI_MESSAGES.grid.confirmDeleteTitleSingle;
-      button.setAttribute(
-        "aria-label",
-        count > 1
-          ? UI_MESSAGES.grid.confirmDeleteTitleMany(count)
-          : UI_MESSAGES.grid.confirmDeleteTitleSingle,
-      );
+
+    const armedLabel =
+      count > 1
+        ? UI_MESSAGES.grid.confirmDeleteTitleMany(count)
+        : UI_MESSAGES.grid.confirmDeleteTitleSingle;
+    const armedGlyph = armedDeleteGlyph(count);
+    const buttonsToArm = [];
+
+    if (count > 1 && targetIds.length > 0) {
+      for (const card of grid.querySelectorAll(".item")) {
+        if (!targetIds.includes(card.dataset.itemId || "")) {
+          continue;
+        }
+        const candidate = card.querySelector(".btn.danger");
+        if (candidate instanceof HTMLElement) {
+          buttonsToArm.push(candidate);
+        }
+      }
+    } else if (button instanceof HTMLElement) {
+      buttonsToArm.push(button);
     }
+
+    armedDeleteButtons = buttonsToArm;
+    for (const armedButton of armedDeleteButtons) {
+      armedButton.classList.add("delete-armed");
+      armedButton.textContent = armedGlyph;
+      armedButton.title = armedLabel;
+      armedButton.setAttribute("aria-label", armedLabel);
+    }
+
     const hint =
       count > 1
         ? UI_MESSAGES.grid.confirmDeleteHintMany(count)
@@ -528,6 +616,15 @@ export function createPopupGridController({
 
     nextTarget.focus();
     return true;
+  }
+
+  function blurSelectionResetInputs() {
+    if (importInput instanceof HTMLElement) {
+      importInput.blur();
+    }
+    if (searchInput instanceof HTMLElement) {
+      searchInput.blur();
+    }
   }
 
   function restorePendingFocus() {
@@ -735,7 +832,7 @@ export function createPopupGridController({
         void removeItems(targetIds, item.id);
         return;
       }
-      armDeleteButton(removeBtn, actionKey, targetIds.length);
+      armDeleteButton(removeBtn, actionKey, targetIds.length, targetIds);
     });
 
     actions.append(copyBtn, favoriteBtn, removeBtn);
@@ -752,6 +849,7 @@ export function createPopupGridController({
       if (event.button !== 0) {
         return;
       }
+      blurSelectionResetInputs();
       if (event.shiftKey) {
         event.preventDefault();
       }
@@ -767,6 +865,7 @@ export function createPopupGridController({
       if (event.button !== 0) {
         return;
       }
+      blurSelectionResetInputs();
       event.preventDefault();
       if (event.shiftKey) {
         toggleCardSelection(item.id, card);
@@ -838,7 +937,7 @@ export function createPopupGridController({
 
   function cleanupObjectUrls() {
     hideHoverPreview();
-    clearArmedDelete();
+    clearSelections();
     for (const url of objectUrlById.values()) {
       URL.revokeObjectURL(url);
     }
@@ -846,6 +945,7 @@ export function createPopupGridController({
   }
 
   return {
+    clearSelections,
     cleanupObjectUrls,
     hideHoverPreview,
     render,
