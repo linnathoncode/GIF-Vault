@@ -7,6 +7,36 @@ import {
 import { fileExtensionFromMime } from "../../lib/media.js";
 import { formatBytes, hostFromUrl } from "../../lib/ui.js";
 import { safeLog } from "../../lib/log.js";
+import { UI_MESSAGES } from "../../lib/messages.js";
+
+export function selectionIdsChanged(previousIds, nextIds) {
+  const before = [...previousIds].map((id) => String(id)).sort();
+  const after = [...nextIds].map((id) => String(id)).sort();
+  if (before.length !== after.length) {
+    return true;
+  }
+  for (let i = 0; i < before.length; i += 1) {
+    if (before[i] !== after[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function shouldCancelArmedDeleteOnSelectionChange(
+  armedDeleteActionKey,
+  previousSelectionIds,
+  nextSelectionIds,
+) {
+  return (
+    Boolean(armedDeleteActionKey) &&
+    selectionIdsChanged(previousSelectionIds, nextSelectionIds)
+  );
+}
+
+export function armedDeleteGlyph(count) {
+  return count > 1 ? "!" : "\u2713";
+}
 
 // Vault filtering, rendering, and item actions.
 export function createPopupGridController({
@@ -24,18 +54,25 @@ export function createPopupGridController({
     nextPageBtn,
     pageIndicator,
     prevPageBtn,
+    searchInput,
     tabAllBtn,
     tabFavoritesBtn,
   } = refs;
 
   const objectUrlById = new Map();
+  const selectedItemIds = new Set();
+  let latestItemById = new Map();
+  let latestVisiblePageIds = new Set();
   let hoverPreviewTimer = 0;
   let hoverPreviewSrc = "";
   let hoverPointerX = 0;
   let hoverPointerY = 0;
   let armedDeleteItemId = "";
   let armedDeleteTimer = 0;
-  let armedDeleteButton = null;
+  let armedDeleteButtons = [];
+  let latestVisibleItemCount = 0;
+  let latestSavedItemCount = 0;
+  let latestFavoritesCount = 0;
 
   function getFilteredItems(items) {
     const normalized = items.map((item) => ({
@@ -79,25 +116,41 @@ export function createPopupGridController({
     tabFavoritesBtn.classList.toggle("active", state.currentTab === "favorites");
     prevPageBtn.disabled = state.currentPage <= 1;
     nextPageBtn.disabled = state.currentPage >= totalPages;
-    pageIndicator.textContent = `Page ${state.currentPage} / ${totalPages}`;
+    pageIndicator.textContent = UI_MESSAGES.grid.pageLabel(
+      state.currentPage,
+      totalPages,
+    );
+  }
+
+  function refreshCountTextFromCache() {
+    const selectedCount = selectedItemIds.size;
+    const baseText =
+      state.currentTab === "favorites"
+        ? UI_MESSAGES.grid.favoritesCount(latestVisibleItemCount)
+        : UI_MESSAGES.grid.savedAndFavoritesCount(
+            latestSavedItemCount,
+            latestFavoritesCount,
+          );
+    countEl.textContent = selectedCount > 0
+      ? `${baseText} | ${UI_MESSAGES.grid.selectedCount(selectedCount)}`
+      : baseText;
   }
 
   function setCountText(normalized, visibleItems) {
-    const favoritesCount = normalized.filter((item) => item.favorite).length;
-    countEl.textContent =
-      state.currentTab === "favorites"
-        ? `${visibleItems.length} favorite(s)`
-        : `${normalized.length} saved | ${favoritesCount} favorite(s)`;
+    latestSavedItemCount = normalized.length;
+    latestVisibleItemCount = visibleItems.length;
+    latestFavoritesCount = normalized.filter((item) => item.favorite).length;
+    refreshCountTextFromCache();
   }
 
   function createEmptyState(query) {
     const empty = document.createElement("div");
     empty.className = "empty";
     empty.textContent = query
-      ? "No matches for your search."
+      ? UI_MESSAGES.grid.noSearchMatches
       : state.currentTab === "favorites"
-        ? "No favorites yet. Mark items as Favorite from the All tab."
-        : "Paste a URL above to import into GIF Vault.";
+        ? UI_MESSAGES.grid.noFavoritesYet
+        : UI_MESSAGES.grid.emptyVaultPrompt;
     return empty;
   }
 
@@ -222,8 +275,8 @@ export function createPopupGridController({
     }
     button.classList.remove("delete-armed");
     button.textContent = "\u2715";
-    button.title = "Delete";
-    button.setAttribute("aria-label", "Delete");
+    button.title = UI_MESSAGES.grid.delete;
+    button.setAttribute("aria-label", UI_MESSAGES.grid.delete);
   }
 
   function clearArmedDelete() {
@@ -231,22 +284,160 @@ export function createPopupGridController({
       clearTimeout(armedDeleteTimer);
       armedDeleteTimer = 0;
     }
-    resetDeleteButton(armedDeleteButton);
+    for (const button of armedDeleteButtons) {
+      resetDeleteButton(button);
+    }
     armedDeleteItemId = "";
-    armedDeleteButton = null;
+    armedDeleteButtons = [];
   }
 
-  function armDeleteButton(button, itemId) {
-    clearArmedDelete();
-    armedDeleteItemId = String(itemId);
-    armedDeleteButton = button;
-    if (button instanceof HTMLElement) {
-      button.classList.add("delete-armed");
-      button.textContent = "\u2713";
-      button.title = "Confirm delete";
-      button.setAttribute("aria-label", "Confirm delete");
+  function selectionHintText(count) {
+    return count > 1
+      ? UI_MESSAGES.grid.selectionHintMany(count)
+      : UI_MESSAGES.grid.selectionHintSingle;
+  }
+
+  function showSelectionHint(count) {
+    showTransientStatus(selectionHintText(count), "ok", 1200, {
+      forceTemporary: true,
+      preserveProgress: false,
+    });
+  }
+
+  function updateSelectionForRender() {
+    const next = new Set();
+    for (const id of selectedItemIds) {
+      if (latestVisiblePageIds.has(id)) {
+        next.add(id);
+      }
     }
-    showTransientStatus("Click delete again to confirm.", "ok", 2000, {
+    selectedItemIds.clear();
+    for (const id of next) {
+      selectedItemIds.add(id);
+    }
+  }
+
+  function setCardSelected(card, selected) {
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+    card.classList.toggle("selected", selected);
+    card.setAttribute("aria-selected", selected ? "true" : "false");
+  }
+
+  function toggleCardSelection(itemId, card) {
+    const previousSelection = new Set(selectedItemIds);
+    const id = String(itemId);
+    if (selectedItemIds.has(id)) {
+      selectedItemIds.delete(id);
+      setCardSelected(card, false);
+    } else {
+      selectedItemIds.add(id);
+      setCardSelected(card, true);
+    }
+    if (
+      shouldCancelArmedDeleteOnSelectionChange(
+        armedDeleteItemId,
+        previousSelection,
+        selectedItemIds,
+      )
+    ) {
+      clearArmedDelete();
+    }
+    refreshCountTextFromCache();
+    showSelectionHint(selectedItemIds.size);
+  }
+
+  function removeCardFromSelection(itemId, card) {
+    const previousSelection = new Set(selectedItemIds);
+    const id = String(itemId);
+    if (!selectedItemIds.has(id)) {
+      return false;
+    }
+
+    selectedItemIds.delete(id);
+    setCardSelected(card, false);
+    if (
+      shouldCancelArmedDeleteOnSelectionChange(
+        armedDeleteItemId,
+        previousSelection,
+        selectedItemIds,
+      )
+    ) {
+      clearArmedDelete();
+    }
+    refreshCountTextFromCache();
+    showSelectionHint(selectedItemIds.size);
+    return true;
+  }
+
+  function clearAllSelections() {
+    if (selectedItemIds.size === 0) {
+      return;
+    }
+
+    selectedItemIds.clear();
+    for (const card of grid.querySelectorAll(".item.selected")) {
+      setCardSelected(card, false);
+    }
+    refreshCountTextFromCache();
+  }
+
+  function clearSelections() {
+    clearArmedDelete();
+    clearAllSelections();
+  }
+
+  function resolveTargetIdsForAction(fallbackItemId) {
+    const fallbackId = String(fallbackItemId || "");
+    if (
+      fallbackId &&
+      selectedItemIds.size > 1 &&
+      selectedItemIds.has(fallbackId)
+    ) {
+      return [...selectedItemIds];
+    }
+    return fallbackId ? [fallbackId] : [];
+  }
+
+  function armDeleteButton(button, actionKey, count = 1, targetIds = []) {
+    clearArmedDelete();
+    armedDeleteItemId = String(actionKey);
+
+    const armedLabel =
+      count > 1
+        ? UI_MESSAGES.grid.confirmDeleteTitleMany(count)
+        : UI_MESSAGES.grid.confirmDeleteTitleSingle;
+    const armedGlyph = armedDeleteGlyph(count);
+    const buttonsToArm = [];
+
+    if (count > 1 && targetIds.length > 0) {
+      for (const card of grid.querySelectorAll(".item")) {
+        if (!targetIds.includes(card.dataset.itemId || "")) {
+          continue;
+        }
+        const candidate = card.querySelector(".btn.danger");
+        if (candidate instanceof HTMLElement) {
+          buttonsToArm.push(candidate);
+        }
+      }
+    } else if (button instanceof HTMLElement) {
+      buttonsToArm.push(button);
+    }
+
+    armedDeleteButtons = buttonsToArm;
+    for (const armedButton of armedDeleteButtons) {
+      armedButton.classList.add("delete-armed");
+      armedButton.textContent = armedGlyph;
+      armedButton.title = armedLabel;
+      armedButton.setAttribute("aria-label", armedLabel);
+    }
+
+    const hint =
+      count > 1
+        ? UI_MESSAGES.grid.confirmDeleteHintMany(count)
+        : UI_MESSAGES.grid.confirmDeleteHintSingle;
+    showTransientStatus(hint, "ok", 2000, {
       forceTemporary: true,
     });
     armedDeleteTimer = setTimeout(() => {
@@ -310,56 +501,84 @@ export function createPopupGridController({
 
   function setCopyStatus(item, result) {
     if (!result?.ok) {
-      showTransientStatus("Copy failed.", "error");
+      showTransientStatus(UI_MESSAGES.grid.copyFailed, "error");
       return;
     }
 
     if (result.method === "blob") {
-      showTransientStatus("Copied GIF.", "ok");
+      showTransientStatus(UI_MESSAGES.grid.copiedGif, "ok");
       return;
     }
 
     const copiedUrl = result.copiedUrl || "";
     const isVideoLink =
       String(item?.mimeType || "").startsWith("video/") || isVideoLikeUrl(copiedUrl);
-    const label = isVideoLink ? "Copied video link." : "Copied GIF link.";
+    const label = isVideoLink
+      ? UI_MESSAGES.grid.copiedVideoLink
+      : UI_MESSAGES.grid.copiedGifLink;
     showTransientStatus(
-      `${label} Tip: drag and drop the GIF preview to use the GIF directly.`,
+      `${label} ${UI_MESSAGES.grid.copiedLinkTip}`,
       "ok",
     );
   }
 
-  async function removeItem(id) {
-    queueRemovalFocusRestore(id);
-    await idbDelete(id);
-    const objectUrl = objectUrlById.get(id);
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl);
-      objectUrlById.delete(id);
+  async function removeItems(ids, focusItemId = "") {
+    const targetIds = [...new Set((ids || []).map((id) => String(id)).filter(Boolean))];
+    if (!targetIds.length) {
+      return;
+    }
+
+    clearAllSelections();
+    queueRemovalFocusRestore(focusItemId || targetIds[0]);
+    await Promise.all(targetIds.map((id) => idbDelete(id)));
+
+    for (const id of targetIds) {
+      const objectUrl = objectUrlById.get(id);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        objectUrlById.delete(id);
+      }
+      selectedItemIds.delete(id);
     }
     await render();
   }
 
-  async function toggleFavorite(item) {
-    const next = {
-      ...item,
-      favorite: !Boolean(item.favorite),
-    };
-    await idbSave(next);
+  async function setFavoriteForItems(ids, favorite) {
+    const targetIds = [...new Set((ids || []).map((id) => String(id)).filter(Boolean))];
+    if (!targetIds.length) {
+      return;
+    }
+
+    clearAllSelections();
+
+    const updates = targetIds
+      .map((id) => latestItemById.get(id))
+      .filter(Boolean)
+      .map((item) => ({
+        ...item,
+        favorite: Boolean(favorite),
+      }));
+    if (!updates.length) {
+      return;
+    }
+
+    await Promise.all(updates.map((item) => idbSave(item)));
     await safeLog("popup", "Favorite toggled", {
-      id: item.id,
-      favorite: next.favorite,
+      ids: updates.map((item) => item.id),
+      favorite: Boolean(favorite),
+      count: updates.length,
     });
     await render();
   }
 
   async function renameItem(item) {
     const currentName = item.name || "";
-    const nextName = window.prompt("Name this GIF:", currentName);
+    const nextName = window.prompt(UI_MESSAGES.grid.renamePrompt, currentName);
     if (nextName === null) {
       return;
     }
 
+    clearAllSelections();
     const normalized = nextName.trim();
     const updated = {
       ...item,
@@ -397,6 +616,15 @@ export function createPopupGridController({
 
     nextTarget.focus();
     return true;
+  }
+
+  function blurSelectionResetInputs() {
+    if (importInput instanceof HTMLElement) {
+      importInput.blur();
+    }
+    if (searchInput instanceof HTMLElement) {
+      searchInput.blur();
+    }
   }
 
   function restorePendingFocus() {
@@ -454,16 +682,17 @@ export function createPopupGridController({
     urlText.className = "url";
     urlText.textContent =
       item.kind === "video"
-        ? "Legacy video entry is no longer supported"
-        : "Invalid media entry";
+        ? UI_MESSAGES.grid.invalidLegacyVideo
+        : UI_MESSAGES.grid.invalidMediaEntry;
 
     const actions = document.createElement("div");
     actions.className = "actions";
     actions.append(
       createButton({
         className: "btn",
-        text: "Remove",
-        onClick: () => removeItem(item.id),
+        text: UI_MESSAGES.grid.remove,
+        title: UI_MESSAGES.grid.delete,
+        onClick: () => removeItems([item.id], item.id),
       }),
     );
 
@@ -476,7 +705,7 @@ export function createPopupGridController({
     const media = document.createElement("img");
     media.className = "thumb";
     media.src = previewUrl;
-    media.alt = "Saved GIF";
+    media.alt = UI_MESSAGES.grid.savedGifAlt;
     media.loading = "lazy";
     media.addEventListener("error", () => {
       void safeLog("popup", "Image preview failed", {
@@ -511,6 +740,7 @@ export function createPopupGridController({
     const card = document.createElement("article");
     card.className = "item";
     card.dataset.itemId = String(item.id);
+    setCardSelected(card, selectedItemIds.has(String(item.id)));
     const media = createPreviewMedia(item, previewUrl);
 
     const meta = document.createElement("div");
@@ -522,13 +752,13 @@ export function createPopupGridController({
     const nameText = document.createElement("div");
     nameText.className = "name";
     nameText.textContent =
-      item.name && item.name.trim() ? item.name.trim() : "Untitled";
+      item.name && item.name.trim() ? item.name.trim() : UI_MESSAGES.grid.untitled;
 
     const renameBtn = createButton({
       className: "name-btn",
       text: "\u270E",
-      title: "Rename",
-      label: "Rename",
+      title: UI_MESSAGES.grid.rename,
+      label: UI_MESSAGES.grid.rename,
       onClick: () => renameItem(item),
     });
 
@@ -540,7 +770,9 @@ export function createPopupGridController({
 
     const sizeText = document.createElement("div");
     sizeText.className = "size";
-    sizeText.textContent = `Size: ${formatBytes(item.blob?.size || 0)}`;
+    sizeText.textContent = UI_MESSAGES.grid.sizeLabel(
+      formatBytes(item.blob?.size || 0),
+    );
 
     const actions = document.createElement("div");
     actions.className = "actions";
@@ -548,10 +780,11 @@ export function createPopupGridController({
     const copyBtn = createButton({
       className: "btn primary",
       text: "\u29C9",
-      title: "Copy",
-      label: "Copy",
+      title: UI_MESSAGES.grid.copy,
+      label: UI_MESSAGES.grid.copy,
     });
     copyBtn.addEventListener("click", async () => {
+      clearAllSelections();
       const result = await copyItemBlob(item);
       copyBtn.textContent = result.ok ? "\u2713" : "!";
       setCopyStatus(item, result);
@@ -563,9 +796,13 @@ export function createPopupGridController({
     const favoriteBtn = createButton({
       className: "btn",
       text: item.favorite ? "\u2605" : "\u2606",
-      title: item.favorite ? "Unfavorite" : "Favorite",
-      label: item.favorite ? "Unfavorite" : "Favorite",
-      onClick: () => toggleFavorite(item),
+      title: `${item.favorite ? UI_MESSAGES.grid.unfavorite : UI_MESSAGES.grid.favorite} ${UI_MESSAGES.grid.favoriteBatchHint}`,
+      label: `${item.favorite ? UI_MESSAGES.grid.unfavorite : UI_MESSAGES.grid.favorite} ${UI_MESSAGES.grid.favoriteBatchHint}`,
+      onClick: () => {
+        const targetIds = resolveTargetIdsForAction(item.id);
+        const nextFavorite = !Boolean(item.favorite);
+        void setFavoriteForItems(targetIds, nextFavorite);
+      },
     });
     if (item.favorite) {
       favoriteBtn.classList.add("favorite-active");
@@ -574,22 +811,68 @@ export function createPopupGridController({
     const removeBtn = createButton({
       className: "btn danger",
       text: "\u2715",
-      title: "Delete",
-      label: "Delete",
+      title: UI_MESSAGES.grid.delete,
+      label: UI_MESSAGES.grid.delete,
     });
     removeBtn.addEventListener("click", () => {
-      if (armedDeleteItemId === String(item.id)) {
+      const targetIds = resolveTargetIdsForAction(item.id);
+      const actionKey = targetIds.length > 1
+        ? `batch:${[...targetIds].sort().join(",")}`
+        : String(item.id);
+
+      if (armedDeleteItemId === actionKey) {
         clearArmedDelete();
-        showTransientStatus("GIF deleted.", "ok");
-        void removeItem(item.id);
+        const count = targetIds.length;
+        showTransientStatus(
+          count > 1
+            ? UI_MESSAGES.grid.deletedMany(count)
+            : UI_MESSAGES.grid.deletedSingle,
+          "ok",
+        );
+        void removeItems(targetIds, item.id);
         return;
       }
-      armDeleteButton(removeBtn, item.id);
+      armDeleteButton(removeBtn, actionKey, targetIds.length, targetIds);
     });
 
     actions.append(copyBtn, favoriteBtn, removeBtn);
     meta.append(nameRow, urlText, sizeText, actions);
     card.append(media, meta);
+    card.addEventListener("mousedown", (event) => {
+      const rawTarget = event.target;
+      if (!(rawTarget instanceof Element)) {
+        return;
+      }
+      if (rawTarget.closest(".btn, .name-btn")) {
+        return;
+      }
+      if (event.button !== 0) {
+        return;
+      }
+      blurSelectionResetInputs();
+      if (event.shiftKey) {
+        event.preventDefault();
+      }
+    });
+    card.addEventListener("click", (event) => {
+      const rawTarget = event.target;
+      if (!(rawTarget instanceof Element)) {
+        return;
+      }
+      if (rawTarget.closest(".btn, .name-btn")) {
+        return;
+      }
+      if (event.button !== 0) {
+        return;
+      }
+      blurSelectionResetInputs();
+      event.preventDefault();
+      if (event.shiftKey) {
+        toggleCardSelection(item.id, card);
+        return;
+      }
+      removeCardFromSelection(item.id, card);
+    });
     return card;
   }
 
@@ -603,7 +886,12 @@ export function createPopupGridController({
     }
 
     const { normalized, visibleItems, query } = getFilteredItems(items);
+    latestItemById = new Map(normalized.map((item) => [String(item.id), item]));
     const { totalPages, pagedItemsMeta } = getPagedItemsMeta(visibleItems);
+    latestVisiblePageIds = new Set(
+      pagedItemsMeta.map((item) => String(item.id)),
+    );
+    updateSelectionForRender();
     await safeLog("popup", "Render media grid", {
       count: visibleItems.length,
       tab: state.currentTab,
@@ -649,7 +937,7 @@ export function createPopupGridController({
 
   function cleanupObjectUrls() {
     hideHoverPreview();
-    clearArmedDelete();
+    clearSelections();
     for (const url of objectUrlById.values()) {
       URL.revokeObjectURL(url);
     }
@@ -657,6 +945,7 @@ export function createPopupGridController({
   }
 
   return {
+    clearSelections,
     cleanupObjectUrls,
     hideHoverPreview,
     render,

@@ -5,6 +5,7 @@ import {
   normalizeRuntimeConfig,
 } from "../../lib/runtime-config.js";
 import { safeLog } from "../../lib/log.js";
+import { UI_MESSAGES } from "../../lib/messages.js";
 import { isValidUrl, originPatternFromUrl } from "../../lib/ui.js";
 import {
   applyDocumentTheme,
@@ -13,6 +14,10 @@ import {
   setThemeToggleGlyph,
   setToolbarIcon,
 } from "../../lib/theme.js";
+import {
+  restoreInactiveImportState,
+  shouldClearProgressVisualsOnStorageClear,
+} from "./popup-import-state.js";
 import { createPopupGridController } from "./popup-grid.js";
 import { createPopupStatusController } from "./popup-status.js";
 
@@ -49,6 +54,7 @@ const state = {
   popupMenuConfig: defaultPopupMenuConfig(),
   renderSequence: 0,
   searchTerm: "",
+  suppressNextImportStateClearUiReset: false,
   themeMode: "light",
 };
 
@@ -87,7 +93,10 @@ async function terminateImport() {
   const requestId =
     state.activeImportRequestId || state.currentImportState?.requestId || "";
   if (!requestId) {
-    statusController.showTransientStatus("No active import to terminate.", "error");
+    statusController.showTransientStatus(
+      UI_MESSAGES.popup.noActiveImportToTerminate,
+      "error",
+    );
     return;
   }
 
@@ -97,12 +106,16 @@ async function terminateImport() {
       requestId,
     });
     if (!response?.ok) {
-      throw new Error(response?.error || "Terminate failed");
+      throw new Error(response?.error || UI_MESSAGES.popup.terminateFailed);
     }
-    statusController.showTransientStatus("Import termination requested.", "ok");
+    statusController.showTransientStatus(
+      UI_MESSAGES.popup.importTerminationRequested,
+      "ok",
+    );
+    await clearStoredImportStatePreservingUi();
   } catch (error) {
     statusController.showTransientStatus(
-      error?.message || "Terminate failed.",
+      error?.message || UI_MESSAGES.popup.terminateFailed,
       "error",
     );
   }
@@ -112,11 +125,11 @@ async function importUrl(rawUrl) {
   statusController.clearTransientStatus();
   const url = String(rawUrl || "").trim();
   if (!url) {
-    statusController.setStatus("Paste a URL first.");
+    statusController.setStatus(UI_MESSAGES.popup.pasteUrlFirst);
     return;
   }
   if (!isValidUrl(url)) {
-    statusController.setImportErrorState("Please enter a valid URL.");
+    statusController.setImportErrorState(UI_MESSAGES.popup.enterValidUrl);
     return;
   }
 
@@ -124,14 +137,14 @@ async function importUrl(rawUrl) {
   state.activeImportRequestId = requestId;
   state.currentImportState = {
     requestId,
-    text: "Starting import...",
+    text: UI_MESSAGES.popup.startingImport,
     kind: "info",
     active: true,
   };
   statusController.syncImportActionButton();
-  statusController.setStatus("Starting import...");
+  statusController.setStatus(UI_MESSAGES.popup.startingImport);
   statusController.setProgressState({
-    text: "Starting import...",
+    text: UI_MESSAGES.popup.startingImport,
     kind: "info",
     active: true,
   });
@@ -143,18 +156,19 @@ async function importUrl(rawUrl) {
     );
     if (missingOrigins.length > 0) {
       await openPermissionAssist(url, "", missingOrigins);
-      statusController.setStatus(
-        "Additional site access is needed. Continue in the permission tab.",
-      );
       statusController.setProgressState(null);
       state.activeImportRequestId = "";
       state.currentImportState = null;
       statusController.syncImportActionButton();
+      await clearStoredImportStatePreservingUi();
       return;
     }
   } catch (error) {
-    statusController.setImportErrorState(error?.message || "Import failed");
+    statusController.setImportErrorState(
+      error?.message || UI_MESSAGES.popup.importFailed,
+    );
     state.activeImportRequestId = "";
+    await clearStoredImportStatePreservingUi();
     await safeLog("popup", "Import failed in popup", {
       error: error?.message || "unknown",
     });
@@ -168,35 +182,69 @@ async function importUrl(rawUrl) {
       requestId,
     });
     if (!response?.ok) {
-      throw new Error(response?.error || "Import failed");
+      throw new Error(response?.error || UI_MESSAGES.popup.importFailed);
     }
 
     refs.importInput.value = "";
-    refs.importBtn.textContent = "Import";
-    const convertedMessage = response.result?.converted ? " (converted)" : "";
-    statusController.setImportSuccessState(
-      `Imported successfully${convertedMessage}.`,
-    );
+    refs.importBtn.textContent = UI_MESSAGES.popup.importButtonIdle;
+    const importedCount = Number(response.result?.importedCount) || 1;
+    const convertedCount = Number(response.result?.convertedCount) || 0;
+    const successMessage = buildImportSuccessMessage(url, importedCount, convertedCount);
+    statusController.setImportSuccessState(successMessage);
     state.activeImportRequestId = "";
+    await clearStoredImportStatePreservingUi();
     await gridController.render();
   } catch (error) {
-    if (String(error?.message || "").startsWith("Host access needed for ")) {
+    if (String(error?.message || "") === UI_MESSAGES.import.hostAccessRequired) {
       await openPermissionAssist(url, "", []);
-      statusController.setStatus(
-        "Additional site access is needed. Continue in the permission tab.",
-      );
       statusController.setProgressState(null);
       state.activeImportRequestId = "";
       state.currentImportState = null;
       statusController.syncImportActionButton();
+      await clearStoredImportStatePreservingUi();
       return;
     }
-    statusController.setImportErrorState(error?.message || "Import failed");
+    statusController.setImportErrorState(
+      error?.message || UI_MESSAGES.popup.importFailed,
+    );
     state.activeImportRequestId = "";
+    await clearStoredImportStatePreservingUi();
     await safeLog("popup", "Import failed in popup", {
       error: error?.message || "unknown",
     });
   }
+}
+
+function isTweetUrl(rawUrl) {
+  try {
+    const host = new URL(rawUrl).host.toLowerCase();
+    return host.includes("x.com") || host.includes("twitter.com");
+  } catch {
+    return false;
+  }
+}
+
+function buildImportSuccessMessage(sourceUrl, importedCount, convertedCount) {
+  const parts = [];
+  if (importedCount > 1 && isTweetUrl(sourceUrl)) {
+    parts.push(UI_MESSAGES.popup.successTweetMany(importedCount));
+  }
+
+  if (importedCount > 1) {
+    parts.push(UI_MESSAGES.popup.successImportedMany(importedCount));
+  } else {
+    parts.push(UI_MESSAGES.popup.successImportedSingle);
+  }
+
+  if (convertedCount > 1) {
+    parts.push(UI_MESSAGES.popup.successConvertedMany(convertedCount));
+  } else if (convertedCount === 1 && importedCount > 1) {
+    parts.push(UI_MESSAGES.popup.successConvertedSingleInBatch);
+  } else if (convertedCount === 1) {
+    parts.push(UI_MESSAGES.popup.successConvertedSingle);
+  }
+
+  return parts.join(" ");
 }
 
 async function findMissingOrigins(origins) {
@@ -265,14 +313,27 @@ function clearStoredImportState() {
   });
 }
 
+async function clearStoredImportStatePreservingUi() {
+  state.suppressNextImportStateClearUiReset = true;
+  await clearStoredImportState();
+}
+
 refs.importBtn.addEventListener("click", () => {
+  gridController.clearSelections();
   if (state.currentImportState?.active) {
     void terminateImport();
     return;
   }
   void importUrl(refs.importInput.value);
 });
+refs.importInput.addEventListener("click", () => {
+  gridController.clearSelections();
+});
+refs.importInput.addEventListener("focus", () => {
+  gridController.clearSelections();
+});
 refs.importInput.addEventListener("keydown", (event) => {
+  gridController.clearSelections();
   if (event.key === "Enter") {
     void importUrl(refs.importInput.value);
   }
@@ -282,14 +343,14 @@ window.addEventListener("blur", gridController.hideHoverPreview);
 
 refs.clearAllBtn.addEventListener("click", async () => {
   const confirmed = window.confirm(
-    "Clear all items from GIF Vault? This cannot be undone.",
+    UI_MESSAGES.popup.clearVaultConfirm,
   );
   if (!confirmed) {
     return;
   }
   await idbClear();
   gridController.cleanupObjectUrls();
-  statusController.showTransientStatus("Vault cleared.", "ok");
+  statusController.showTransientStatus(UI_MESSAGES.popup.vaultCleared, "ok");
   await safeLog("popup", "Vault cleared");
   await gridController.render();
 });
@@ -313,16 +374,25 @@ refs.themeToggleBtn.addEventListener("click", async () => {
   await setThemeMode(state.themeMode);
 });
 refs.tabAllBtn.addEventListener("click", async () => {
+  gridController.clearSelections();
   state.currentTab = "all";
   state.currentPage = 1;
   await gridController.render();
 });
 refs.tabFavoritesBtn.addEventListener("click", async () => {
+  gridController.clearSelections();
   state.currentTab = "favorites";
   state.currentPage = 1;
   await gridController.render();
 });
+refs.searchInput.addEventListener("click", () => {
+  gridController.clearSelections();
+});
+refs.searchInput.addEventListener("focus", () => {
+  gridController.clearSelections();
+});
 refs.searchInput.addEventListener("input", async () => {
+  gridController.clearSelections();
   state.searchTerm = refs.searchInput.value || "";
   state.currentPage = 1;
   await gridController.render();
@@ -390,7 +460,12 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       statusController.applyImportState(nextState);
     } else {
       state.currentImportState = null;
-      if (!statusController.hasTransientStatus()) {
+      const shouldClearProgress = shouldClearProgressVisualsOnStorageClear({
+        hasTransientStatus: statusController.hasTransientStatus(),
+        suppressUiReset: state.suppressNextImportStateClearUiReset,
+      });
+      state.suppressNextImportStateClearUiReset = false;
+      if (shouldClearProgress) {
         statusController.setProgressState(null);
       }
     }
@@ -426,14 +501,11 @@ async function init() {
       statusController.applyImportState(importState);
     } else {
       state.currentImportState = null;
-      statusController.setProgressState(null);
-      statusController.showTransientStatus(
-        importState.text,
-        importState.kind === "success" ? "ok" : importState.kind || "",
-        2200,
-        { preserveProgress: false, forceTemporary: true },
-      );
-      await clearStoredImportState();
+      await restoreInactiveImportState({
+        importState,
+        statusController,
+        clearStoredImportState,
+      });
     }
   } else {
     state.currentImportState = importState || null;

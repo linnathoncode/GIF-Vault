@@ -1,5 +1,6 @@
 import { STORAGE_KEYS } from "../../lib/settings.js";
 import { safeLog } from "../../lib/log.js";
+import { UI_MESSAGES } from "../../lib/messages.js";
 import { originPatternFromUrl } from "../../lib/ui.js";
 import { applyDocumentTheme } from "../../lib/theme.js";
 
@@ -13,13 +14,17 @@ const cancelBtn = document.getElementById("cancelBtn");
 const params = new URLSearchParams(window.location.search);
 const importUrl = (params.get("url") || "").trim();
 const pageUrl = (params.get("pageUrl") || "").trim();
-const reason = (params.get("reason") || "Additional host access is required.").trim();
+const reason = (params.get("reason") || UI_MESSAGES.assist.defaultReason).trim();
 
 let pendingOrigins = [];
+let resolvedMediaUrls = [];
 let isBusy = false;
 
 init().catch(async (error) => {
-  setStatus(error?.message || "Failed to prepare permission request.", "error");
+  setStatus(
+    error?.message || UI_MESSAGES.assist.failedToPreparePermissionRequest,
+    "error",
+  );
   grantBtn.disabled = true;
   await safeLog("permissions", "Permission assist failed to initialize", {
     error: error?.message || "unknown",
@@ -44,22 +49,23 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 async function init() {
   if (!importUrl) {
-    throw new Error("Missing import URL.");
+    throw new Error(UI_MESSAGES.assist.missingImportUrl);
   }
 
   const currentTheme = await chrome.storage.local.get([STORAGE_KEYS.themeMode]);
   applyTheme(currentTheme[STORAGE_KEYS.themeMode]);
 
   reasonEl.textContent = reason;
+  reasonEl.hidden = false;
   pendingOrigins = await collectMissingOrigins(importUrl);
   renderOrigins(pendingOrigins);
 
   if (pendingOrigins.length === 0) {
-    grantBtn.textContent = "Import";
-    setStatus("Access is already granted. Start the import.", "");
+    grantBtn.textContent = UI_MESSAGES.assist.importButtonIdle;
+    setStatus(UI_MESSAGES.assist.accessAlreadyGranted, "");
   } else {
-    grantBtn.textContent = "Grant & Import";
-    setStatus("Grant access, then GIF Vault will import automatically.", "");
+    grantBtn.textContent = UI_MESSAGES.assist.grantAndImportButton;
+    setStatus(UI_MESSAGES.assist.grantThenImport, "");
   }
 
   grantBtn.disabled = false;
@@ -71,10 +77,15 @@ async function collectMissingOrigins(url) {
     url
   }).catch(() => ({ ok: false, resolvedMediaUrl: "" }));
 
+  resolvedMediaUrls = Array.isArray(resolution?.resolvedMediaUrls)
+    ? resolution.resolvedMediaUrls.filter(Boolean)
+    : [];
+
   const origins = new Set([
     originPatternFromUrl(url),
     originPatternFromUrl(pageUrl),
-    originPatternFromUrl(resolution?.ok ? resolution.resolvedMediaUrl || "" : "")
+    originPatternFromUrl(resolution?.ok ? resolution.resolvedMediaUrl || "" : ""),
+    ...resolvedMediaUrls.map((mediaUrl) => originPatternFromUrl(mediaUrl)),
   ]);
 
   const missing = [];
@@ -100,31 +111,34 @@ async function grantAndImport() {
 
   try {
     if (pendingOrigins.length > 0) {
-      setStatus("Waiting for permission grant...", "");
+      setStatus(UI_MESSAGES.assist.waitingForPermissionGrant, "");
       const granted = await chrome.permissions.request({ origins: pendingOrigins });
       if (!granted) {
         await safeLog("permissions", "Optional host access denied", { origins: pendingOrigins });
-        setStatus("Access was not granted.", "error");
+        setStatus(UI_MESSAGES.assist.accessNotGranted, "error");
         return;
       }
       await safeLog("permissions", "Optional host access granted", { origins: pendingOrigins });
     }
 
-    setStatus("Importing media...", "");
+    setStatus(UI_MESSAGES.assist.importingMedia, "");
     const requestId = crypto.randomUUID();
     const response = await chrome.runtime.sendMessage({
       type: "IMPORT_URL",
       url: importUrl,
       pageUrl,
-      requestId
+      requestId,
+      resolvedMediaUrl: resolvedMediaUrls,
     });
 
     if (!response?.ok) {
-      throw new Error(response?.error || "Import failed");
+      throw new Error(response?.error || UI_MESSAGES.popup.importFailed);
     }
 
-    const convertedMessage = response.result?.converted ? " (converted)" : "";
-    setStatus(`Imported successfully${convertedMessage}. Closing...`, "ok");
+    const importedCount = Number(response.result?.importedCount) || 1;
+    const convertedCount = Number(response.result?.convertedCount) || 0;
+    const successMessage = buildImportSuccessMessage(importUrl, importedCount, convertedCount);
+    setStatus(`${successMessage} ${UI_MESSAGES.assist.closingSuffix}`, "ok");
     await safeLog("permissions", "Assist import completed", {
       url: importUrl,
       converted: Boolean(response.result?.converted)
@@ -135,7 +149,7 @@ async function grantAndImport() {
       url: importUrl,
       error: error?.message || "unknown"
     });
-    setStatus(error?.message || "Import failed.", "error");
+    setStatus(error?.message || UI_MESSAGES.assist.importFailedWithPeriod, "error");
   } finally {
     isBusy = false;
     grantBtn.disabled = false;
@@ -174,5 +188,37 @@ async function closeCurrentTabSoon() {
     return;
   }
   window.close();
+}
+
+function isTweetUrl(rawUrl) {
+  try {
+    const host = new URL(rawUrl).host.toLowerCase();
+    return host.includes("x.com") || host.includes("twitter.com");
+  } catch {
+    return false;
+  }
+}
+
+function buildImportSuccessMessage(sourceUrl, importedCount, convertedCount) {
+  const parts = [];
+  if (importedCount > 1 && isTweetUrl(sourceUrl)) {
+    parts.push(UI_MESSAGES.popup.successTweetMany(importedCount));
+  }
+
+  if (importedCount > 1) {
+    parts.push(UI_MESSAGES.popup.successImportedMany(importedCount));
+  } else {
+    parts.push(UI_MESSAGES.popup.successImportedSingle);
+  }
+
+  if (convertedCount > 1) {
+    parts.push(UI_MESSAGES.popup.successConvertedMany(convertedCount));
+  } else if (convertedCount === 1 && importedCount > 1) {
+    parts.push(UI_MESSAGES.popup.successConvertedSingleInBatch);
+  } else if (convertedCount === 1) {
+    parts.push(UI_MESSAGES.popup.successConvertedSingle);
+  }
+
+  return parts.join(" ");
 }
 

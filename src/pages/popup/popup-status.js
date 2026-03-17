@@ -1,4 +1,6 @@
 // Import progress and transient status UI.
+import { UI_MESSAGES } from "../../lib/messages.js";
+
 export function createPopupStatusController({
   refs,
   state,
@@ -210,7 +212,9 @@ export function createPopupStatusController({
 
   function syncImportActionButton() {
     const isActiveImport = Boolean(state.currentImportState?.active);
-    importBtn.textContent = isActiveImport ? "Terminate" : "Import";
+    importBtn.textContent = isActiveImport
+      ? UI_MESSAGES.popup.importButtonTerminate
+      : UI_MESSAGES.popup.importButtonIdle;
   }
 
   function setImportErrorState(text) {

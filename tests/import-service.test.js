@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { UI_MESSAGES } from "../src/lib/messages.js";
 
 const mocks = vi.hoisted(() => ({
   idbSave: vi.fn(),
+  idbDelete: vi.fn(),
   getRuntimeConfig: vi.fn(),
   safeLog: vi.fn(),
-  resolveMediaUrl: vi.fn(),
+  resolveMediaUrls: vi.fn(),
   isSupportedMediaType: vi.fn(),
   getReadableImportError: vi.fn(),
   isTwitterUrl: vi.fn(),
@@ -13,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../src/lib/db.js", () => ({
   idbSave: mocks.idbSave,
+  idbDelete: mocks.idbDelete,
 }));
 
 vi.mock("../src/lib/runtime-config.js", () => ({
@@ -24,7 +27,7 @@ vi.mock("../src/lib/log.js", () => ({
 }));
 
 vi.mock("../src/background/media-resolver.js", () => ({
-  resolveMediaUrl: mocks.resolveMediaUrl,
+  resolveMediaUrls: mocks.resolveMediaUrls,
   isSupportedMediaType: mocks.isSupportedMediaType,
   getReadableImportError: mocks.getReadableImportError,
   isTwitterUrl: mocks.isTwitterUrl,
@@ -97,11 +100,12 @@ describe("import service long-video gate", () => {
         maxDurationSeconds: 15,
       },
     });
-    mocks.resolveMediaUrl.mockResolvedValue("https://video.example.com/clip.mp4");
+    mocks.resolveMediaUrls.mockResolvedValue(["https://video.example.com/clip.mp4"]);
     mocks.isSupportedMediaType.mockReturnValue(true);
     mocks.getReadableImportError.mockReturnValue("Resolved URL is not media");
     mocks.isTwitterUrl.mockReturnValue(false);
     mocks.originPatternFromUrl.mockReturnValue("https://video.example.com/*");
+    mocks.idbDelete.mockResolvedValue(undefined);
 
     ({ importFromUrl } = await import("../src/background/import-service.js"));
   });
@@ -148,5 +152,199 @@ describe("import service long-video gate", () => {
     expect(messageTypes).toContain("OFFSCREEN_PROBE_VIDEO_DURATION");
     expect(messageTypes).toContain("OFFSCREEN_CONVERT_MP4");
     expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("imports all resolved media URLs from a tweet", async () => {
+    globalThis.fetch = vi.fn(async (url) => ({
+      ok: true,
+      status: 200,
+      headers: {
+        get: () =>
+          String(url).includes("video.example.com") ? "video/mp4" : "image/jpeg",
+      },
+      blob: async () =>
+        String(url).includes("video.example.com")
+          ? new Blob([new Uint8Array([1, 2, 3, 4])], { type: "video/mp4" })
+          : new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/jpeg" }),
+    }));
+
+    sendMessageMock.mockImplementation(async (message) => {
+      if (message?.type === "OFFSCREEN_PROBE_VIDEO_DURATION") {
+        return { ok: true, durationSeconds: 7.4 };
+      }
+      if (message?.type === "OFFSCREEN_CONVERT_MP4") {
+        return {
+          ok: true,
+          payload: {
+            converted: true,
+            mimeType: "image/gif",
+            gifBuffer: new Uint8Array([71, 73, 70, 56, 57, 97]).buffer,
+          },
+        };
+      }
+      return { ok: true };
+    });
+
+    mocks.resolveMediaUrls.mockResolvedValue([
+      "https://video.example.com/clip.mp4",
+      "https://image.example.com/pic.jpg",
+    ]);
+    mocks.originPatternFromUrl.mockImplementation((url) => {
+      if (String(url).includes("video.example.com")) {
+        return "https://video.example.com/*";
+      }
+      if (String(url).includes("image.example.com")) {
+        return "https://image.example.com/*";
+      }
+      return "https://x.com/*";
+    });
+
+    await expect(
+      importFromUrl("https://x.com/i/status/3", "", "request-3"),
+    ).resolves.toMatchObject({
+      importedCount: 2,
+      convertedCount: 1,
+    });
+
+    expect(mocks.idbSave).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not push host-access hint text into import progress updates", async () => {
+    globalThis.chrome.permissions.contains.mockResolvedValue(false);
+
+    await expect(importFromUrl("https://x.com/i/status/4", "")).rejects.toThrow(
+      UI_MESSAGES.import.hostAccessRequired,
+    );
+
+    const progressMessages = sendMessageMock.mock.calls
+      .map(([message]) => message)
+      .filter((message) => message?.type === "IMPORT_PROGRESS")
+      .map((message) => String(message?.text || ""));
+
+    expect(progressMessages).not.toContain(UI_MESSAGES.import.hostAccessRequired);
+  });
+
+  it("rolls back already-saved items when a later item in batch import fails", async () => {
+    let fetchCount = 0;
+    globalThis.fetch = vi.fn(async () => {
+      fetchCount += 1;
+      if (fetchCount === 1) {
+        return {
+          ok: true,
+          status: 200,
+          headers: {
+            get: () => "image/jpeg",
+          },
+          blob: async () =>
+            new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/jpeg" }),
+        };
+      }
+      return {
+        ok: false,
+        status: 404,
+        headers: {
+          get: () => "image/jpeg",
+        },
+        blob: async () =>
+          new Blob([new Uint8Array([1])], { type: "image/jpeg" }),
+      };
+    });
+
+    mocks.resolveMediaUrls.mockResolvedValue([
+      "https://image.example.com/first.jpg",
+      "https://image.example.com/second.jpg",
+    ]);
+    mocks.originPatternFromUrl.mockImplementation((url) => {
+      if (String(url).includes("image.example.com")) {
+        return "https://image.example.com/*";
+      }
+      return "https://x.com/*";
+    });
+
+    await expect(importFromUrl("https://x.com/i/status/5", "")).rejects.toThrow(
+      UI_MESSAGES.import.failedToFetchMedia,
+    );
+
+    expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+    expect(mocks.idbDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not roll back already-saved items on user-terminated import", async () => {
+    let fetchCount = 0;
+    globalThis.fetch = vi.fn(async () => {
+      fetchCount += 1;
+      if (fetchCount === 1) {
+        return {
+          ok: true,
+          status: 200,
+          headers: {
+            get: () => "image/jpeg",
+          },
+          blob: async () =>
+            new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/jpeg" }),
+        };
+      }
+
+      throw new Error(UI_MESSAGES.import.importTerminatedError);
+    });
+
+    mocks.resolveMediaUrls.mockResolvedValue([
+      "https://image.example.com/first.jpg",
+      "https://image.example.com/second.jpg",
+    ]);
+    mocks.originPatternFromUrl.mockImplementation((url) => {
+      if (String(url).includes("image.example.com")) {
+        return "https://image.example.com/*";
+      }
+      return "https://x.com/*";
+    });
+
+    await expect(importFromUrl("https://x.com/i/status/6", "")).rejects.toThrow(
+      UI_MESSAGES.import.importTerminated,
+    );
+
+    expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+    expect(mocks.idbDelete).not.toHaveBeenCalled();
+  });
+
+  it("rolls back on non-user AbortError (e.g., persistence abort)", async () => {
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: {
+        get: () => "image/jpeg",
+      },
+      blob: async () =>
+        new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/jpeg" }),
+    }));
+
+    mocks.resolveMediaUrls.mockResolvedValue([
+      "https://image.example.com/first.jpg",
+      "https://image.example.com/second.jpg",
+    ]);
+    mocks.originPatternFromUrl.mockImplementation((url) => {
+      if (String(url).includes("image.example.com")) {
+        return "https://image.example.com/*";
+      }
+      return "https://x.com/*";
+    });
+
+    let saveCallCount = 0;
+    mocks.idbSave.mockImplementation(async () => {
+      saveCallCount += 1;
+      if (saveCallCount === 2) {
+        const abortError = new Error("IndexedDB transaction aborted");
+        abortError.name = "AbortError";
+        throw abortError;
+      }
+      return undefined;
+    });
+
+    await expect(importFromUrl("https://x.com/i/status/7", "")).rejects.toThrow(
+      "IndexedDB transaction aborted",
+    );
+
+    expect(mocks.idbSave).toHaveBeenCalledTimes(2);
+    expect(mocks.idbDelete).toHaveBeenCalledTimes(1);
   });
 });
