@@ -5,6 +5,7 @@ import {
   normalizeRuntimeConfig,
 } from "../../lib/runtime-config.js";
 import { safeLog } from "../../lib/log.js";
+import { UI_MESSAGES } from "../../lib/messages.js";
 import { isValidUrl, originPatternFromUrl } from "../../lib/ui.js";
 import {
   applyDocumentTheme,
@@ -87,7 +88,10 @@ async function terminateImport() {
   const requestId =
     state.activeImportRequestId || state.currentImportState?.requestId || "";
   if (!requestId) {
-    statusController.showTransientStatus("No active import to terminate.", "error");
+    statusController.showTransientStatus(
+      UI_MESSAGES.popup.noActiveImportToTerminate,
+      "error",
+    );
     return;
   }
 
@@ -97,12 +101,15 @@ async function terminateImport() {
       requestId,
     });
     if (!response?.ok) {
-      throw new Error(response?.error || "Terminate failed");
+      throw new Error(response?.error || UI_MESSAGES.popup.terminateFailed);
     }
-    statusController.showTransientStatus("Import termination requested.", "ok");
+    statusController.showTransientStatus(
+      UI_MESSAGES.popup.importTerminationRequested,
+      "ok",
+    );
   } catch (error) {
     statusController.showTransientStatus(
-      error?.message || "Terminate failed.",
+      error?.message || UI_MESSAGES.popup.terminateFailed,
       "error",
     );
   }
@@ -112,11 +119,11 @@ async function importUrl(rawUrl) {
   statusController.clearTransientStatus();
   const url = String(rawUrl || "").trim();
   if (!url) {
-    statusController.setStatus("Paste a URL first.");
+    statusController.setStatus(UI_MESSAGES.popup.pasteUrlFirst);
     return;
   }
   if (!isValidUrl(url)) {
-    statusController.setImportErrorState("Please enter a valid URL.");
+    statusController.setImportErrorState(UI_MESSAGES.popup.enterValidUrl);
     return;
   }
 
@@ -124,14 +131,14 @@ async function importUrl(rawUrl) {
   state.activeImportRequestId = requestId;
   state.currentImportState = {
     requestId,
-    text: "Starting import...",
+    text: UI_MESSAGES.popup.startingImport,
     kind: "info",
     active: true,
   };
   statusController.syncImportActionButton();
-  statusController.setStatus("Starting import...");
+  statusController.setStatus(UI_MESSAGES.popup.startingImport);
   statusController.setProgressState({
-    text: "Starting import...",
+    text: UI_MESSAGES.popup.startingImport,
     kind: "info",
     active: true,
   });
@@ -143,9 +150,6 @@ async function importUrl(rawUrl) {
     );
     if (missingOrigins.length > 0) {
       await openPermissionAssist(url, "", missingOrigins);
-      statusController.setStatus(
-        "Additional site access is needed. Continue in the permission tab.",
-      );
       statusController.setProgressState(null);
       state.activeImportRequestId = "";
       state.currentImportState = null;
@@ -153,7 +157,9 @@ async function importUrl(rawUrl) {
       return;
     }
   } catch (error) {
-    statusController.setImportErrorState(error?.message || "Import failed");
+    statusController.setImportErrorState(
+      error?.message || UI_MESSAGES.popup.importFailed,
+    );
     state.activeImportRequestId = "";
     await safeLog("popup", "Import failed in popup", {
       error: error?.message || "unknown",
@@ -168,11 +174,11 @@ async function importUrl(rawUrl) {
       requestId,
     });
     if (!response?.ok) {
-      throw new Error(response?.error || "Import failed");
+      throw new Error(response?.error || UI_MESSAGES.popup.importFailed);
     }
 
     refs.importInput.value = "";
-    refs.importBtn.textContent = "Import";
+    refs.importBtn.textContent = UI_MESSAGES.popup.importButtonIdle;
     const importedCount = Number(response.result?.importedCount) || 1;
     const convertedCount = Number(response.result?.convertedCount) || 0;
     const successMessage = buildImportSuccessMessage(url, importedCount, convertedCount);
@@ -180,18 +186,17 @@ async function importUrl(rawUrl) {
     state.activeImportRequestId = "";
     await gridController.render();
   } catch (error) {
-    if (String(error?.message || "").startsWith("Host access needed for ")) {
+    if (String(error?.message || "") === UI_MESSAGES.import.hostAccessRequired) {
       await openPermissionAssist(url, "", []);
-      statusController.setStatus(
-        "Additional site access is needed. Continue in the permission tab.",
-      );
       statusController.setProgressState(null);
       state.activeImportRequestId = "";
       state.currentImportState = null;
       statusController.syncImportActionButton();
       return;
     }
-    statusController.setImportErrorState(error?.message || "Import failed");
+    statusController.setImportErrorState(
+      error?.message || UI_MESSAGES.popup.importFailed,
+    );
     state.activeImportRequestId = "";
     await safeLog("popup", "Import failed in popup", {
       error: error?.message || "unknown",
@@ -211,21 +216,21 @@ function isTweetUrl(rawUrl) {
 function buildImportSuccessMessage(sourceUrl, importedCount, convertedCount) {
   const parts = [];
   if (importedCount > 1 && isTweetUrl(sourceUrl)) {
-    parts.push(`Tweet contains ${importedCount} media items.`);
+    parts.push(UI_MESSAGES.popup.successTweetMany(importedCount));
   }
 
   if (importedCount > 1) {
-    parts.push(`Imported ${importedCount} items successfully.`);
+    parts.push(UI_MESSAGES.popup.successImportedMany(importedCount));
   } else {
-    parts.push("Imported successfully.");
+    parts.push(UI_MESSAGES.popup.successImportedSingle);
   }
 
   if (convertedCount > 1) {
-    parts.push(`${convertedCount} converted.`);
+    parts.push(UI_MESSAGES.popup.successConvertedMany(convertedCount));
   } else if (convertedCount === 1 && importedCount > 1) {
-    parts.push("1 converted.");
+    parts.push(UI_MESSAGES.popup.successConvertedSingleInBatch);
   } else if (convertedCount === 1) {
-    parts.push("Converted.");
+    parts.push(UI_MESSAGES.popup.successConvertedSingle);
   }
 
   return parts.join(" ");
@@ -314,14 +319,14 @@ window.addEventListener("blur", gridController.hideHoverPreview);
 
 refs.clearAllBtn.addEventListener("click", async () => {
   const confirmed = window.confirm(
-    "Clear all items from GIF Vault? This cannot be undone.",
+    UI_MESSAGES.popup.clearVaultConfirm,
   );
   if (!confirmed) {
     return;
   }
   await idbClear();
   gridController.cleanupObjectUrls();
-  statusController.showTransientStatus("Vault cleared.", "ok");
+  statusController.showTransientStatus(UI_MESSAGES.popup.vaultCleared, "ok");
   await safeLog("popup", "Vault cleared");
   await gridController.render();
 });

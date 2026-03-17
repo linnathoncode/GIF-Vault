@@ -7,6 +7,7 @@ import {
 import { fileExtensionFromMime } from "../../lib/media.js";
 import { formatBytes, hostFromUrl } from "../../lib/ui.js";
 import { safeLog } from "../../lib/log.js";
+import { UI_MESSAGES } from "../../lib/messages.js";
 
 // Vault filtering, rendering, and item actions.
 export function createPopupGridController({
@@ -82,25 +83,31 @@ export function createPopupGridController({
     tabFavoritesBtn.classList.toggle("active", state.currentTab === "favorites");
     prevPageBtn.disabled = state.currentPage <= 1;
     nextPageBtn.disabled = state.currentPage >= totalPages;
-    pageIndicator.textContent = `Page ${state.currentPage} / ${totalPages}`;
+    pageIndicator.textContent = UI_MESSAGES.grid.pageLabel(
+      state.currentPage,
+      totalPages,
+    );
   }
 
   function setCountText(normalized, visibleItems) {
     const favoritesCount = normalized.filter((item) => item.favorite).length;
     countEl.textContent =
       state.currentTab === "favorites"
-        ? `${visibleItems.length} favorite(s)`
-        : `${normalized.length} saved | ${favoritesCount} favorite(s)`;
+        ? UI_MESSAGES.grid.favoritesCount(visibleItems.length)
+        : UI_MESSAGES.grid.savedAndFavoritesCount(
+            normalized.length,
+            favoritesCount,
+          );
   }
 
   function createEmptyState(query) {
     const empty = document.createElement("div");
     empty.className = "empty";
     empty.textContent = query
-      ? "No matches for your search."
+      ? UI_MESSAGES.grid.noSearchMatches
       : state.currentTab === "favorites"
-        ? "No favorites yet. Mark items as Favorite from the All tab."
-        : "Paste a URL above to import into GIF Vault.";
+        ? UI_MESSAGES.grid.noFavoritesYet
+        : UI_MESSAGES.grid.emptyVaultPrompt;
     return empty;
   }
 
@@ -225,8 +232,8 @@ export function createPopupGridController({
     }
     button.classList.remove("delete-armed");
     button.textContent = "\u2715";
-    button.title = "Delete";
-    button.setAttribute("aria-label", "Delete");
+    button.title = UI_MESSAGES.grid.delete;
+    button.setAttribute("aria-label", UI_MESSAGES.grid.delete);
   }
 
   function clearArmedDelete() {
@@ -241,8 +248,8 @@ export function createPopupGridController({
 
   function selectionHintText(count) {
     return count > 1
-      ? `${count} selected. Favorite/Delete act on selected cards.`
-      : "Shift+Click cards to multi-select.";
+      ? UI_MESSAGES.grid.selectionHintMany(count)
+      : UI_MESSAGES.grid.selectionHintSingle;
   }
 
   function showSelectionHint(count) {
@@ -328,16 +335,20 @@ export function createPopupGridController({
       button.classList.add("delete-armed");
       button.textContent = "\u2713";
       button.title =
-        count > 1 ? `Confirm delete ${count} items` : "Confirm delete";
+        count > 1
+          ? UI_MESSAGES.grid.confirmDeleteTitleMany(count)
+          : UI_MESSAGES.grid.confirmDeleteTitleSingle;
       button.setAttribute(
         "aria-label",
-        count > 1 ? `Confirm delete ${count} items` : "Confirm delete",
+        count > 1
+          ? UI_MESSAGES.grid.confirmDeleteTitleMany(count)
+          : UI_MESSAGES.grid.confirmDeleteTitleSingle,
       );
     }
     const hint =
       count > 1
-        ? `Click delete again to remove ${count} selected items.`
-        : "Click delete again to confirm.";
+        ? UI_MESSAGES.grid.confirmDeleteHintMany(count)
+        : UI_MESSAGES.grid.confirmDeleteHintSingle;
     showTransientStatus(hint, "ok", 2000, {
       forceTemporary: true,
     });
@@ -402,21 +413,23 @@ export function createPopupGridController({
 
   function setCopyStatus(item, result) {
     if (!result?.ok) {
-      showTransientStatus("Copy failed.", "error");
+      showTransientStatus(UI_MESSAGES.grid.copyFailed, "error");
       return;
     }
 
     if (result.method === "blob") {
-      showTransientStatus("Copied GIF.", "ok");
+      showTransientStatus(UI_MESSAGES.grid.copiedGif, "ok");
       return;
     }
 
     const copiedUrl = result.copiedUrl || "";
     const isVideoLink =
       String(item?.mimeType || "").startsWith("video/") || isVideoLikeUrl(copiedUrl);
-    const label = isVideoLink ? "Copied video link." : "Copied GIF link.";
+    const label = isVideoLink
+      ? UI_MESSAGES.grid.copiedVideoLink
+      : UI_MESSAGES.grid.copiedGifLink;
     showTransientStatus(
-      `${label} Tip: drag and drop the GIF preview to use the GIF directly.`,
+      `${label} ${UI_MESSAGES.grid.copiedLinkTip}`,
       "ok",
     );
   }
@@ -472,7 +485,7 @@ export function createPopupGridController({
 
   async function renameItem(item) {
     const currentName = item.name || "";
-    const nextName = window.prompt("Name this GIF:", currentName);
+    const nextName = window.prompt(UI_MESSAGES.grid.renamePrompt, currentName);
     if (nextName === null) {
       return;
     }
@@ -572,16 +585,16 @@ export function createPopupGridController({
     urlText.className = "url";
     urlText.textContent =
       item.kind === "video"
-        ? "Legacy video entry is no longer supported"
-        : "Invalid media entry";
+        ? UI_MESSAGES.grid.invalidLegacyVideo
+        : UI_MESSAGES.grid.invalidMediaEntry;
 
     const actions = document.createElement("div");
     actions.className = "actions";
     actions.append(
       createButton({
         className: "btn",
-        text: "Remove",
-        title: "Delete",
+        text: UI_MESSAGES.grid.remove,
+        title: UI_MESSAGES.grid.delete,
         onClick: () => removeItems([item.id], item.id),
       }),
     );
@@ -595,7 +608,7 @@ export function createPopupGridController({
     const media = document.createElement("img");
     media.className = "thumb";
     media.src = previewUrl;
-    media.alt = "Saved GIF";
+    media.alt = UI_MESSAGES.grid.savedGifAlt;
     media.loading = "lazy";
     media.addEventListener("error", () => {
       void safeLog("popup", "Image preview failed", {
@@ -642,13 +655,13 @@ export function createPopupGridController({
     const nameText = document.createElement("div");
     nameText.className = "name";
     nameText.textContent =
-      item.name && item.name.trim() ? item.name.trim() : "Untitled";
+      item.name && item.name.trim() ? item.name.trim() : UI_MESSAGES.grid.untitled;
 
     const renameBtn = createButton({
       className: "name-btn",
       text: "\u270E",
-      title: "Rename",
-      label: "Rename",
+      title: UI_MESSAGES.grid.rename,
+      label: UI_MESSAGES.grid.rename,
       onClick: () => renameItem(item),
     });
 
@@ -660,7 +673,9 @@ export function createPopupGridController({
 
     const sizeText = document.createElement("div");
     sizeText.className = "size";
-    sizeText.textContent = `Size: ${formatBytes(item.blob?.size || 0)}`;
+    sizeText.textContent = UI_MESSAGES.grid.sizeLabel(
+      formatBytes(item.blob?.size || 0),
+    );
 
     const actions = document.createElement("div");
     actions.className = "actions";
@@ -668,8 +683,8 @@ export function createPopupGridController({
     const copyBtn = createButton({
       className: "btn primary",
       text: "\u29C9",
-      title: "Copy",
-      label: "Copy",
+      title: UI_MESSAGES.grid.copy,
+      label: UI_MESSAGES.grid.copy,
     });
     copyBtn.addEventListener("click", async () => {
       clearAllSelections();
@@ -684,8 +699,8 @@ export function createPopupGridController({
     const favoriteBtn = createButton({
       className: "btn",
       text: item.favorite ? "\u2605" : "\u2606",
-      title: `${item.favorite ? "Unfavorite" : "Favorite"} (batch applies to selected cards)`,
-      label: `${item.favorite ? "Unfavorite" : "Favorite"} (batch applies to selected cards)`,
+      title: `${item.favorite ? UI_MESSAGES.grid.unfavorite : UI_MESSAGES.grid.favorite} ${UI_MESSAGES.grid.favoriteBatchHint}`,
+      label: `${item.favorite ? UI_MESSAGES.grid.unfavorite : UI_MESSAGES.grid.favorite} ${UI_MESSAGES.grid.favoriteBatchHint}`,
       onClick: () => {
         const targetIds = resolveTargetIdsForAction(item.id);
         const nextFavorite = !Boolean(item.favorite);
@@ -699,8 +714,8 @@ export function createPopupGridController({
     const removeBtn = createButton({
       className: "btn danger",
       text: "\u2715",
-      title: "Delete",
-      label: "Delete",
+      title: UI_MESSAGES.grid.delete,
+      label: UI_MESSAGES.grid.delete,
     });
     removeBtn.addEventListener("click", () => {
       const targetIds = resolveTargetIdsForAction(item.id);
@@ -712,7 +727,9 @@ export function createPopupGridController({
         clearArmedDelete();
         const count = targetIds.length;
         showTransientStatus(
-          count > 1 ? `${count} GIFs deleted.` : "GIF deleted.",
+          count > 1
+            ? UI_MESSAGES.grid.deletedMany(count)
+            : UI_MESSAGES.grid.deletedSingle,
           "ok",
         );
         void removeItems(targetIds, item.id);

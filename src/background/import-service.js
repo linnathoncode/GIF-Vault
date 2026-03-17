@@ -3,6 +3,7 @@ import { extensionFromUrl } from "../lib/media.js";
 import { STORAGE_KEYS, OFFSCREEN } from "../lib/settings.js";
 import { getRuntimeConfig } from "../lib/runtime-config.js";
 import { safeLog } from "../lib/log.js";
+import { UI_MESSAGES } from "../lib/messages.js";
 import { originPatternFromUrl } from "../lib/ui.js";
 import {
   getReadableImportError,
@@ -32,10 +33,10 @@ async function importFromUrl(
   const resolvedHints = normalizeResolvedHints(resolvedMediaUrlHint);
   if (!url) {
     await safeLog("import", "Rejected empty URL");
-    throw new Error("Empty URL");
+    throw new Error(UI_MESSAGES.import.emptyUrl);
   }
 
-  await reportProgress(progressId, "Resolving media URL...", true, "info");
+  await reportProgress(progressId, UI_MESSAGES.import.resolvingMediaUrl, true, "info");
   try {
     ensureImportActive();
     await safeLog("import", "Import started", { url, pageUrl: pageUrl || "" });
@@ -46,7 +47,7 @@ async function importFromUrl(
     ensureImportActive();
     if (!resolvedMediaUrls.length) {
       await safeLog("resolve", "Failed to resolve media URL", { url });
-      throw new Error("Could not resolve media URL");
+      throw new Error(UI_MESSAGES.import.couldNotResolveMediaUrl);
     }
     await safeLog("resolve", "Resolved media URL", {
       url,
@@ -62,7 +63,12 @@ async function importFromUrl(
       const current = index + 1;
       const total = resolvedMediaUrls.length;
       const suffix = total > 1 ? ` (${current}/${total})` : "";
-      await reportProgress(progressId, `Fetching media${suffix}...`, true, "info");
+      await reportProgress(
+        progressId,
+        UI_MESSAGES.import.fetchingMedia(suffix),
+        true,
+        "info",
+      );
       const item = await importResolvedMedia({
         sourceUrl: url,
         resolvedMediaUrl,
@@ -80,8 +86,8 @@ async function importFromUrl(
     await reportProgress(
       progressId,
       savedItems.length > 1
-        ? `Imported ${savedItems.length} items successfully.`
-        : "Imported successfully.",
+        ? UI_MESSAGES.import.importedMany(savedItems.length)
+        : UI_MESSAGES.import.importedSingle,
       false,
       "success",
     );
@@ -94,10 +100,16 @@ async function importFromUrl(
     };
   } catch (error) {
     const message =
-      error?.name === "AbortError" || error?.message === "IMPORT_TERMINATED"
-        ? "Import terminated by user."
-        : error?.message || "Import failed";
-    await reportProgress(progressId, message, false, "error");
+      error?.name === "AbortError" ||
+      error?.message === UI_MESSAGES.import.importTerminatedError
+        ? UI_MESSAGES.import.importTerminated
+        : error?.message || UI_MESSAGES.import.importFailed;
+    if (message === UI_MESSAGES.import.hostAccessRequired) {
+      // Permission-assist flow owns this feedback; keep popup progress clear.
+      await reportProgress(progressId, "", false, "info");
+    } else {
+      await reportProgress(progressId, message, false, "error");
+    }
     throw new Error(message);
   } finally {
     importAbortControllerById.delete(progressId);
@@ -133,7 +145,7 @@ async function importResolvedMedia({
       resolvedMediaUrl,
       status: response.status,
     });
-    throw new Error("Failed to fetch media");
+    throw new Error(UI_MESSAGES.import.failedToFetchMedia);
   }
   await safeLog("fetch", "Fetch succeeded", {
     resolvedMediaUrl,
@@ -162,7 +174,7 @@ async function importResolvedMedia({
   let converted = false;
 
   if (isVideoMedia) {
-    await reportProgress(progressId, "Checking video length...", true, "info");
+    await reportProgress(progressId, UI_MESSAGES.import.checkingVideoLength, true, "info");
     await safeLog("convert", "Video detected, offscreen conversion requested", {
       resolvedMediaUrl,
       sourceUrl,
@@ -185,11 +197,14 @@ async function importResolvedMedia({
           maxDurationSeconds: gifConversionConfig.maxDurationSeconds,
         });
         throw new Error(
-          `Video too long (${gifConversionConfig.maxDurationSeconds}s/${durationSeconds.toFixed(1)}s). Change length limit in Options.`,
+          UI_MESSAGES.import.videoTooLong(
+            gifConversionConfig.maxDurationSeconds,
+            durationSeconds,
+          ),
         );
       }
 
-      await reportProgress(progressId, "Converting video to GIF...", true, "info");
+      await reportProgress(progressId, UI_MESSAGES.import.convertingVideoToGif, true, "info");
       const convertedPayload = await convertInOffscreen({
         url: resolvedMediaUrl,
         requestId: progressId,
@@ -223,18 +238,18 @@ async function importResolvedMedia({
           reason: convertedPayload?.reason || "",
           extension: ext,
         });
-        throw new Error("Could not convert video to GIF.");
+        throw new Error(UI_MESSAGES.import.offscreenConversionFailed);
       }
     } catch (error) {
       await safeLog("convert", "Offscreen conversion failed", {
         error: error?.message || "unknown",
         extension: ext,
       });
-      throw new Error(error?.message || "Could not convert video to GIF.");
+      throw new Error(error?.message || UI_MESSAGES.import.offscreenConversionFailed);
     }
   }
 
-  await reportProgress(progressId, "Saving to vault...", true, "info");
+  await reportProgress(progressId, UI_MESSAGES.import.savingToVault, true, "info");
   ensureImportActive();
   const item = {
     id: crypto.randomUUID(),
@@ -274,7 +289,7 @@ async function terminateImport(requestId) {
   }
 
   await safeLog("import", "Terminate import requested", { requestId: id });
-  await reportProgress(id, "Import terminated by user.", false, "error");
+  await reportProgress(id, UI_MESSAGES.import.importTerminated, false, "error");
   return Boolean(controller);
 }
 
@@ -283,7 +298,7 @@ function throwIfTerminated(requestId, abortController = null) {
     terminatedImportIds.has(requestId) ||
     Boolean(abortController?.signal?.aborted)
   ) {
-    throw new Error("IMPORT_TERMINATED");
+    throw new Error(UI_MESSAGES.import.importTerminatedError);
   }
 }
 
@@ -323,7 +338,7 @@ async function convertInOffscreen({
     await safeLog("convert", "Offscreen conversion failed", {
       error: response?.error || "unknown",
     });
-    throw new Error(response?.error || "Offscreen conversion failed");
+    throw new Error(response?.error || UI_MESSAGES.import.offscreenConversionFailed);
   }
 
   return response.payload;
@@ -346,12 +361,12 @@ async function probeDurationInOffscreen({
     await safeLog("convert", "Offscreen probe failed", {
       error: response?.error || "unknown",
     });
-    throw new Error(response?.error || "Could not check video length.");
+    throw new Error(response?.error || UI_MESSAGES.import.offscreenProbeFailed);
   }
 
   const durationSeconds = Number(response?.durationSeconds);
   if (!Number.isFinite(durationSeconds) || durationSeconds < 0) {
-    throw new Error("Could not determine video duration.");
+    throw new Error(UI_MESSAGES.import.couldNotDetermineVideoDuration);
   }
   return durationSeconds;
 }
@@ -410,9 +425,7 @@ async function ensureOriginAccess(rawUrl) {
   await safeLog("permissions", "Missing host access for origin", {
     origin: originPattern,
   });
-  throw new Error(
-    `Host access needed for ${originPattern}. Use popup import to grant access.`,
-  );
+  throw new Error(UI_MESSAGES.import.hostAccessRequired);
 }
 
 async function reportProgress(requestId, text, active = true, kind = "info") {

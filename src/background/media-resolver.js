@@ -1,4 +1,5 @@
 import { safeLog } from "../lib/log.js";
+import { UI_MESSAGES } from "../lib/messages.js";
 
 // URL resolution and media detection.
 function isTwitterUrl(url) {
@@ -297,12 +298,12 @@ function isSupportedMediaType(contentType) {
 function getReadableImportError(url, contentType) {
   const normalizedType = (contentType || "").toLowerCase();
   if (normalizedType.startsWith("text/html")) {
-    return "Please enter a valid URL.";
+    return UI_MESSAGES.popup.enterValidUrl;
   }
   if (isTwitterUrl(url)) {
-    return "Could not resolve media from that post URL.";
+    return UI_MESSAGES.import.couldNotResolveMediaFromPost;
   }
-  return `Resolved URL is not media (${contentType || "unknown"})`;
+  return UI_MESSAGES.import.resolvedUrlNotMedia(contentType);
 }
 
 export {

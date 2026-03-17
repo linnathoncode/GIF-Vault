@@ -1,5 +1,6 @@
 import { STORAGE_KEYS, CONTEXT_MENU } from "../lib/settings.js";
 import { safeLog } from "../lib/log.js";
+import { UI_MESSAGES } from "../lib/messages.js";
 import {
   setActionIcon,
   showBadgeFallback,
@@ -45,8 +46,8 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
     await importFromUrl(info.srcUrl, info.pageUrl || "");
     await showBadgeFallback(true);
   } catch (error) {
-    if (String(error?.message || "").startsWith("Host access needed for ")) {
-      await openPermissionAssist(info.srcUrl, info.pageUrl || "", error.message);
+    if (String(error?.message || "") === UI_MESSAGES.import.hostAccessRequired) {
+      await openPermissionAssist(info.srcUrl, info.pageUrl || "");
     }
     await showBadgeFallback(false);
     await safeLog("context-menu", "Context menu import failed", {
@@ -105,7 +106,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   )
     .then((result) => sendResponse({ ok: true, result }))
     .catch((error) =>
-      sendResponse({ ok: false, error: error?.message || "Import failed" }),
+      sendResponse({
+        ok: false,
+        error: error?.message || UI_MESSAGES.popup.importFailed,
+      }),
     );
   return true;
 });
@@ -128,7 +132,7 @@ function handleThemeIconMessage(message, sendResponse) {
 }
 
 // Permission-assist handoff.
-async function openPermissionAssist(url, pageUrl, reason) {
+async function openPermissionAssist(url, pageUrl, reason = "") {
   try {
     const assistUrl = new URL(
       chrome.runtime.getURL("pages/assist/permission-assist.html"),

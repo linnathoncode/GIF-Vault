@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { UI_MESSAGES } from "../src/lib/messages.js";
 
 const mocks = vi.hoisted(() => ({
   idbSave: vi.fn(),
@@ -203,5 +204,20 @@ describe("import service long-video gate", () => {
     });
 
     expect(mocks.idbSave).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not push host-access hint text into import progress updates", async () => {
+    globalThis.chrome.permissions.contains.mockResolvedValue(false);
+
+    await expect(importFromUrl("https://x.com/i/status/4", "")).rejects.toThrow(
+      UI_MESSAGES.import.hostAccessRequired,
+    );
+
+    const progressMessages = sendMessageMock.mock.calls
+      .map(([message]) => message)
+      .filter((message) => message?.type === "IMPORT_PROGRESS")
+      .map((message) => String(message?.text || ""));
+
+    expect(progressMessages).not.toContain(UI_MESSAGES.import.hostAccessRequired);
   });
 });
