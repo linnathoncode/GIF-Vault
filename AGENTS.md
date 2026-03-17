@@ -21,6 +21,24 @@ Core capabilities:
 - Persist media and logs in IndexedDB.
 - Browse with pagination, favorites, search, rename, copy, and delete controls.
 
+## Store Listing Features
+- Save from the web in one click: Right-click images or videos and add them to your vault instantly.
+- Paste-and-import support: Import GIF, image, video, or X/Twitter post links directly from the popup.
+- X/Twitter support: Grab media from posts quickly without extra steps.
+- Video to GIF conversion: Turn supported videos into GIFs automatically during import.
+- Privacy-first storage: Your media stays in your browser. No account, no tracking.
+- Search your collection: Find saved items by name or source link in seconds.
+- Favorites tab: Star your best GIFs and access them fast.
+- Easy library management: Rename, copy, delete, or clear your saved items anytime.
+- Clean grid layout: Browse your GIFs in a simple visual gallery with pagination.
+- Import progress status: See import steps in real time and stop an import if needed.
+- Guided permissions flow: If a site needs access, GIF Vault walks you through it.
+- Custom options: Adjust conversion quality and popup behavior.
+- Light and dark themes: Pick the look you prefer.
+
+Maintenance rule:
+- When a worthwhile user-facing feature is added, append it to `## Recently Added` below (and update this section if store-copy should change).
+
 ## Source Layout
 - `src/manifest.json`: MV3 manifest.
 - `src/background/service-worker.js`: Chrome event/message routing.
@@ -98,6 +116,14 @@ Rules:
 - Fixed progress-bar overflow handling for long messages.
 - Removed duplicate feedback by preventing permission-access hints from being injected into popup progress updates.
 - Added test coverage for host-access/progress isolation.
+
+## Recently Added
+- Centralized UI text in `src/lib/messages.js`.
+- Progress bar now handles long status text without breaking popup layout.
+- Permission-assist feedback is isolated from popup progress messaging.
+- Multi-select delete now arms all selected cards with a danger `!` state.
+- Armed multi-select delete is canceled if selection changes.
+- Header count now includes selected item count and supports overflow-safe truncation.
 
 ## Operational Notes
 - Load extension from `dist/` in browser developer mode.
