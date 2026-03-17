@@ -1,4 +1,4 @@
-import { idbSave } from "../lib/db.js";
+import { idbDelete, idbSave } from "../lib/db.js";
 import { extensionFromUrl } from "../lib/media.js";
 import { STORAGE_KEYS, OFFSCREEN } from "../lib/settings.js";
 import { getRuntimeConfig } from "../lib/runtime-config.js";
@@ -31,6 +31,7 @@ async function importFromUrl(
   const gifConversionConfig = runtimeConfig.gifConversion;
   const url = String(rawUrl || "").trim();
   const resolvedHints = normalizeResolvedHints(resolvedMediaUrlHint);
+  const savedItems = [];
   if (!url) {
     await safeLog("import", "Rejected empty URL");
     throw new Error(UI_MESSAGES.import.emptyUrl);
@@ -55,7 +56,6 @@ async function importFromUrl(
       resolvedMediaUrlCount: resolvedMediaUrls.length,
       reusedResolvedUrl: resolvedHints.length > 0,
     });
-    const savedItems = [];
     for (let index = 0; index < resolvedMediaUrls.length; index += 1) {
       const resolvedMediaUrl = resolvedMediaUrls[index];
       ensureImportActive();
@@ -99,11 +99,14 @@ async function importFromUrl(
       convertedCount: savedItems.filter((item) => item.converted).length,
     };
   } catch (error) {
-    const message =
+      const message =
       error?.name === "AbortError" ||
       error?.message === UI_MESSAGES.import.importTerminatedError
         ? UI_MESSAGES.import.importTerminated
         : error?.message || UI_MESSAGES.import.importFailed;
+    if (savedItems.length > 0) {
+      await rollbackSavedItems(savedItems);
+    }
     if (message === UI_MESSAGES.import.hostAccessRequired) {
       // Permission-assist flow owns this feedback; keep popup progress clear.
       await reportProgress(progressId, "", false, "info");
@@ -300,6 +303,29 @@ function throwIfTerminated(requestId, abortController = null) {
   ) {
     throw new Error(UI_MESSAGES.import.importTerminatedError);
   }
+}
+
+async function rollbackSavedItems(savedItems) {
+  const items = [...savedItems].filter((item) => item?.id);
+  if (items.length === 0) {
+    return;
+  }
+
+  for (const item of items) {
+    try {
+      await idbDelete(item.id);
+      await notifyVaultUpdated(item.id);
+    } catch (error) {
+      await safeLog("save", "Rollback delete failed", {
+        id: item.id,
+        error: error?.message || "unknown",
+      });
+    }
+  }
+
+  await safeLog("save", "Rolled back partially saved batch import", {
+    rolledBackCount: items.length,
+  });
 }
 
 // Offscreen conversion helpers.

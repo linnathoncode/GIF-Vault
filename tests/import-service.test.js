@@ -3,6 +3,7 @@ import { UI_MESSAGES } from "../src/lib/messages.js";
 
 const mocks = vi.hoisted(() => ({
   idbSave: vi.fn(),
+  idbDelete: vi.fn(),
   getRuntimeConfig: vi.fn(),
   safeLog: vi.fn(),
   resolveMediaUrls: vi.fn(),
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../src/lib/db.js", () => ({
   idbSave: mocks.idbSave,
+  idbDelete: mocks.idbDelete,
 }));
 
 vi.mock("../src/lib/runtime-config.js", () => ({
@@ -103,6 +105,7 @@ describe("import service long-video gate", () => {
     mocks.getReadableImportError.mockReturnValue("Resolved URL is not media");
     mocks.isTwitterUrl.mockReturnValue(false);
     mocks.originPatternFromUrl.mockReturnValue("https://video.example.com/*");
+    mocks.idbDelete.mockResolvedValue(undefined);
 
     ({ importFromUrl } = await import("../src/background/import-service.js"));
   });
@@ -219,5 +222,50 @@ describe("import service long-video gate", () => {
       .map((message) => String(message?.text || ""));
 
     expect(progressMessages).not.toContain(UI_MESSAGES.import.hostAccessRequired);
+  });
+
+  it("rolls back already-saved items when a later item in batch import fails", async () => {
+    let fetchCount = 0;
+    globalThis.fetch = vi.fn(async () => {
+      fetchCount += 1;
+      if (fetchCount === 1) {
+        return {
+          ok: true,
+          status: 200,
+          headers: {
+            get: () => "image/jpeg",
+          },
+          blob: async () =>
+            new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/jpeg" }),
+        };
+      }
+      return {
+        ok: false,
+        status: 404,
+        headers: {
+          get: () => "image/jpeg",
+        },
+        blob: async () =>
+          new Blob([new Uint8Array([1])], { type: "image/jpeg" }),
+      };
+    });
+
+    mocks.resolveMediaUrls.mockResolvedValue([
+      "https://image.example.com/first.jpg",
+      "https://image.example.com/second.jpg",
+    ]);
+    mocks.originPatternFromUrl.mockImplementation((url) => {
+      if (String(url).includes("image.example.com")) {
+        return "https://image.example.com/*";
+      }
+      return "https://x.com/*";
+    });
+
+    await expect(importFromUrl("https://x.com/i/status/5", "")).rejects.toThrow(
+      UI_MESSAGES.import.failedToFetchMedia,
+    );
+
+    expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+    expect(mocks.idbDelete).toHaveBeenCalledTimes(1);
   });
 });
