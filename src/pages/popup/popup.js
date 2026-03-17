@@ -14,6 +14,10 @@ import {
   setThemeToggleGlyph,
   setToolbarIcon,
 } from "../../lib/theme.js";
+import {
+  restoreInactiveImportState,
+  shouldClearProgressVisualsOnStorageClear,
+} from "./popup-import-state.js";
 import { createPopupGridController } from "./popup-grid.js";
 import { createPopupStatusController } from "./popup-status.js";
 
@@ -50,6 +54,7 @@ const state = {
   popupMenuConfig: defaultPopupMenuConfig(),
   renderSequence: 0,
   searchTerm: "",
+  suppressNextImportStateClearUiReset: false,
   themeMode: "light",
 };
 
@@ -107,6 +112,7 @@ async function terminateImport() {
       UI_MESSAGES.popup.importTerminationRequested,
       "ok",
     );
+    await clearStoredImportStatePreservingUi();
   } catch (error) {
     statusController.showTransientStatus(
       error?.message || UI_MESSAGES.popup.terminateFailed,
@@ -154,6 +160,7 @@ async function importUrl(rawUrl) {
       state.activeImportRequestId = "";
       state.currentImportState = null;
       statusController.syncImportActionButton();
+      await clearStoredImportStatePreservingUi();
       return;
     }
   } catch (error) {
@@ -161,6 +168,7 @@ async function importUrl(rawUrl) {
       error?.message || UI_MESSAGES.popup.importFailed,
     );
     state.activeImportRequestId = "";
+    await clearStoredImportStatePreservingUi();
     await safeLog("popup", "Import failed in popup", {
       error: error?.message || "unknown",
     });
@@ -184,6 +192,7 @@ async function importUrl(rawUrl) {
     const successMessage = buildImportSuccessMessage(url, importedCount, convertedCount);
     statusController.setImportSuccessState(successMessage);
     state.activeImportRequestId = "";
+    await clearStoredImportStatePreservingUi();
     await gridController.render();
   } catch (error) {
     if (String(error?.message || "") === UI_MESSAGES.import.hostAccessRequired) {
@@ -192,12 +201,14 @@ async function importUrl(rawUrl) {
       state.activeImportRequestId = "";
       state.currentImportState = null;
       statusController.syncImportActionButton();
+      await clearStoredImportStatePreservingUi();
       return;
     }
     statusController.setImportErrorState(
       error?.message || UI_MESSAGES.popup.importFailed,
     );
     state.activeImportRequestId = "";
+    await clearStoredImportStatePreservingUi();
     await safeLog("popup", "Import failed in popup", {
       error: error?.message || "unknown",
     });
@@ -300,6 +311,11 @@ function clearStoredImportState() {
   return new Promise((resolve) => {
     chrome.storage.local.remove([STORAGE_KEYS.importState], resolve);
   });
+}
+
+async function clearStoredImportStatePreservingUi() {
+  state.suppressNextImportStateClearUiReset = true;
+  await clearStoredImportState();
 }
 
 refs.importBtn.addEventListener("click", () => {
@@ -444,7 +460,12 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       statusController.applyImportState(nextState);
     } else {
       state.currentImportState = null;
-      if (!statusController.hasTransientStatus()) {
+      const shouldClearProgress = shouldClearProgressVisualsOnStorageClear({
+        hasTransientStatus: statusController.hasTransientStatus(),
+        suppressUiReset: state.suppressNextImportStateClearUiReset,
+      });
+      state.suppressNextImportStateClearUiReset = false;
+      if (shouldClearProgress) {
         statusController.setProgressState(null);
       }
     }
@@ -480,14 +501,11 @@ async function init() {
       statusController.applyImportState(importState);
     } else {
       state.currentImportState = null;
-      statusController.setProgressState(null);
-      statusController.showTransientStatus(
-        importState.text,
-        importState.kind === "success" ? "ok" : importState.kind || "",
-        2200,
-        { preserveProgress: false, forceTemporary: true },
-      );
-      await clearStoredImportState();
+      await restoreInactiveImportState({
+        importState,
+        statusController,
+        clearStoredImportState,
+      });
     }
   } else {
     state.currentImportState = importState || null;

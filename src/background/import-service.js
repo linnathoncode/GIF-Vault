@@ -15,6 +15,19 @@ import {
 const importAbortControllerById = new Map();
 const terminatedImportIds = new Set();
 
+function isUserTerminatedImport(requestId, abortController, error) {
+  if (error?.message === UI_MESSAGES.import.importTerminatedError) {
+    return true;
+  }
+  // AbortError should count as user termination only when this import was
+  // explicitly marked as terminated by terminateImport().
+  return (
+    error?.name === "AbortError" &&
+    Boolean(abortController?.signal?.aborted) &&
+    terminatedImportIds.has(requestId)
+  );
+}
+
 // Import orchestration.
 async function importFromUrl(
   rawUrl,
@@ -99,9 +112,11 @@ async function importFromUrl(
       convertedCount: savedItems.filter((item) => item.converted).length,
     };
   } catch (error) {
-    const isTerminatedError =
-      error?.name === "AbortError" ||
-      error?.message === UI_MESSAGES.import.importTerminatedError;
+    const isTerminatedError = isUserTerminatedImport(
+      progressId,
+      abortController,
+      error,
+    );
     const message = isTerminatedError
       ? UI_MESSAGES.import.importTerminated
       : error?.message || UI_MESSAGES.import.importFailed;
