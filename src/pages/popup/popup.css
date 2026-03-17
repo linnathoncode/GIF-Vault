@@ -377,6 +377,7 @@ body {
 }
 
 .item {
+  position: relative;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -390,7 +391,16 @@ body {
 
 .item.selected {
   border-color: #f4b400;
-  box-shadow: inset 0 0 0 2px #f4b400;
+}
+
+.item.selected::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid #f4b400;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
 }
 
 .thumb {
