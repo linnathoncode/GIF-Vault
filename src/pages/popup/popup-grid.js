@@ -50,6 +50,8 @@ export function createPopupGridController({
   getPopupMenuConfig,
   showTransientStatus,
 }) {
+  const TEMP_STATUS_DURATION_MS = 5000;
+  const ARMED_DELETE_DURATION_MS = 5000;
   const {
     countEl,
     grid,
@@ -321,7 +323,7 @@ export function createPopupGridController({
   }
 
   function showSelectionHint(count) {
-    showTransientStatus(selectionHintText(count), "ok", 1200, {
+    showTransientStatus(selectionHintText(count), "ok", TEMP_STATUS_DURATION_MS, {
       forceTemporary: true,
       preserveProgress: false,
     });
@@ -460,12 +462,12 @@ export function createPopupGridController({
       count > 1
         ? UI_MESSAGES.grid.confirmDeleteHintMany(count)
         : UI_MESSAGES.grid.confirmDeleteHintSingle;
-    showTransientStatus(hint, "ok", 2000, {
+    showTransientStatus(hint, "ok", TEMP_STATUS_DURATION_MS, {
       forceTemporary: true,
     });
     armedDeleteTimer = setTimeout(() => {
       clearArmedDelete();
-    }, 2000);
+    }, ARMED_DELETE_DURATION_MS);
   }
 
   // Item actions that mutate stored media state.

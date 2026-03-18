@@ -6,6 +6,7 @@ export function createPopupStatusController({
   state,
   getPopupMenuConfig,
 }) {
+  const TRANSIENT_STATUS_DURATION_MS = 5000;
   const {
     statusEl,
     progressTrackEl,
@@ -140,7 +141,7 @@ export function createPopupStatusController({
   function showTransientStatus(
     text,
     kind = "",
-    durationMs = 2000,
+    durationMs = TRANSIENT_STATUS_DURATION_MS,
     options = {},
   ) {
     const hasImportStateToRestore = Boolean(state.currentImportState?.text);
