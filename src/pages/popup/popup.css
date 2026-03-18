@@ -427,9 +427,9 @@ body {
   font-size: 10px;
   color: var(--muted);
   line-height: 1.15;
-  word-break: break-all;
-  max-height: 22px;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .size {
