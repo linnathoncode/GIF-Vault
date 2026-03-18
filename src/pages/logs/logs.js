@@ -1,5 +1,7 @@
 import { idbGetLogs, idbClearLogs } from "../../lib/db.js";
 import { STORAGE_KEYS } from "../../lib/settings.js";
+import { UI_MESSAGES } from "../../lib/messages.js";
+import { applyStaticI18n, initializeI18n } from "../../lib/i18n.js";
 import { formatBytes } from "../../lib/ui.js";
 import {
   applyDocumentTheme,
@@ -17,10 +19,79 @@ const clearBtn = document.getElementById("clearBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 
 let themeMode = "light";
+let logsMascotEl = null;
+let logsContentEl = null;
+const INIT_STEP_TIMEOUT_MS = 3000;
+const STORAGE_ESTIMATE_TIMEOUT_MS = 2500;
+const LOGS_LOAD_TIMEOUT_MS = 4000;
+
+function getLogsEmptyMascotSrc(mode) {
+  const theme = mode === "dark" ? "dark" : "light";
+  return `../../assets/mascots/bug-${theme}.png`;
+}
 
 function setStatus(text, ok = false) {
+  if (!statusEl) {
+    return;
+  }
   statusEl.textContent = text;
   statusEl.className = ok ? "status ok" : "status";
+}
+
+function ensureLogsStructure() {
+  if (!logsEl) {
+    return false;
+  }
+  const hasAttachedStructure =
+    logsMascotEl?.parentElement === logsEl && logsContentEl?.parentElement === logsEl;
+
+  if (hasAttachedStructure) {
+    return true;
+  }
+
+  logsEl.innerHTML = "";
+
+  logsMascotEl = document.createElement("img");
+  logsMascotEl.className = "logs-mascot";
+  logsMascotEl.alt = UI_MESSAGES.logs.logsMascotAlt;
+
+  logsContentEl = document.createElement("div");
+  logsContentEl.className = "logs-content";
+  logsContentEl.textContent = UI_MESSAGES.logs.loading;
+
+  logsEl.append(logsMascotEl, logsContentEl);
+  return true;
+}
+
+function renderEmptyLogsState() {
+  if (!ensureLogsStructure()) {
+    return;
+  }
+  logsEl.classList.add("empty-state");
+  logsEl.classList.remove("has-logs");
+
+  logsMascotEl.src = getLogsEmptyMascotSrc(themeMode);
+  logsContentEl.textContent = UI_MESSAGES.logs.noLogsYet;
+}
+
+function updateLogsEmptyStateMascot(mode) {
+  if (!logsMascotEl) {
+    return;
+  }
+  logsMascotEl.src = getLogsEmptyMascotSrc(mode);
+}
+
+function withTimeout(promise, timeoutMs, code = "TIMEOUT") {
+  let timeoutId = 0;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(code));
+    }, Math.max(0, timeoutMs));
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    clearTimeout(timeoutId);
+  });
 }
 
 async function renderStorageEstimate() {
@@ -29,26 +100,46 @@ async function renderStorageEstimate() {
   }
 
   if (!navigator.storage || typeof navigator.storage.estimate !== "function") {
-    storageUsageEl.textContent = "Storage: estimate API unavailable";
+    storageUsageEl.textContent = UI_MESSAGES.logs.storageEstimateApiUnavailable;
     return;
   }
 
   try {
-    const quota = await navigator.storage.estimate();
+    const quota = await withTimeout(
+      navigator.storage.estimate(),
+      STORAGE_ESTIMATE_TIMEOUT_MS,
+      "STORAGE_ESTIMATE_TIMEOUT",
+    );
     const totalSpace = quota.quota || 0;
     const usedSpace = quota.usage || 0;
-    storageUsageEl.textContent = `Storage: ${formatBytes(usedSpace, ["B", "KB", "MB", "GB", "TB"])} used / ${formatBytes(totalSpace, ["B", "KB", "MB", "GB", "TB"])} total`;
+    storageUsageEl.textContent = UI_MESSAGES.logs.storageUsage(
+      formatBytes(usedSpace, ["B", "KB", "MB", "GB", "TB"]),
+      formatBytes(totalSpace, ["B", "KB", "MB", "GB", "TB"]),
+    );
   } catch {
-    storageUsageEl.textContent = "Storage: estimate failed";
+    storageUsageEl.textContent = UI_MESSAGES.logs.storageEstimateFailed;
   }
 }
 
 async function renderLogs() {
+  if (!logsEl) {
+    setStatus(UI_MESSAGES.logs.failedToLoad);
+    return;
+  }
+
   await renderStorageEstimate();
-  const logs = await idbGetLogs(500);
+  let logs = [];
+  try {
+    logs = await withTimeout(idbGetLogs(500), LOGS_LOAD_TIMEOUT_MS);
+  } catch {
+    renderEmptyLogsState();
+    setStatus(UI_MESSAGES.logs.failedToLoad);
+    return;
+  }
+
   if (!logs.length) {
-    logsEl.textContent = "No logs yet.";
-    setStatus("0 logs", true);
+    renderEmptyLogsState();
+    setStatus(UI_MESSAGES.logs.logCount(0), true);
     return;
   }
 
@@ -58,8 +149,12 @@ async function renderLogs() {
     return `[${when}] ${log.stage}: ${log.message}${details}`;
   });
 
-  logsEl.textContent = lines.join("\n");
-  setStatus(`${logs.length} logs`, true);
+  ensureLogsStructure();
+  logsEl.classList.remove("empty-state");
+  logsEl.classList.add("has-logs");
+  logsMascotEl.src = getLogsEmptyMascotSrc(themeMode);
+  logsContentEl.textContent = lines.join("\n");
+  setStatus(UI_MESSAGES.logs.logCount(logs.length), true);
 }
 
 function applyTheme(mode) {
@@ -67,35 +162,78 @@ function applyTheme(mode) {
   void setToolbarIcon(theme);
   setThemeToggleGlyph(themeToggleBtn, theme);
   themeMode = theme;
+  updateLogsEmptyStateMascot(theme);
 }
 
-refreshBtn.addEventListener("click", () => {
+async function applyLocale(localeHint = "") {
+  await initializeI18n(
+    localeHint
+      ? {
+          localeHint,
+          useStoredLocale: false,
+          persistDetectedLocale: false,
+        }
+      : {},
+  );
+  applyStaticI18n();
+  if (logsMascotEl) {
+    logsMascotEl.alt = UI_MESSAGES.logs.logsMascotAlt;
+  }
+}
+
+refreshBtn?.addEventListener("click", () => {
   void renderLogs();
 });
 
-clearBtn.addEventListener("click", async () => {
+clearBtn?.addEventListener("click", async () => {
   await idbClearLogs();
-  setStatus("Logs cleared.", true);
+  setStatus(UI_MESSAGES.logs.logsCleared, true);
   await renderLogs();
 });
 
-themeToggleBtn.addEventListener("click", async () => {
+themeToggleBtn?.addEventListener("click", async () => {
   themeMode = themeMode === "dark" ? "light" : "dark";
   applyTheme(themeMode);
   await setThemeMode(themeMode);
 });
 
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== "local" || !changes[STORAGE_KEYS.themeMode]) {
-    return;
-  }
-  const next = changes[STORAGE_KEYS.themeMode].newValue === "dark" ? "dark" : "light";
-  applyTheme(next);
-});
+if (globalThis.chrome?.storage?.onChanged?.addListener) {
+  globalThis.chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local") {
+      return;
+    }
+
+    if (changes[STORAGE_KEYS.themeMode]) {
+      const next = changes[STORAGE_KEYS.themeMode].newValue === "dark" ? "dark" : "light";
+      applyTheme(next);
+    }
+
+    if (changes[STORAGE_KEYS.locale]?.newValue) {
+      const nextLocale = String(changes[STORAGE_KEYS.locale].newValue || "").trim();
+      void (async () => {
+        await applyLocale(nextLocale);
+        await renderLogs();
+      })();
+    }
+  });
+}
 
 async function init() {
-  applyTheme(await getThemeMode());
+  ensureLogsStructure();
+  await withTimeout(applyLocale(), INIT_STEP_TIMEOUT_MS, "LOCALE_INIT_TIMEOUT").catch(
+    () => {},
+  );
+  const initialTheme = await withTimeout(
+    getThemeMode(),
+    INIT_STEP_TIMEOUT_MS,
+    "THEME_LOAD_TIMEOUT",
+  ).catch(() => "light");
+  applyTheme(initialTheme);
   await renderLogs();
 }
 
-init();
+init().catch(() => {
+  ensureLogsStructure();
+  renderEmptyLogsState();
+  setStatus(UI_MESSAGES.logs.failedToLoad);
+});
