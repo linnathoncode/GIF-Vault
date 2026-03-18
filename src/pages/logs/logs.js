@@ -1,5 +1,5 @@
 import { idbGetLogs, idbClearLogs } from "../../lib/db.js";
-import { STORAGE_KEYS } from "../../lib/settings.js";
+import { DB, STORAGE_KEYS } from "../../lib/settings.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
 import { applyStaticI18n, initializeI18n } from "../../lib/i18n.js";
 import { formatBytes } from "../../lib/ui.js";
@@ -17,14 +17,18 @@ const storageUsageEl = document.getElementById("storageUsage");
 const refreshBtn = document.getElementById("refreshBtn");
 const clearBtn = document.getElementById("clearBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
+const viewToggleBtn = document.getElementById("viewToggleBtn");
 
 let themeMode = "light";
 let logsMascotEl = null;
 let logsContentEl = null;
 let localeApplyVersion = 0;
+let latestLoadedLogs = [];
+let showUnbundledLogs = false;
 const INIT_STEP_TIMEOUT_MS = 3000;
 const STORAGE_ESTIMATE_TIMEOUT_MS = 2500;
 const LOGS_LOAD_TIMEOUT_MS = 4000;
+const LOG_ERROR_HINT_REGEX = /\b(failed|error|rejected|denied|invalid|missing|timeout|aborted|abort|unable|could not)\b/i;
 
 function getLogsEmptyMascotSrc(mode) {
   const theme = mode === "dark" ? "dark" : "light";
@@ -37,6 +41,20 @@ function setStatus(text, ok = false) {
   }
   statusEl.textContent = text;
   statusEl.className = ok ? "status ok" : "status";
+}
+
+function updateViewToggleButton() {
+  if (!viewToggleBtn) {
+    return;
+  }
+
+  const label = showUnbundledLogs
+    ? UI_MESSAGES.logs.bundleAllButton
+    : UI_MESSAGES.logs.expandAllButton;
+  viewToggleBtn.textContent = label;
+  viewToggleBtn.title = label;
+  viewToggleBtn.setAttribute("aria-label", label);
+  viewToggleBtn.disabled = latestLoadedLogs.length === 0;
 }
 
 function ensureLogsStructure() {
@@ -99,6 +117,101 @@ function withTimeout(promise, timeoutMs, code = "TIMEOUT") {
   });
 }
 
+function isErrorLikeLog(log) {
+  const message = String(log?.message || "");
+  if (LOG_ERROR_HINT_REGEX.test(message)) {
+    return true;
+  }
+
+  const details = log?.details;
+  if (!details || typeof details !== "object") {
+    return false;
+  }
+
+  try {
+    return LOG_ERROR_HINT_REGEX.test(JSON.stringify(details));
+  } catch {
+    return false;
+  }
+}
+
+function formatLogLine(log) {
+  const when = new Date(log.createdAt || Date.now()).toLocaleTimeString();
+  const details = log.details ? ` ${JSON.stringify(log.details)}` : "";
+  return `[${when}] ${log.stage}: ${log.message}${details}`;
+}
+
+function formatBundledLogLine(group) {
+  const latest = group[0];
+  const when = new Date(latest.createdAt || Date.now()).toLocaleTimeString();
+  const countSuffix = ` (x${group.length})`;
+  return `[${when}] ${latest.stage}: ${latest.message}${countSuffix}`;
+}
+
+function buildUnbundledLogLines(logs) {
+  return logs.map((log) => formatLogLine(log));
+}
+
+function buildRenderedLogLines(logs) {
+  const lines = [];
+  for (let i = 0; i < logs.length; i += 1) {
+    const current = logs[i];
+    const signature = `${current.stage}\u0000${current.message}`;
+    const group = [current];
+    let j = i + 1;
+    while (j < logs.length) {
+      const candidate = logs[j];
+      const candidateSignature = `${candidate.stage}\u0000${candidate.message}`;
+      if (candidateSignature !== signature) {
+        break;
+      }
+      group.push(candidate);
+      j += 1;
+    }
+
+    const canBundle =
+      group.length > 1 && group.every((log) => !isErrorLikeLog(log));
+    if (canBundle) {
+      lines.push(formatBundledLogLine(group));
+    } else {
+      for (const log of group) {
+        lines.push(formatLogLine(log));
+      }
+    }
+
+    i = j - 1;
+  }
+
+  return lines;
+}
+
+function getVisibleLogLines(logs) {
+  return showUnbundledLogs
+    ? buildUnbundledLogLines(logs)
+    : buildRenderedLogLines(logs);
+}
+
+function renderLoadedLogs(logs) {
+  latestLoadedLogs = Array.isArray(logs) ? logs : [];
+
+  if (!latestLoadedLogs.length) {
+    renderEmptyLogsState();
+    setStatus(UI_MESSAGES.logs.logCount(0), true);
+    updateViewToggleButton();
+    return;
+  }
+
+  const lines = getVisibleLogLines(latestLoadedLogs);
+
+  ensureLogsStructure();
+  logsEl.classList.remove("empty-state");
+  logsEl.classList.add("has-logs");
+  logsMascotEl.src = getLogsEmptyMascotSrc(themeMode);
+  logsContentEl.textContent = lines.join("\n");
+  setStatus(UI_MESSAGES.logs.logCount(lines.length), true);
+  updateViewToggleButton();
+}
+
 async function renderStorageEstimate() {
   if (!storageUsageEl) {
     return;
@@ -135,31 +248,15 @@ async function renderLogs() {
   await renderStorageEstimate();
   let logs = [];
   try {
-    logs = await withTimeout(idbGetLogs(500), LOGS_LOAD_TIMEOUT_MS);
+    logs = await withTimeout(idbGetLogs(DB.logMaxItems), LOGS_LOAD_TIMEOUT_MS);
   } catch {
+    latestLoadedLogs = [];
     renderEmptyLogsState();
     setStatus(UI_MESSAGES.logs.failedToLoad);
+    updateViewToggleButton();
     return;
   }
-
-  if (!logs.length) {
-    renderEmptyLogsState();
-    setStatus(UI_MESSAGES.logs.logCount(0), true);
-    return;
-  }
-
-  const lines = logs.map((log) => {
-    const when = new Date(log.createdAt || Date.now()).toLocaleTimeString();
-    const details = log.details ? ` ${JSON.stringify(log.details)}` : "";
-    return `[${when}] ${log.stage}: ${log.message}${details}`;
-  });
-
-  ensureLogsStructure();
-  logsEl.classList.remove("empty-state");
-  logsEl.classList.add("has-logs");
-  logsMascotEl.src = getLogsEmptyMascotSrc(themeMode);
-  logsContentEl.textContent = lines.join("\n");
-  setStatus(UI_MESSAGES.logs.logCount(logs.length), true);
+  renderLoadedLogs(logs);
 }
 
 function applyTheme(mode) {
@@ -188,6 +285,7 @@ async function applyLocale(localeHint = "") {
   if (logsMascotEl) {
     logsMascotEl.alt = UI_MESSAGES.logs.logsMascotAlt;
   }
+  updateViewToggleButton();
 }
 
 refreshBtn?.addEventListener("click", () => {
@@ -198,6 +296,11 @@ clearBtn?.addEventListener("click", async () => {
   await idbClearLogs();
   setStatus(UI_MESSAGES.logs.logsCleared, true);
   await renderLogs();
+});
+
+viewToggleBtn?.addEventListener("click", () => {
+  showUnbundledLogs = !showUnbundledLogs;
+  renderLoadedLogs(latestLoadedLogs);
 });
 
 themeToggleBtn?.addEventListener("click", async () => {
@@ -229,6 +332,7 @@ if (globalThis.chrome?.storage?.onChanged?.addListener) {
 
 async function init() {
   ensureLogsStructure();
+  updateViewToggleButton();
   await withTimeout(applyLocale(), INIT_STEP_TIMEOUT_MS, "LOCALE_INIT_TIMEOUT").catch(
     () => {
       // Prevent a late locale init from rewriting #logs after renderLogs() ran.

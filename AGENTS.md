@@ -131,6 +131,9 @@ Rules:
 - Added test coverage for host-access/progress isolation.
 
 ## Recently Added
+- Logs page now includes an Expand/Bundle toggle button to switch between bundled and unbundled log views.
+- Increased log retention cap from 250 to 500 entries.
+- Logs page now bundles repeated successful action entries (for example preview creation) into `xN` summary lines while leaving error entries unbundled.
 - Added cross-page i18n plumbing with centralized locale storage and static `data-i18n*` key hydration.
 - Added Turkish (`tr`) locale support and a language selector on the options page.
 - Import progress now supports locale-safe `phase` metadata instead of English text matching.

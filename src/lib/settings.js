@@ -19,7 +19,7 @@ const DB = {
   mediaStore: "media",
   mediaBlobStore: "mediaBlobs",
   logStore: "logs",
-  logMaxItems: 250,
+  logMaxItems: 500,
 };
 
 const GIF_CONVERSION = {

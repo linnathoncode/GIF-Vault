@@ -56,12 +56,15 @@ function createClassList() {
 }
 
 function createElement() {
+  const listeners = new Map();
+  const attributes = new Map();
   const element = {
     className: "",
     classList: createClassList(),
     src: "",
     alt: "",
     style: {},
+    disabled: false,
     children: [],
     parentElement: null,
     append(...nodes) {
@@ -72,7 +75,23 @@ function createElement() {
       }
       this.children.push(...nodes);
     },
-    addEventListener() {},
+    addEventListener(type, handler) {
+      const handlers = listeners.get(type) || [];
+      handlers.push(handler);
+      listeners.set(type, handlers);
+    },
+    setAttribute(name, value) {
+      attributes.set(String(name), String(value));
+    },
+    getAttribute(name) {
+      return attributes.get(String(name)) || null;
+    },
+    click() {
+      const handlers = listeners.get("click") || [];
+      for (const handler of handlers) {
+        handler({ type: "click", target: element });
+      }
+    },
   };
 
   let textValue = "";
@@ -117,6 +136,7 @@ function createMockDocument() {
     storageUsage: createElement(),
     refreshBtn: createElement(),
     clearBtn: createElement(),
+    viewToggleBtn: createElement(),
     themeToggleBtn: createElement(),
   };
   elements.status.textContent = UI_MESSAGES.logs.loadingLogs;
@@ -317,6 +337,129 @@ describe("logs page bootstrap", () => {
     expect(statusEl.className).toBe("status ok");
     expect(logsEl.classList.contains("empty-state")).toBe(true);
     expect(logsContentEl?.textContent).toBe(UI_MESSAGES.logs.noLogsYet);
+  });
+
+  it("bundles repeated successful action logs into one line", async () => {
+    vi.useFakeTimers();
+    mocks.idbGetLogs.mockResolvedValue([
+      {
+        id: "log-3",
+        stage: "popup",
+        message: "Created object URL for preview",
+        details: { id: "c" },
+        createdAt: 3000,
+      },
+      {
+        id: "log-2",
+        stage: "popup",
+        message: "Created object URL for preview",
+        details: { id: "b" },
+        createdAt: 2000,
+      },
+      {
+        id: "log-1",
+        stage: "popup",
+        message: "Created object URL for preview",
+        details: { id: "a" },
+        createdAt: 1000,
+      },
+    ]);
+
+    await import("../src/pages/logs/logs.js");
+    await vi.advanceTimersByTimeAsync(100);
+    await flushMicrotasks();
+
+    const statusEl = globalThis.document.getElementById("status");
+    const logsEl = globalThis.document.getElementById("logs");
+    const logsContentEl = logsEl.children[1];
+    const rendered = logsContentEl?.textContent || "";
+    const lines = rendered.split("\n").filter(Boolean);
+
+    expect(statusEl.textContent).toBe(UI_MESSAGES.logs.logCount(1));
+    expect(logsEl.classList.contains("has-logs")).toBe(true);
+    expect(lines.length).toBe(1);
+    expect(rendered).toContain("popup: Created object URL for preview (x3)");
+  });
+
+  it("expands bundled logs to unbundled view when toggle is clicked", async () => {
+    vi.useFakeTimers();
+    mocks.idbGetLogs.mockResolvedValue([
+      {
+        id: "log-3",
+        stage: "popup",
+        message: "Created object URL for preview",
+        details: { id: "c" },
+        createdAt: 3000,
+      },
+      {
+        id: "log-2",
+        stage: "popup",
+        message: "Created object URL for preview",
+        details: { id: "b" },
+        createdAt: 2000,
+      },
+      {
+        id: "log-1",
+        stage: "popup",
+        message: "Created object URL for preview",
+        details: { id: "a" },
+        createdAt: 1000,
+      },
+    ]);
+
+    await import("../src/pages/logs/logs.js");
+    await vi.advanceTimersByTimeAsync(100);
+    await flushMicrotasks();
+
+    const statusEl = globalThis.document.getElementById("status");
+    const logsEl = globalThis.document.getElementById("logs");
+    const logsContentEl = logsEl.children[1];
+    const viewToggleBtn = globalThis.document.getElementById("viewToggleBtn");
+
+    expect(logsContentEl?.textContent || "").toContain("(x3)");
+    expect(statusEl.textContent).toBe(UI_MESSAGES.logs.logCount(1));
+    expect(viewToggleBtn.textContent).toBe(UI_MESSAGES.logs.expandAllButton);
+
+    viewToggleBtn.click();
+
+    const expanded = logsContentEl?.textContent || "";
+    const expandedLines = expanded.split("\n").filter(Boolean);
+    expect(expandedLines.length).toBe(3);
+    expect(expanded).not.toContain("(x3)");
+    expect(statusEl.textContent).toBe(UI_MESSAGES.logs.logCount(3));
+    expect(viewToggleBtn.textContent).toBe(UI_MESSAGES.logs.bundleAllButton);
+  });
+
+  it("does not bundle repeated error logs", async () => {
+    vi.useFakeTimers();
+    mocks.idbGetLogs.mockResolvedValue([
+      {
+        id: "log-2",
+        stage: "popup",
+        message: "Image preview failed",
+        details: { id: "b", error: "decode" },
+        createdAt: 2000,
+      },
+      {
+        id: "log-1",
+        stage: "popup",
+        message: "Image preview failed",
+        details: { id: "a", error: "decode" },
+        createdAt: 1000,
+      },
+    ]);
+
+    await import("../src/pages/logs/logs.js");
+    await vi.advanceTimersByTimeAsync(100);
+    await flushMicrotasks();
+
+    const logsEl = globalThis.document.getElementById("logs");
+    const logsContentEl = logsEl.children[1];
+    const rendered = logsContentEl?.textContent || "";
+    const lines = rendered.split("\n").filter(Boolean);
+
+    expect(lines.length).toBe(2);
+    expect(rendered).not.toContain("(x2)");
   });
 
   it("recovers when static i18n rewrites the logs container text", async () => {

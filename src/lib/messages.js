@@ -182,6 +182,8 @@ function createEnMessages() {
       storageEstimateFailed: "Storage: estimate failed",
       storageUsage: (used, total) => `Storage: ${used} used / ${total} total`,
       logCount: (count) => `${count} logs`,
+      expandAllButton: "Expand all",
+      bundleAllButton: "Bundle view",
       logsCleared: "Logs cleared.",
     },
     import: {
@@ -399,6 +401,8 @@ function createTrMessages() {
       storageUsage: (used, total) =>
         `Depolama: ${used} kullanıldı / ${total} toplam`,
       logCount: (count) => `${count} kayıt`,
+      expandAllButton: "Tümünü aç",
+      bundleAllButton: "Gruplu görünüm",
       logsCleared: "Kayıtlar temizlendi.",
     },
     import: {
