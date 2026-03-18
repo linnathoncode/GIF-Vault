@@ -152,6 +152,17 @@ describe("import service long-video gate", () => {
     expect(messageTypes).toContain("OFFSCREEN_PROBE_VIDEO_DURATION");
     expect(messageTypes).toContain("OFFSCREEN_CONVERT_MP4");
     expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+
+    const progressMessages = sendMessageMock.mock.calls
+      .map(([message]) => message)
+      .filter((message) => message?.type === "IMPORT_PROGRESS");
+    const phases = progressMessages.map((message) => message?.phase);
+    expect(phases).toContain(UI_MESSAGES.import.phaseResolving);
+    expect(phases).toContain(UI_MESSAGES.import.phaseFetching);
+    expect(phases).toContain(UI_MESSAGES.import.phaseChecking);
+    expect(phases).toContain(UI_MESSAGES.import.phaseConverting);
+    expect(phases).toContain(UI_MESSAGES.import.phaseSaving);
+    expect(phases).toContain(UI_MESSAGES.import.phaseComplete);
   });
 
   it("imports all resolved media URLs from a tweet", async () => {
@@ -222,6 +233,12 @@ describe("import service long-video gate", () => {
       .map((message) => String(message?.text || ""));
 
     expect(progressMessages).not.toContain(UI_MESSAGES.import.hostAccessRequired);
+
+    const progressPhases = sendMessageMock.mock.calls
+      .map(([message]) => message)
+      .filter((message) => message?.type === "IMPORT_PROGRESS")
+      .map((message) => String(message?.phase || ""));
+    expect(progressPhases).toContain(UI_MESSAGES.import.phaseIdle);
   });
 
   it("rolls back already-saved items when a later item in batch import fails", async () => {

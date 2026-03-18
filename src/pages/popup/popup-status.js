@@ -19,30 +19,24 @@ export function createPopupStatusController({
   let transientProgressSnapshot = null;
 
   function getImportProgressPercent(importState) {
-    if (!importState?.text) {
+    if (!importState?.text && !importState?.phase) {
       return 0;
     }
 
     const popupMenuConfig = getPopupMenuConfig();
-    if (importState.kind === "success") {
-      return popupMenuConfig.importProgressPercent.complete;
+    const phase = String(importState?.phase || "").trim().toLowerCase();
+    if (
+      phase &&
+      Object.prototype.hasOwnProperty.call(
+        popupMenuConfig.importProgressPercent,
+        phase,
+      )
+    ) {
+      return popupMenuConfig.importProgressPercent[phase];
     }
 
-    const text = importState.text.toLowerCase();
-    if (text.includes("saving")) {
-      return popupMenuConfig.importProgressPercent.saving;
-    }
-    if (text.includes("checking video length")) {
-      return popupMenuConfig.importProgressPercent.checking;
-    }
-    if (text.includes("converting")) {
-      return popupMenuConfig.importProgressPercent.converting;
-    }
-    if (text.includes("fetching")) {
-      return popupMenuConfig.importProgressPercent.fetching;
-    }
-    if (text.includes("resolving")) {
-      return popupMenuConfig.importProgressPercent.resolving;
+    if (importState.kind === "success") {
+      return popupMenuConfig.importProgressPercent.complete;
     }
 
     return importState.active
