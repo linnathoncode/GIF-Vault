@@ -71,4 +71,3 @@ describe("message locale consistency", () => {
     }
   });
 });
-

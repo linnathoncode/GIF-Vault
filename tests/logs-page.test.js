@@ -264,6 +264,42 @@ describe("logs page bootstrap", () => {
     expect(logsContentEl?.textContent).toBe(UI_MESSAGES.logs.noLogsYet);
   });
 
+  it("ignores late i18n completion after timeout and keeps logs structure", async () => {
+    vi.useFakeTimers();
+    let resolveInitialize = () => {};
+    mocks.initializeI18n.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveInitialize = resolve;
+        }),
+    );
+    mocks.idbGetLogs.mockResolvedValue([]);
+    mocks.applyStaticI18n.mockImplementation(() => {
+      const logsEl = globalThis.document.getElementById("logs");
+      logsEl.textContent = UI_MESSAGES.logs.loading;
+    });
+
+    await import("../src/pages/logs/logs.js");
+    await vi.advanceTimersByTimeAsync(3500);
+    await flushMicrotasks();
+
+    const statusEl = globalThis.document.getElementById("status");
+    const logsEl = globalThis.document.getElementById("logs");
+
+    expect(statusEl.textContent).toBe(UI_MESSAGES.logs.logCount(0));
+    expect(logsEl.children.length).toBe(2);
+    expect(logsEl.classList.contains("empty-state")).toBe(true);
+
+    resolveInitialize({ locale: "en" });
+    await flushMicrotasks();
+
+    const logsContentEl = logsEl.children[1];
+    expect(statusEl.textContent).toBe(UI_MESSAGES.logs.logCount(0));
+    expect(logsEl.children.length).toBe(2);
+    expect(logsEl.classList.contains("empty-state")).toBe(true);
+    expect(logsContentEl?.textContent).toBe(UI_MESSAGES.logs.noLogsYet);
+  });
+
   it("does not get stuck when chrome storage API is unavailable", async () => {
     vi.useFakeTimers();
     globalThis.chrome = undefined;

@@ -21,6 +21,7 @@ const themeToggleBtn = document.getElementById("themeToggleBtn");
 let themeMode = "light";
 let logsMascotEl = null;
 let logsContentEl = null;
+let localeApplyVersion = 0;
 const INIT_STEP_TIMEOUT_MS = 3000;
 const STORAGE_ESTIMATE_TIMEOUT_MS = 2500;
 const LOGS_LOAD_TIMEOUT_MS = 4000;
@@ -79,6 +80,10 @@ function updateLogsEmptyStateMascot(mode) {
     return;
   }
   logsMascotEl.src = getLogsEmptyMascotSrc(mode);
+}
+
+function invalidatePendingLocaleApply() {
+  localeApplyVersion += 1;
 }
 
 function withTimeout(promise, timeoutMs, code = "TIMEOUT") {
@@ -166,6 +171,7 @@ function applyTheme(mode) {
 }
 
 async function applyLocale(localeHint = "") {
+  const applyVersion = ++localeApplyVersion;
   await initializeI18n(
     localeHint
       ? {
@@ -175,6 +181,9 @@ async function applyLocale(localeHint = "") {
         }
       : {},
   );
+  if (applyVersion !== localeApplyVersion) {
+    return;
+  }
   applyStaticI18n();
   if (logsMascotEl) {
     logsMascotEl.alt = UI_MESSAGES.logs.logsMascotAlt;
@@ -221,7 +230,10 @@ if (globalThis.chrome?.storage?.onChanged?.addListener) {
 async function init() {
   ensureLogsStructure();
   await withTimeout(applyLocale(), INIT_STEP_TIMEOUT_MS, "LOCALE_INIT_TIMEOUT").catch(
-    () => {},
+    () => {
+      // Prevent a late locale init from rewriting #logs after renderLogs() ran.
+      invalidatePendingLocaleApply();
+    },
   );
   const initialTheme = await withTimeout(
     getThemeMode(),
