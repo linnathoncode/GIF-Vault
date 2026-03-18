@@ -131,6 +131,12 @@ Rules:
 - Added test coverage for host-access/progress isolation.
 
 ## Recently Added
+- Added cross-page i18n plumbing with centralized locale storage and static `data-i18n*` key hydration.
+- Added Turkish (`tr`) locale support and a language selector on the options page.
+- Import progress now supports locale-safe `phase` metadata instead of English text matching.
+- Empty popup grid now renders mascot placeholder art above the empty-state message.
+- Added theme-aware mascots: `7billion` for popup empty/favorites state and `bug` for empty logs state.
+- Added low-opacity, theme-aware mascot background art to the permission-assist page.
 - Centralized UI text in `src/lib/messages.js`.
 - Progress bar now handles long status text without breaking popup layout.
 - Permission-assist feedback is isolated from popup progress messaging.
