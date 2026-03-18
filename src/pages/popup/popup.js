@@ -6,6 +6,7 @@ import {
 } from "../../lib/runtime-config.js";
 import { safeLog } from "../../lib/log.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
+import { applyStaticI18n, initializeI18n } from "../../lib/i18n.js";
 import { isValidUrl, originPatternFromUrl } from "../../lib/ui.js";
 import {
   applyDocumentTheme,
@@ -182,7 +183,9 @@ async function importUrl(rawUrl) {
       requestId,
     });
     if (!response?.ok) {
-      throw new Error(response?.error || UI_MESSAGES.popup.importFailed);
+      const importError = new Error(response?.error || UI_MESSAGES.popup.importFailed);
+      importError.code = String(response?.errorCode || "");
+      throw importError;
     }
 
     refs.importInput.value = "";
@@ -195,7 +198,10 @@ async function importUrl(rawUrl) {
     await clearStoredImportStatePreservingUi();
     await gridController.render();
   } catch (error) {
-    if (String(error?.message || "") === UI_MESSAGES.import.hostAccessRequired) {
+    if (
+      String(error?.code || "") === "HOST_ACCESS_REQUIRED" ||
+      String(error?.message || "") === UI_MESSAGES.import.hostAccessRequired
+    ) {
       await openPermissionAssist(url, "", []);
       statusController.setProgressState(null);
       state.activeImportRequestId = "";
@@ -297,6 +303,20 @@ function applyTheme(mode) {
     refs.brandLogo.src = `../../${ICONS[oppositeTheme]["128"]}`;
   }
   state.themeMode = theme;
+  gridController.updateEmptyStateMascotForTheme(theme);
+}
+
+async function applyLocale(localeHint = "") {
+  await initializeI18n(
+    localeHint
+      ? {
+          localeHint,
+          useStoredLocale: false,
+          persistDetectedLocale: false,
+        }
+      : {},
+  );
+  applyStaticI18n();
 }
 
 function getImportState() {
@@ -478,9 +498,19 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (changes[STORAGE_KEYS.themeMode]) {
     applyTheme(changes[STORAGE_KEYS.themeMode].newValue);
   }
+
+  if (changes[STORAGE_KEYS.locale]?.newValue) {
+    const nextLocale = String(changes[STORAGE_KEYS.locale].newValue || "").trim();
+    void (async () => {
+      await applyLocale(nextLocale);
+      statusController.syncImportActionButton();
+      await gridController.render();
+    })();
+  }
 });
 
 async function init() {
+  await applyLocale();
   const runtimeConfig = await getRuntimeConfig();
   state.popupMenuConfig = {
     ...runtimeConfig.popupMenu,
