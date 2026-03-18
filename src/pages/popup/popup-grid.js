@@ -38,6 +38,11 @@ export function armedDeleteGlyph(count) {
   return count > 1 ? "!" : "\u2713";
 }
 
+function getEmptyMascotSrc(themeMode) {
+  const theme = themeMode === "dark" ? "dark" : "light";
+  return `../../assets/mascots/7billion-${theme}.png`;
+}
+
 // Vault filtering, rendering, and item actions.
 export function createPopupGridController({
   refs,
@@ -146,12 +151,30 @@ export function createPopupGridController({
   function createEmptyState(query) {
     const empty = document.createElement("div");
     empty.className = "empty";
-    empty.textContent = query
+
+    const mascot = document.createElement("img");
+    mascot.className = "empty-mascot";
+    mascot.src = getEmptyMascotSrc(state.themeMode);
+    mascot.alt = UI_MESSAGES.grid.emptyMascotAlt;
+
+    const text = document.createElement("p");
+    text.className = "empty-text";
+    text.textContent = query
       ? UI_MESSAGES.grid.noSearchMatches
       : state.currentTab === "favorites"
         ? UI_MESSAGES.grid.noFavoritesYet
         : UI_MESSAGES.grid.emptyVaultPrompt;
+
+    empty.append(mascot, text);
     return empty;
+  }
+
+  function updateEmptyStateMascotForTheme(themeMode = state.themeMode) {
+    const mascotEl = grid.querySelector(".empty-mascot");
+    if (!mascotEl) {
+      return;
+    }
+    mascotEl.src = getEmptyMascotSrc(themeMode);
   }
 
   // Preview URL lifecycle for visible media items.
@@ -949,5 +972,6 @@ export function createPopupGridController({
     cleanupObjectUrls,
     hideHoverPreview,
     render,
+    updateEmptyStateMascotForTheme,
   };
 }

@@ -16,7 +16,7 @@
 
 [data-theme="dark"] {
   --bg: #232b28;
-  --panel: rgba(39, 47, 44, 0.96);
+  --panel: rgba(56, 67, 63, 0.94);
   --text: #e0e2db;
   --muted: #c8d0cb;
   --accent: #d9ab34;
@@ -50,17 +50,46 @@ body {
 }
 
 .wrap {
-  width: min(420px, 100%);
+  width: min(560px, 100%);
   margin: 0 auto;
 }
 
 .panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 18px;
   box-shadow: var(--shadow);
-  padding: 18px;
+  padding: 22px;
+  min-height: 420px;
+  display: grid;
+  align-content: start;
+  gap: 2px;
   backdrop-filter: blur(8px);
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("../../assets/mascots/permission-light.png");
+  background-repeat: no-repeat;
+  background-position: center bottom 10px;
+  background-size: min(84%, 420px);
+  opacity: 0.12;
+  z-index: 0;
+}
+
+[data-theme="dark"] .panel::before {
+  background-image: url("../../assets/mascots/permission-dark.png");
+}
+
+.panel > * {
+  position: relative;
+  z-index: 1;
 }
 
 h1 {
