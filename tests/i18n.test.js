@@ -110,9 +110,9 @@ describe("i18n helpers", () => {
 
     i18n.applyStaticI18n(root);
 
-    expect(textEl.textContent).toBe("Ice Aktar");
-    expect(placeholderEl.attributes.placeholder).toBe("Ada veya kaynaga gore ara");
-    expect(titleEl.attributes.title).toBe("Ayarlari Ac");
+    expect(textEl.textContent).toBe("Vault'a Aktar");
+    expect(placeholderEl.attributes.placeholder).toBe("Ada veya kaynak URL'ye göre ara");
+    expect(titleEl.attributes.title).toBe("Ayarları Aç");
     expect(ariaEl.attributes["aria-label"]).toBe("Sonraki sayfa");
     expect(altEl.attributes.alt).toBe("GIF Vault logosu");
   });

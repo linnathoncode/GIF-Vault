@@ -6,6 +6,7 @@ import {
   resolveMediaUrl,
   resolveMediaUrls,
 } from "../src/background/media-resolver.js";
+import { UI_MESSAGES } from "../src/lib/messages.js";
 
 function makeResponse({ ok = true, url = "", text = "", json = {} } = {}) {
   // Minimal fetch-like response helper for deterministic network-path tests.
@@ -46,14 +47,14 @@ describe("media resolver", () => {
     // HTML response means user likely provided a page URL, not direct media.
     expect(
       getReadableImportError("https://example.com", "text/html; charset=utf-8"),
-    ).toBe("Please enter a valid URL.");
+    ).toBe(UI_MESSAGES.popup.enterValidUrl);
     // Twitter/X failures should be mapped to a friendlier resolver message.
     expect(getReadableImportError("https://x.com/i/status/123", "application/json")).toBe(
-      "Could not resolve media from that post URL.",
+      UI_MESSAGES.import.couldNotResolveMediaFromPost,
     );
     expect(
       getReadableImportError("https://example.com/file.txt", "application/json"),
-    ).toBe("Resolved URL is not media (application/json)");
+    ).toBe(UI_MESSAGES.import.resolvedUrlNotMedia("application/json"));
   });
 
   it("returns direct media URLs without fetch", async () => {
@@ -177,6 +178,6 @@ describe("media resolver", () => {
     // HTML should always map to the invalid-url prompt, even for Twitter hosts.
     expect(
       getReadableImportError("https://x.com/user/status/123", "text/html"),
-    ).toBe("Please enter a valid URL.");
+    ).toBe(UI_MESSAGES.popup.enterValidUrl);
   });
 });

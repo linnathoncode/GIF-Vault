@@ -188,6 +188,27 @@ body {
   text-shadow: 0 1px 0 color-mix(in srgb, var(--card) 86%, transparent 14%);
 }
 
+.status.multiline {
+  height: auto;
+  align-items: stretch;
+}
+
+.status.multiline .progress-track {
+  height: auto;
+  min-height: 22px;
+}
+
+.status.multiline .progress-label {
+  height: auto;
+  min-height: 22px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.28;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
 .progress-track.ok .progress-label {
   color: #f4fbf6;
   text-shadow:

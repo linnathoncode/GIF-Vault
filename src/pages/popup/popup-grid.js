@@ -52,6 +52,7 @@ export function createPopupGridController({
 }) {
   const TEMP_STATUS_DURATION_MS = 5000;
   const ARMED_DELETE_DURATION_MS = 5000;
+  const COPY_HINT_DURATION_MS = 5000;
   const {
     countEl,
     grid,
@@ -524,26 +525,115 @@ export function createPopupGridController({
     return /\.(mp4|webm|mov|m4v)(?:$|[?#])/i.test(String(url || ""));
   }
 
+  function isGifLikeUrl(url) {
+    const value = String(url || "");
+    return (
+      /\.gif(?:$|[?#])/i.test(value) ||
+      /[?&]format=gif(?:$|&)/i.test(value)
+    );
+  }
+
+  function isImageLikeUrl(url) {
+    const value = String(url || "");
+    return (
+      /\.(png|jpe?g|webp|bmp|avif|heic|heif|svg)(?:$|[?#])/i.test(value) ||
+      /[?&]format=(?:png|jpe?g|webp|bmp|avif)(?:$|&)/i.test(value)
+    );
+  }
+
+  function resolveMediaCopyKind(item, copiedUrl = "") {
+    const mime = String(item?.mimeType || item?.blob?.type || "")
+      .trim()
+      .toLowerCase();
+    if (mime.startsWith("video/")) {
+      return "video";
+    }
+    if (mime.includes("image/gif")) {
+      return "gif";
+    }
+    if (mime.startsWith("image/")) {
+      return "image";
+    }
+
+    if (isVideoLikeUrl(copiedUrl)) {
+      return "video";
+    }
+    if (isGifLikeUrl(copiedUrl)) {
+      return "gif";
+    }
+    if (isImageLikeUrl(copiedUrl)) {
+      return "image";
+    }
+
+    return "unknown";
+  }
+
+  function deletedStatusTextForIds(ids) {
+    const targetIds = [...new Set((ids || []).map((id) => String(id)).filter(Boolean))];
+    if (targetIds.length > 1) {
+      return UI_MESSAGES.grid.deletedMany(targetIds.length);
+    }
+
+    const item = latestItemById.get(targetIds[0]);
+    const mediaKind = resolveMediaCopyKind(
+      item,
+      item?.mediaUrl || item?.sourceUrl || "",
+    );
+    if (mediaKind === "image") {
+      return UI_MESSAGES.grid.deletedImageSingle || UI_MESSAGES.grid.deletedSingle;
+    }
+    if (mediaKind === "video") {
+      return UI_MESSAGES.grid.deletedVideoSingle || UI_MESSAGES.grid.deletedSingle;
+    }
+    if (mediaKind === "gif") {
+      return UI_MESSAGES.grid.deletedGifSingle || UI_MESSAGES.grid.deletedSingle;
+    }
+    return UI_MESSAGES.grid.deletedSingle;
+  }
+
   function setCopyStatus(item, result) {
     if (!result?.ok) {
       showTransientStatus(UI_MESSAGES.grid.copyFailed, "error");
       return;
     }
 
+    const copiedUrl = String(result.copiedUrl || "");
+    const mediaKind = resolveMediaCopyKind(item, copiedUrl);
+
     if (result.method === "blob") {
-      showTransientStatus(UI_MESSAGES.grid.copiedGif, "ok");
+      const label =
+        mediaKind === "image"
+          ? UI_MESSAGES.grid.copiedImage
+          : UI_MESSAGES.grid.copiedGif;
+      const hint =
+        mediaKind === "image"
+          ? UI_MESSAGES.grid.copiedImageLinkTip
+          : UI_MESSAGES.grid.copiedGifLinkTip;
+      showTransientStatus(`${label}\n${hint}`, "ok", COPY_HINT_DURATION_MS, {
+        forceTemporary: true,
+        preserveProgress: false,
+      });
       return;
     }
 
-    const copiedUrl = result.copiedUrl || "";
-    const isVideoLink =
-      String(item?.mimeType || "").startsWith("video/") || isVideoLikeUrl(copiedUrl);
-    const label = isVideoLink
+    const label = mediaKind === "video"
       ? UI_MESSAGES.grid.copiedVideoLink
-      : UI_MESSAGES.grid.copiedGifLink;
+      : mediaKind === "image"
+        ? UI_MESSAGES.grid.copiedImageLink
+        : UI_MESSAGES.grid.copiedGifLink;
+    const hint = mediaKind === "video"
+      ? ""
+      : mediaKind === "image"
+        ? UI_MESSAGES.grid.copiedImageLinkTip
+        : UI_MESSAGES.grid.copiedGifLinkTip;
     showTransientStatus(
-      `${label} ${UI_MESSAGES.grid.copiedLinkTip}`,
+      hint ? `${label}\n${hint}` : label,
       "ok",
+      COPY_HINT_DURATION_MS,
+      {
+        forceTemporary: true,
+        preserveProgress: false,
+      },
     );
   }
 
@@ -847,12 +937,14 @@ export function createPopupGridController({
 
       if (armedDeleteItemId === actionKey) {
         clearArmedDelete();
-        const count = targetIds.length;
         showTransientStatus(
-          count > 1
-            ? UI_MESSAGES.grid.deletedMany(count)
-            : UI_MESSAGES.grid.deletedSingle,
+          deletedStatusTextForIds(targetIds),
           "ok",
+          TEMP_STATUS_DURATION_MS,
+          {
+            forceTemporary: true,
+            preserveProgress: false,
+          },
         );
         void removeItems(targetIds, item.id);
         return;

@@ -120,7 +120,14 @@ export function createPopupStatusController({
       normalizedKind = String(kind);
     }
 
-    statusEl.className = normalizedKind ? `status ${normalizedKind}` : "status";
+    const classNames = ["status"];
+    if (normalizedKind) {
+      classNames.push(normalizedKind);
+    }
+    if (String(text || "").includes("\n")) {
+      classNames.push("multiline");
+    }
+    statusEl.className = classNames.join(" ");
   }
 
   function clearTransientStatusTimer() {

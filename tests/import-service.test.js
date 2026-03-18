@@ -117,7 +117,7 @@ describe("import service long-video gate", () => {
 
   it("rejects videos over max duration before conversion call", async () => {
     await expect(importFromUrl("https://x.com/i/status/1", "")).rejects.toThrow(
-      "Video too long (15s/18.2s). Change length limit in Options.",
+      UI_MESSAGES.import.videoTooLong(15, 18.2),
     );
 
     const messageTypes = sendMessageMock.mock.calls.map(([msg]) => msg?.type);
