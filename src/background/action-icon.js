@@ -1,5 +1,6 @@
 import { STORAGE_KEYS, BADGE, ICONS } from "../lib/settings.js";
 import { safeLog } from "../lib/log.js";
+import { UI_MESSAGES } from "../lib/messages.js";
 
 // Badge and toolbar icon adapters.
 async function showBadgeFallback(ok) {
@@ -49,7 +50,7 @@ async function setIconWithImageData(iconPaths) {
         const error = chrome.runtime.lastError;
         if (error) {
           reject(
-            new Error(error.message || "Failed to set action icon via imageData"),
+            new Error(error.message || UI_MESSAGES.actionIcon.failedToSetImageData),
           );
           return;
         }
@@ -63,7 +64,7 @@ async function iconPathToImageData(path, size) {
   const url = chrome.runtime.getURL(path);
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to load icon asset: ${path}`);
+    throw new Error(UI_MESSAGES.actionIcon.failedToLoadAsset(path));
   }
 
   const blob = await response.blob();
@@ -71,7 +72,7 @@ async function iconPathToImageData(path, size) {
   const canvas = new OffscreenCanvas(size, size);
   const ctx = canvas.getContext("2d");
   if (!ctx) {
-    throw new Error("Could not create 2D context for icon rendering");
+    throw new Error(UI_MESSAGES.actionIcon.failedToCreate2dContext);
   }
 
   ctx.clearRect(0, 0, size, size);

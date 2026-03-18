@@ -1,5 +1,6 @@
 const STORAGE_KEYS = {
   themeMode: "themeMode",
+  locale: "locale",
   importState: "importState",
   runtimeConfig: "runtimeConfig",
 };
