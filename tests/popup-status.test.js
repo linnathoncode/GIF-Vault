@@ -49,6 +49,7 @@ function createElement() {
 function createController() {
   const refs = {
     statusEl: createElement(),
+    statusTextEl: createElement(),
     progressTrackEl: createElement(),
     progressBarEl: createElement(),
     progressLabelEl: createElement(),
@@ -131,5 +132,72 @@ describe("popup status progress mapping", () => {
     state.currentImportState = { active: false };
     controller.syncImportActionButton();
     expect(refs.importBtn.textContent).toBe(UI_MESSAGES.popup.importButtonIdle);
+  });
+
+  it("keeps progress label during active import and shows hints below the bar", () => {
+    const { controller, refs } = createController();
+
+    controller.applyImportState({
+      text: "Importing media...",
+      kind: "info",
+      active: true,
+      phase: "fetching",
+      requestId: "r1",
+    });
+
+    controller.showTransientStatus("Deleted 1 item", "ok", 5000, {
+      forceTemporary: true,
+    });
+
+    expect(refs.progressLabelEl.textContent).toBe("Importing media...");
+    expect(refs.statusTextEl.textContent).toBe("Deleted 1 item");
+    expect(refs.statusTextEl.className.includes("has-text")).toBe(true);
+  });
+
+  it("continues updating progress while transient hints are visible", () => {
+    const { controller, refs } = createController();
+
+    controller.applyImportState({
+      text: "Resolving...",
+      kind: "info",
+      active: true,
+      phase: "resolving",
+      requestId: "r1",
+    });
+
+    controller.showTransientStatus("Deleted 1 item", "ok", 5000, {
+      forceTemporary: true,
+    });
+
+    controller.applyImportState({
+      text: "Fetching...",
+      kind: "info",
+      active: true,
+      phase: "fetching",
+      requestId: "r1",
+    });
+
+    expect(refs.progressLabelEl.textContent).toBe("Fetching...");
+    expect(refs.progressBarEl.style.width).toBe("40%");
+    expect(refs.statusTextEl.textContent).toBe("Deleted 1 item");
+  });
+
+  it("does not duplicate completed import messages below the progress bar", () => {
+    const { controller, refs } = createController();
+
+    controller.setImportSuccessState("Imported");
+    expect(refs.progressLabelEl.textContent).toBe("Imported");
+    expect(refs.statusTextEl.textContent).toBe("");
+  });
+
+  it("shows transient hints inline when no import is active", () => {
+    const { controller, refs } = createController();
+
+    controller.showTransientStatus("Deleted 1 item", "ok", 5000, {
+      forceTemporary: true,
+    });
+
+    expect(refs.progressLabelEl.textContent).toBe("Deleted 1 item");
+    expect(refs.statusTextEl.textContent).toBe("");
   });
 });

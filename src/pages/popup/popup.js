@@ -39,6 +39,7 @@ const refs = {
   progressBarEl: document.getElementById("progressBar"),
   progressLabelEl: document.getElementById("progressLabel"),
   progressTrackEl: document.getElementById("progressTrack"),
+  statusTextEl: document.getElementById("statusText"),
   searchInput: document.getElementById("searchInput"),
   statusEl: document.getElementById("status"),
   tabAllBtn: document.getElementById("tabAllBtn"),
