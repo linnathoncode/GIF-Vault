@@ -4,14 +4,17 @@
 
 ## Features
 
-- Context menu import for image/video elements
-- Manual URL import from popup
-- X/Twitter media resolution and video-to-GIF conversion
+- One-click context menu import for image/video elements
+- Popup URL import for GIF/image/video links and X/Twitter post URLs
+- X/Twitter media resolution with deduped quality variants and video-to-GIF conversion
+- Safer batch import behavior with atomic failure handling and no rollback of already-saved items on user cancel
 - Local IndexedDB vault with favorites, search, rename, copy, drag/drop, and pagination
-- Import progress states with termination support
+- Shift-click range selection and safer multi-select delete workflow in the popup grid
+- Import progress states with termination support and cleaner restore behavior (no ghost replay)
 - Runtime host-permission assist flow for unknown hosts
-- Logs page with storage usage and wrapped long-line output
-- Light/dark theme support
+- Logs page with storage usage, repeated-entry bundling toggle, and up to 500 retained entries
+- Cross-page i18n support with Turkish (`tr`) locale and settings language selector
+- Light/dark themes with theme-aware placeholder mascots in popup, logs, and permission-assist pages
 
 ## Project Layout
 
@@ -50,12 +53,13 @@ On some PowerShell setups, use `npm.cmd run build` if `npm.ps1` is blocked by ex
 
 If you prefer prebuilt packages, download from GitHub Releases:
 
-| Version    | Download Link                                                                                                    | Notes                                                                                                                                                                                                                                   |
-| :--------- | :--------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **v1.4.2** | [GIF_Vault_v1.4.2.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.4.2/GIF_Vault_v1.4.2.zip) | **Latest.** Major UX and import-flow update vs `v1.3.6`: added options page and controls, cleaner progress lifecycle (checking/converting/saving), improved popup state reset behavior, and unit test coverage for import/runtime flows. Also adds stronger multi-selection UX: batch delete arming across selected cards, cancel-on-selection-change safety, and selected-count visibility in the popup header. |
-| **v1.3.6** | [GIF_Vault_v1.3.6.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.3.6/GIF_Vault_v1.3.6.zip) | Legacy stable release with faster import paths and popup progress/error handling.                                                                                                                                                       |
-| **v1.3.3** | [GIF_Vault_v1.3.3.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.3.3/GIF_Vault_v1.3.3.zip) | Legacy structured build with stricter host-permission model.                                                                                                                                                                            |
-| **v1.2.5** | [GIF_Vault_v1.2.5.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.2.5/GIF_Vault_v1.2.5.zip) | Legacy looser-permission release.                                                                                                                                                                                                       |
+| Version    | Download Link                                                                                                    | Notes                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| :--------- | :--------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **v1.5.0** | [GIF_Vault_v1.5.0.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.5.0/GIF_Vault_v1.5.0.zip) | **Latest.** Reliability and UX update: safer atomic batch imports, no rollback of already-saved items on user cancel, cleaner popup progress restore (no ghost status replay), Turkish language support with settings selector, improved logs readability with bundled/unbundled toggle, new theme-aware placeholder mascots across popup/logs and permission-assist pages, and deduplicated X/Twitter media quality variants. |
+| **v1.4.2** | [GIF_Vault_v1.4.2.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.4.2/GIF_Vault_v1.4.2.zip) | Legacy major UX/import-flow release with options controls, improved progress lifecycle, and stronger multi-select delete safety.                                                                                                                                                                                                                                                                                               |
+| **v1.3.6** | [GIF_Vault_v1.3.6.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.3.6/GIF_Vault_v1.3.6.zip) | Legacy stable release with faster import paths and popup progress/error handling.                                                                                                                                                                                                                                                                                                                                              |
+| **v1.3.3** | [GIF_Vault_v1.3.3.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.3.3/GIF_Vault_v1.3.3.zip) | Legacy structured build with stricter host-permission model.                                                                                                                                                                                                                                                                                                                                                                   |
+| **v1.2.5** | [GIF_Vault_v1.2.5.zip](https://github.com/linnathoncode/GIF-Vault/releases/download/v1.2.5/GIF_Vault_v1.2.5.zip) | Legacy looser-permission release.                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ## Privacy Policy
 

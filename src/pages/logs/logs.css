@@ -1,26 +1,4 @@
-:root {
-  --bg: #f6f7f9;
-  --bg-top: #e5f7f4;
-  --card: #ffffff;
-  --text: #1f2937;
-  --muted: #6b7280;
-  --line: #d1d5db;
-  --ok: #0f766e;
-  --scrollbar-thumb: #8b2635;
-  --scrollbar-track: #e5e7eb;
-}
-
-:root[data-theme="dark"] {
-  --bg: #2e3532;
-  --bg-top: #3a4541;
-  --card: #39413d;
-  --text: #e0e2db;
-  --muted: #c6c8c2;
-  --line: #616a65;
-  --ok: #e0e2db;
-  --scrollbar-thumb: #8b2635;
-  --scrollbar-track: #3a4541;
-}
+@import "../shared/theme.css";
 
 * {
   box-sizing: border-box;
@@ -135,13 +113,37 @@ body {
 
 .logs {
   flex: 1 1 auto;
+  position: relative;
   min-height: 0;
-  overflow-y: scroll;
-  overflow-x: hidden;
+  overflow: hidden;
   border: 1px dashed var(--line);
   border-radius: 8px;
-  padding: 10px;
   background: var(--card);
+}
+
+.logs-mascot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(82%, 340px);
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  opacity: 0.42;
+}
+
+.logs-content {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  padding: 10px;
   font-family: Consolas, "Courier New", monospace;
   font-size: 12px;
   line-height: 1.4;
@@ -152,16 +154,48 @@ body {
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
-.logs::-webkit-scrollbar {
+.logs.empty-state .logs-content {
+  display: block;
+  flex: 0 0 auto;
+  height: auto;
+  overflow: visible;
+  text-align: center;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--muted);
+  font-size: 14px;
+  white-space: pre-line;
+  padding: 0;
+}
+
+.logs.empty-state {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.logs.empty-state .logs-mascot {
+  position: static;
+  transform: none;
+  width: min(82%, 340px);
+  opacity: 1;
+}
+
+.logs.has-logs .logs-mascot {
+  opacity: 0.13;
+}
+
+.logs-content::-webkit-scrollbar {
   width: 10px;
 }
 
-.logs::-webkit-scrollbar-track {
+.logs-content::-webkit-scrollbar-track {
   background: var(--scrollbar-track);
   border-radius: 999px;
 }
 
-.logs::-webkit-scrollbar-thumb {
+.logs-content::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   border-radius: 999px;
   border: 2px solid var(--scrollbar-track);

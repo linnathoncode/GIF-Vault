@@ -5,6 +5,13 @@ import {
   resetRuntimeConfig,
   setRuntimeConfig,
 } from "../../lib/runtime-config.js";
+import { UI_MESSAGES } from "../../lib/messages.js";
+import {
+  applyStaticI18n,
+  getStoredLocale,
+  initializeI18n,
+  setStoredLocale,
+} from "../../lib/i18n.js";
 import {
   applyDocumentTheme,
   getThemeMode,
@@ -17,6 +24,7 @@ const formEl = document.getElementById("optionsForm");
 const statusEl = document.getElementById("status");
 const resetBtn = document.getElementById("resetBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
+const localeInput = document.getElementById("locale");
 const hoverPreviewEnabledInput = document.getElementById(
   "popupHoverPreviewEnabled",
 );
@@ -83,6 +91,10 @@ function fillForm(config) {
   syncHoverPreviewDelayState();
 }
 
+function setLocaleValue(value) {
+  assignValue("locale", value);
+}
+
 function readFormConfig() {
   return {
     gifConversion: {
@@ -118,29 +130,58 @@ function applyTheme(mode) {
   themeMode = theme;
 }
 
+async function applyLocale(localeHint = "") {
+  await initializeI18n(
+    localeHint
+      ? {
+          localeHint,
+          useStoredLocale: false,
+          persistDetectedLocale: false,
+        }
+      : {},
+  );
+  applyStaticI18n();
+}
+
+async function applyLocaleChangeFromSelector() {
+  const selectedLocale = String(localeInput?.value || "").trim();
+  if (!selectedLocale) {
+    return;
+  }
+
+  const normalizedLocale = await setStoredLocale(selectedLocale);
+  await applyLocale(normalizedLocale);
+  setLocaleValue(normalizedLocale);
+  setStatus(UI_MESSAGES.options.statusLanguageUpdated, "ok");
+}
+
 // Form events and storage sync.
 formEl.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   if (!formEl.reportValidity()) {
-    setStatus("Please fix invalid fields.", "error");
+    setStatus(UI_MESSAGES.options.statusInvalidFields, "error");
     return;
   }
 
   const normalized = normalizeRuntimeConfig(readFormConfig());
   await setRuntimeConfig(normalized);
   fillForm(normalized);
-  setStatus("Options saved. Reopen popup to apply UI changes.", "ok");
+  setStatus(UI_MESSAGES.options.statusSaved, "ok");
 });
 
 resetBtn.addEventListener("click", async () => {
   const restored = await resetRuntimeConfig();
   fillForm(restored);
-  setStatus("Defaults restored.", "ok");
+  setStatus(UI_MESSAGES.options.statusDefaultsRestored, "ok");
 });
 
 hoverPreviewEnabledInput?.addEventListener("change", () => {
   syncHoverPreviewDelayState();
+});
+
+localeInput?.addEventListener("change", () => {
+  void applyLocaleChangeFromSelector();
 });
 
 themeToggleBtn.addEventListener("click", async () => {
@@ -164,13 +205,24 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       normalizeRuntimeConfig(changes[STORAGE_KEYS.runtimeConfig].newValue),
     );
   }
+
+  if (changes[STORAGE_KEYS.locale]?.newValue) {
+    const nextLocale = String(changes[STORAGE_KEYS.locale].newValue || "").trim();
+    void (async () => {
+      await applyLocale(nextLocale);
+      setLocaleValue(nextLocale);
+      setStatus(UI_MESSAGES.options.statusLanguageUpdated, "ok");
+    })();
+  }
 });
 
 // Page bootstrap.
 async function init() {
+  await applyLocale();
   applyTheme(await getThemeMode());
   fillForm(await getRuntimeConfig());
-  setStatus("Adjust values and save.");
+  setLocaleValue(await getStoredLocale());
+  setStatus(UI_MESSAGES.options.statusAdjustAndSave);
 }
 
 init();

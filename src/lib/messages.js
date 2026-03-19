@@ -1,98 +1,493 @@
-export const UI_MESSAGES = Object.freeze({
-  popup: Object.freeze({
-    noActiveImportToTerminate: "No active import to terminate.",
-    terminateFailed: "Terminate failed.",
-    importTerminationRequested: "Import termination requested.",
-    pasteUrlFirst: "Paste a URL first.",
-    enterValidUrl: "Please enter a valid URL.",
-    startingImport: "Starting import...",
-    importFailed: "Import failed",
-    importButtonIdle: "Import",
-    importButtonTerminate: "Terminate",
-    clearVaultConfirm: "Clear all items from GIF Vault? This cannot be undone.",
-    vaultCleared: "Vault cleared.",
-    successImportedSingle: "Imported successfully.",
-    successImportedMany: (count) => `Imported ${count} items successfully.`,
-    successTweetMany: (count) => `Tweet contains ${count} media items.`,
-    successConvertedMany: (count) => `${count} converted.`,
-    successConvertedSingleInBatch: "1 converted.",
-    successConvertedSingle: "Converted.",
-  }),
-  assist: Object.freeze({
-    defaultReason: "Additional site access is required.",
-    failedToPreparePermissionRequest: "Failed to prepare permission request.",
-    missingImportUrl: "Missing import URL.",
-    importButtonIdle: "Import",
-    grantAndImportButton: "Grant & Import",
-    accessAlreadyGranted: "Access is already granted. Start the import.",
-    grantThenImport:
-      "Grant access, then GIF Vault will import automatically.",
-    waitingForPermissionGrant: "Waiting for permission grant...",
-    accessNotGranted: "Access was not granted.",
-    importingMedia: "Importing media...",
-    closingSuffix: "Closing...",
-    importFailedWithPeriod: "Import failed.",
-  }),
-  grid: Object.freeze({
-    noSearchMatches: "No matches for your search.",
-    noFavoritesYet: "No favorites yet. Mark items as Favorite from the All tab.",
-    emptyVaultPrompt: "Paste a URL above to import into GIF Vault.",
-    selectionHintMany: (count) =>
-      `${count} selected. Favorite/Delete act on selected cards.`,
-    selectionHintSingle: "Shift+Click cards to multi-select.",
-    confirmDeleteTitleMany: (count) => `Confirm delete ${count} items`,
-    confirmDeleteTitleSingle: "Confirm delete",
-    confirmDeleteHintMany: (count) =>
-      `Click delete again to remove ${count} selected items.`,
-    confirmDeleteHintSingle: "Click delete again to confirm.",
-    copyFailed: "Copy failed.",
-    copiedGif: "Copied GIF.",
-    copiedVideoLink: "Copied video link.",
-    copiedGifLink: "Copied GIF link.",
-    copiedLinkTip: "Tip: drag and drop the GIF preview to use the GIF directly.",
-    renamePrompt: "Name this GIF:",
-    invalidLegacyVideo: "Legacy video entry is no longer supported",
-    invalidMediaEntry: "Invalid media entry",
-    remove: "Remove",
-    delete: "Delete",
-    savedGifAlt: "Saved GIF",
-    untitled: "Untitled",
-    rename: "Rename",
-    copy: "Copy",
-    favorite: "Favorite",
-    unfavorite: "Unfavorite",
-    favoriteBatchHint: "(batch applies to selected cards)",
-    deletedMany: (count) => `${count} GIFs deleted.`,
-    deletedSingle: "GIF deleted.",
-    pageLabel: (currentPage, totalPages) => `Page ${currentPage} / ${totalPages}`,
-    favoritesCount: (count) => `${count} favorite(s)`,
-    savedAndFavoritesCount: (savedCount, favoriteCount) =>
-      `${savedCount} saved | ${favoriteCount} favorite(s)`,
-    selectedCount: (count) => `${count} selected`,
-    sizeLabel: (size) => `Size: ${size}`,
-  }),
-  import: Object.freeze({
-    emptyUrl: "Empty URL",
-    resolvingMediaUrl: "Resolving media URL...",
-    couldNotResolveMediaUrl: "Could not resolve media URL",
-    couldNotResolveMediaFromPost: "Could not resolve media from that post URL.",
-    fetchingMedia: (suffix = "") => `Fetching media${suffix}...`,
-    importedMany: (count) => `Imported ${count} items successfully.`,
-    importedSingle: "Imported successfully.",
-    importTerminated: "Import terminated by user.",
-    importFailed: "Import failed",
-    failedToFetchMedia: "Failed to fetch media",
-    checkingVideoLength: "Checking video length...",
-    convertingVideoToGif: "Converting video to GIF...",
-    savingToVault: "Saving to vault...",
-    hostAccessRequired: "Additional site access is needed.",
-    offscreenConversionFailed: "Could not convert video to GIF.",
-    offscreenProbeFailed: "Could not check video length.",
-    couldNotDetermineVideoDuration: "Could not determine video duration.",
-    resolvedUrlNotMedia: (contentType = "") =>
-      `Resolved URL is not media (${contentType || "unknown"})`,
-    videoTooLong: (maxSeconds, actualSeconds) =>
-      `Video too long (${maxSeconds}s/${actualSeconds.toFixed(1)}s). Change length limit in Options.`,
-    importTerminatedError: "IMPORT_TERMINATED",
-  }),
+﻿const SUPPORTED_LOCALES = Object.freeze(["en", "tr"]);
+const DEFAULT_LOCALE = "en";
+
+function normalizeLocale(rawLocale) {
+  const value = String(rawLocale || "")
+    .trim()
+    .toLowerCase();
+  if (value === "tr" || value.startsWith("tr-")) {
+    return "tr";
+  }
+  return "en";
+}
+
+function deepFreeze(value) {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) {
+    return value;
+  }
+
+  Object.freeze(value);
+  for (const nested of Object.values(value)) {
+    deepFreeze(nested);
+  }
+  return value;
+}
+
+function createEnMessages() {
+  return {
+    common: {
+      appName: "GIF Vault",
+      languageEnglish: "English",
+      languageTurkish: "Turkish",
+      toggleTheme: "Toggle theme",
+    },
+    popup: {
+      noActiveImportToTerminate: "No import is running right now.",
+      terminateFailed: "Couldn't stop the import.",
+      importTerminationRequested: "Stopping import...",
+      pasteUrlFirst: "Paste a URL first.",
+      enterValidUrl: "That looks like a page, not a media URL.",
+      startingImport: "Warming up the vault...",
+      importFailed: "Import failed.",
+      importButtonIdle: "Import",
+      importButtonTerminate: "Stop",
+      clearVaultConfirm: "Clear the whole vault? This cannot be undone.",
+      vaultCleared: "Vault wiped clean. Good as new!",
+      successImportedSingle: "Imported successfully!",
+      successImportedMany: (count) => `Imported ${count} items!`,
+      successTweetMany: (count) => `This post has ${count} media items.`,
+      successConvertedMany: (count) => `${count} converted to GIF.`,
+      successConvertedSingleInBatch: "1 converted to GIF.",
+      successConvertedSingle: "Converted to GIF.",
+      clearAllButton: "Clear all",
+      importInputPlaceholder: "Paste a GIF / MP4 / post URL",
+      searchInputPlaceholder: "Search by name or source URL",
+      tabAll: "All",
+      tabFavorites: "Favorites",
+      prevPage: "Prev",
+      nextPage: "Next",
+      previousPageAriaLabel: "Previous page",
+      nextPageAriaLabel: "Next page",
+      openOptions: "Open Options",
+      openLogs: "Open Logs",
+      themeToggleAriaLabel: "Toggle theme",
+      brandLogoAlt: "GIF Vault logo",
+      pageTitle: "GIF Vault",
+    },
+    assist: {
+      defaultReason: "This import needs extra site access.",
+      failedToPreparePermissionRequest:
+        "Couldn't prepare the permission request.",
+      missingImportUrl: "Import URL is missing.",
+      importButtonIdle: "Import",
+      grantAndImportButton: "Grant & Import",
+      accessAlreadyGranted: "Access is already granted. Hit Import.",
+      grantThenImport:
+        "Grant access and GIF Vault will continue automatically.",
+      waitingForPermissionGrant: "Waiting for permission grant...",
+      accessNotGranted: "Access wasn't granted.",
+      importingMedia: "Importing media...",
+      closingSuffix: "Closing...",
+      importFailedWithPeriod: "Import failed.",
+      pageTitle: "Grant Access",
+      heading: "Grant Site Access",
+      intro:
+        "This import needs temporary site access before GIF Vault can fetch the media.",
+      requestedHosts: "Requested hosts",
+      checkingAccess: "Checking required access...",
+      cancelButton: "Cancel",
+    },
+    grid: {
+      noSearchMatches: "No matches found.\nTry a different search term.",
+      noFavoritesYet:
+        "All alone here...\nMark items as Favorite from the All tab.",
+      emptyVaultPrompt:
+        "Your vault is empty.\nPaste a media URL above to add your first item.",
+      emptyMascotAlt: "Empty vault mascot",
+      selectionHintMany: (count) =>
+        `${count} selected. Favorite/Delete now targets selected cards.`,
+      selectionHintSingle: "Shift+Click cards for multi-select.",
+      confirmDeleteTitleMany: (count) => `Confirm delete ${count} items`,
+      confirmDeleteTitleSingle: "Confirm delete",
+      confirmDeleteHintMany: (count) =>
+        `Click delete again to remove ${count} selected items.`,
+      confirmDeleteHintSingle: "Click delete again to confirm.",
+      copyFailed: "Copy didn't work. Try again.",
+      copiedGif: "GIF copied.",
+      copiedImage: "Image copied.",
+      copiedVideoLink: "Video link copied.",
+      copiedGifLink: "GIF link copied.",
+      copiedImageLink: "Image link copied.",
+      copiedLinkTip: "Tip: drag the preview to drop it directly.",
+      copiedGifLinkTip: "Tip: drag the preview to drop the GIF directly.",
+      copiedImageLinkTip: "Tip: drag the preview to drop the image directly.",
+      renamePrompt: "Give this GIF a name:",
+      invalidLegacyVideo: "Legacy video entry is no longer supported",
+      invalidMediaEntry: "Invalid media entry",
+      remove: "Remove",
+      delete: "Delete",
+      savedGifAlt: "Saved GIF",
+      untitled: "Untitled",
+      rename: "Rename",
+      copy: "Copy",
+      favorite: "Favorite",
+      unfavorite: "Unfavorite",
+      favoriteBatchHint: "(batch applies to selected cards)",
+      deletedMany: (count) => `${count} items deleted.`,
+      deletedSingle: "Item deleted.",
+      deletedGifSingle: "GIF deleted.",
+      deletedImageSingle: "Image deleted.",
+      deletedVideoSingle: "Video deleted.",
+      pageLabel: (currentPage, totalPages) =>
+        `Page ${currentPage} / ${totalPages}`,
+      favoritesCount: (count) => `${count} favorites`,
+      savedAndFavoritesCount: (savedCount, favoriteCount) =>
+        `${savedCount} saved | ${favoriteCount} favorites`,
+      selectedCount: (count) => `${count} selected`,
+      sizeLabel: (size) => `Size: ${size}`,
+    },
+    options: {
+      pageTitle: "GIF Vault Options",
+      heading: "GIF Vault Options",
+      subtitle: "Tune popup behavior and GIF conversion.",
+      warningAriaLabel: "Options warning",
+      warningStrong: "Defaults are your friend.",
+      warningBody:
+        "Changing these values can increase CPU use, memory use, and storage size. Defaults are recommended for stable, predictable performance.",
+      gifConversionHeading: "GIF Conversion",
+      fpsLabel: "FPS (1-30)",
+      widthLabel: "Width (120-1920)",
+      maxColorsLabel: "Max Colors (2-256)",
+      maxDurationLabel: "Max Duration Seconds (1-60)",
+      popupUiHeading: "Popup UI",
+      defaultTabLabel: "Default Tab",
+      defaultTabAll: "All",
+      defaultTabFavorites: "Favorites",
+      pageSizeLabel: "Page Size (1-60)",
+      hoverPreviewEnabledLabel: "Enable Hover Preview",
+      hoverPreviewDelayLabel: "Preview Delay ms (500-5000)",
+      loadingOptions: "Loading options...",
+      resetDefaultsButton: "Reset defaults",
+      saveOptionsButton: "Save options",
+      statusInvalidFields: "Please fix invalid fields.",
+      statusSaved:
+        "Options saved. Some popup changes apply when you reopen it.",
+      statusDefaultsRestored: "Defaults restored.",
+      statusLanguageUpdated: "Language switched.",
+      statusAdjustAndSave: "Tweak values and save.",
+      languageLabel: "Language",
+    },
+    logs: {
+      pageTitle: "GIF Vault Logs",
+      heading: "GIF Vault Logs",
+      refreshButton: "Refresh",
+      clearButton: "Clear",
+      loadingLogs: "Loading logs...",
+      loading: "Loading...",
+      failedToLoad: "Couldn't load logs.",
+      storageCalculating: "Storage: calculating...",
+      noLogsYet: "No logs yet.\nYour activity will appear here.",
+      logsMascotAlt: "Logs mascot backdrop",
+      storageEstimateApiUnavailable: "Storage: estimate API unavailable",
+      storageEstimateFailed: "Storage: estimate failed",
+      storageUsage: (used, total) => `Storage: ${used} used / ${total} total`,
+      logCount: (count) => `${count} logs`,
+      expandAllButton: "Expand all",
+      bundleAllButton: "Bundle view",
+      logsCleared: "Logs cleared.",
+    },
+    import: {
+      emptyUrl: "URL is empty",
+      resolvingMediaUrl: "Tracking down the media URL...",
+      couldNotResolveMediaUrl: "Couldn't resolve media URL",
+      couldNotResolveMediaFromPost:
+        "Couldn't resolve media from that post URL.",
+      fetchingMedia: (suffix = "") => `Fetching media${suffix}...`,
+      importedMany: (count) => `Imported ${count} items successfully.`,
+      importedSingle: "Import complete.",
+      importTerminated: "Import stopped by user.",
+      importFailed: "Import failed",
+      failedToFetchMedia: "Couldn't fetch media",
+      checkingVideoLength: "Checking video duration...",
+      convertingVideoToGif: "Converting video to GIF...",
+      savingToVault: "Saving to vault...",
+      hostAccessRequired: "This site needs extra access first.",
+      offscreenConversionFailed: "Couldn't convert video to GIF.",
+      offscreenProbeFailed: "Couldn't check video duration.",
+      couldNotDetermineVideoDuration: "Couldn't determine video duration.",
+      resolvedUrlNotMedia: (contentType = "") =>
+        `That URL does not point to media (${contentType || "unknown"})`,
+      videoTooLong: (maxSeconds, actualSeconds) =>
+        `Video is too long (${maxSeconds}s/${actualSeconds.toFixed(1)}s). Change the limit in Options.`,
+      importTerminatedError: "IMPORT_TERMINATED",
+      missingRequestId: "Missing request ID.",
+      phaseResolving: "resolving",
+      phaseFetching: "fetching",
+      phaseChecking: "checking",
+      phaseConverting: "converting",
+      phaseSaving: "saving",
+      phaseComplete: "complete",
+      phaseIdle: "idle",
+    },
+    serviceWorker: {
+      contextMenuAddToVault: "Add to GIF Vault",
+      resolveFailed: "Resolve failed",
+      terminateFailed: "Terminate failed",
+      failedToSetIcon: "Could not set the toolbar icon.",
+    },
+    actionIcon: {
+      failedToSetImageData: "Couldn't set action icon via imageData",
+      failedToLoadAsset: (path) => `Failed to load icon asset: ${path}`,
+      failedToCreate2dContext: "Couldn't create 2D context for icon rendering",
+    },
+    offscreen: {
+      probeFailed: "Could not check video duration.",
+      conversionFailed: "Could not convert video to GIF.",
+      inputMediaBytesEmpty: "Input media bytes are empty",
+      emptyGifOutput: "FFmpeg produced empty GIF output",
+      couldNotDetermineVideoDuration: "Couldn't determine video duration",
+    },
+  };
+}
+
+function createTrMessages() {
+  return {
+    common: {
+      appName: "GIF Vault",
+      languageEnglish: "İngilizce",
+      languageTurkish: "Türkçe",
+      toggleTheme: "Temayı değiştir",
+    },
+    popup: {
+      noActiveImportToTerminate: "Şu anda devam eden bir aktarma yok.",
+      terminateFailed: "Aktarma durdurulamadı.",
+      importTerminationRequested: "Aktarma durduruluyor...",
+      pasteUrlFirst: "Url yapıştırıp bir daha dene.",
+      enterValidUrl: "Bu bir sayfa gibi görünüyor; medya URL'si yapıştır.",
+      startingImport: "Vault hazırlanıyor...",
+      importFailed: "Aktarmada bir pürüz çıktı",
+      importButtonIdle: "Vault'a Aktar",
+      importButtonTerminate: "Durdur",
+      clearVaultConfirm:
+        "Vault'taki her şeyi silelim mi? Bu işlem geri alınamaz.",
+      vaultCleared: "Vault temizlendi. Yepyeni oldu!",
+      successImportedSingle: "Başarıyla aktarıldı!",
+      successImportedMany: (count) => `${count} öğe başarıyla aktarıldı!`,
+      successTweetMany: (count) => `Bu gönderide ${count} medya öğesi var.`,
+      successConvertedMany: (count) => `${count} öğe GIF'e dönüştürüldü.`,
+      successConvertedSingleInBatch: "1 öğe GIF'e dönüştürüldü.",
+      successConvertedSingle: "GIF'e dönüştürüldü.",
+      clearAllButton: "Tümünü temizle",
+      importInputPlaceholder: "GIF / MP4 / gönderi URL'si yapıştır",
+      searchInputPlaceholder: "Ada veya kaynak URL'ye göre ara",
+      tabAll: "Tümü",
+      tabFavorites: "Favoriler",
+      prevPage: "Önceki",
+      nextPage: "Sonraki",
+      previousPageAriaLabel: "Önceki sayfa",
+      nextPageAriaLabel: "Sonraki sayfa",
+      openOptions: "Ayarları Aç",
+      openLogs: "Kayıtları Aç",
+      themeToggleAriaLabel: "Temayı değiştir",
+      brandLogoAlt: "GIF Vault logosu",
+      pageTitle: "GIF Vault",
+    },
+    assist: {
+      defaultReason: "Bu aktarma için ek site erişimi gerekiyor.",
+      failedToPreparePermissionRequest: "İzin isteği hazırlanamadı.",
+      missingImportUrl: "Aktarılacak URL eksik.",
+      importButtonIdle: "Vault'a Aktar",
+      grantAndImportButton: "İzin Ver ve Aktar",
+      accessAlreadyGranted: "Erişim zaten verilmiş. Aktar'a bas.",
+      grantThenImport: "Erişim iznini ver, GIF Vault otomatik devam etsin.",
+      waitingForPermissionGrant: "İzin onayı bekleniyor...",
+      accessNotGranted: "Erişim izni verilmedi.",
+      importingMedia: "Medya aktarılıyor...",
+      closingSuffix: "Kapanıyor...",
+      importFailedWithPeriod: "Aktarma başarısız.",
+      pageTitle: "Erişim İzni",
+      heading: "Site Erişimi Ver",
+      intro:
+        "Bu aktarma için GIF Vault'un medyayı alabilmesi adına geçici site erişimi gerekiyor.",
+      requestedHosts: "İstenen alan adları",
+      checkingAccess: "Gerekli erişim kontrol ediliyor...",
+      cancelButton: "İptal",
+    },
+    grid: {
+      noSearchMatches: "Eşleşme bulunamadı.\nFarklı bir arama terimi dene.",
+      noFavoritesYet:
+        "Kimseler yok burada...\nTümü sekmesinden öğeleri favorileyebilirsin.",
+      emptyVaultPrompt:
+        "Vault'un şu an boş.\nİlk öğeni eklemek için yukarıya bir medya URL'si yapıştır.",
+      emptyMascotAlt: "Boş Vault maskotu",
+      selectionHintMany: (count) =>
+        `${count} öğe seçildi. Favori/Sil işlemleri seçili kartlara uygulanır.`,
+      selectionHintSingle: "Çoklu seçim için kartlara Shift+Tıkla.",
+      confirmDeleteTitleMany: (count) => `${count} öğeyi silmeyi onayla`,
+      confirmDeleteTitleSingle: "Silmeyi onayla",
+      confirmDeleteHintMany: (count) =>
+        `${count} seçili öğeyi silmek için Sil'e tekrar tıkla.`,
+      confirmDeleteHintSingle: "Onaylamak için Sil'e tekrar tıkla.",
+      copyFailed: "Kopyalama olmadı, tekrar deneyelim.",
+      copiedGif: "GIF kopyalandı.",
+      copiedImage: "Görsel kopyalandı.",
+      copiedVideoLink: "Video bağlantısı kopyalandı.",
+      copiedGifLink: "GIF bağlantısı kopyalandı.",
+      copiedImageLink: "Görsel bağlantısı kopyalandı.",
+      copiedLinkTip: "İpucu: önizlemeyi sürükleyip doğrudan kullan.",
+      copiedGifLinkTip:
+        "İpucu: GIF'i doğrudan kullanmak için önizlemeyi sürükleyip bırak.",
+      copiedImageLinkTip:
+        "İpucu: görseli doğrudan kullanmak için önizlemeyi sürükleyip bırak.",
+      renamePrompt: "Bu GIF'e bir ad ver:",
+      invalidLegacyVideo: "Eski video kaydı artık desteklenmiyor",
+      invalidMediaEntry: "Geçersiz medya kaydı",
+      remove: "Kaldır",
+      delete: "Sil",
+      savedGifAlt: "Kaydedilen GIF",
+      untitled: "Adsız",
+      rename: "Yeniden adlandır",
+      copy: "Kopyala",
+      favorite: "Favori",
+      unfavorite: "Favoriden çıkar",
+      favoriteBatchHint: "(toplu işlem seçili kartlara uygulanır)",
+      deletedMany: (count) => `${count} öğe silindi.`,
+      deletedSingle: "Öğe silindi.",
+      deletedGifSingle: "GIF silindi.",
+      deletedImageSingle: "Görsel silindi.",
+      deletedVideoSingle: "Video silindi.",
+      pageLabel: (currentPage, totalPages) =>
+        `Sayfa ${currentPage} / ${totalPages}`,
+      favoritesCount: (count) => `${count} favori`,
+      savedAndFavoritesCount: (savedCount, favoriteCount) =>
+        `${savedCount} kayıtlı | ${favoriteCount} favori`,
+      selectedCount: (count) => `${count} seçili`,
+      sizeLabel: (size) => `Boyut: ${size}`,
+    },
+    options: {
+      pageTitle: "GIF Vault Ayarları",
+      heading: "GIF Vault Ayarları",
+      subtitle: "Açılır pencereyi ve GIF dönüşümünü ince ayarla.",
+      warningAriaLabel: "Ayar uyarısı",
+      warningStrong: "Varsayılan ayarlar çoğu zaman en iyisi.",
+      warningBody:
+        "Bu değerleri değiştirmek CPU kullanımını, bellek kullanımını ve depolama boyutunu artırabilir. Daha stabil ve öngörülebilir performans için varsayılan ayarlar önerilir.",
+      gifConversionHeading: "GIF Dönüşümü",
+      fpsLabel: "FPS (1-30)",
+      widthLabel: "Genişlik (120-1920)",
+      maxColorsLabel: "Maks Renk (2-256)",
+      maxDurationLabel: "Maks Süre Saniye (1-60)",
+      popupUiHeading: "Açılır Pencere",
+      defaultTabLabel: "Varsayılan Sekme",
+      defaultTabAll: "Tümü",
+      defaultTabFavorites: "Favoriler",
+      pageSizeLabel: "Sayfa Boyutu (1-60)",
+      hoverPreviewEnabledLabel: "Üzerine Gelince Önizlemeyi Etkinleştir",
+      hoverPreviewDelayLabel: "Önizleme Gecikmesi ms (500-5000)",
+      loadingOptions: "Ayarlar yükleniyor...",
+      resetDefaultsButton: "Varsayılana dön",
+      saveOptionsButton: "Ayarları kaydet",
+      statusInvalidFields: "Lütfen geçersiz alanları düzelt.",
+      statusSaved:
+        "Ayarlar kaydedildi. Bazı açılır pencere değişiklikleri yeniden açınca görünür.",
+      statusDefaultsRestored: "Varsayılanlar geri yüklendi.",
+      statusLanguageUpdated: "Dil değiştirildi.",
+      statusAdjustAndSave: "Değerleri düzenleyip kaydet.",
+      languageLabel: "Dil",
+    },
+    logs: {
+      pageTitle: "GIF Vault Kayıtları",
+      heading: "GIF Vault Kayıtları",
+      refreshButton: "Yenile",
+      clearButton: "Temizle",
+      loadingLogs: "Kayıtlar yükleniyor...",
+      loading: "Yükleniyor...",
+      failedToLoad: "Kayıtlar yüklenemedi.",
+      storageCalculating: "Depolama: hesaplanıyor...",
+      noLogsYet: "Henüz kayıt yok.\nEtkinliklerin burada görünecek.",
+      logsMascotAlt: "Kayıtlar maskotu",
+      storageEstimateApiUnavailable: "Depolama: tahmin API'si kullanılamıyor",
+      storageEstimateFailed: "Depolama: tahmin başarısız",
+      storageUsage: (used, total) =>
+        `Depolama: ${used} kullanıldı / ${total} toplam`,
+      logCount: (count) => `${count} kayıt`,
+      expandAllButton: "Tümünü aç",
+      bundleAllButton: "Gruplu görünüm",
+      logsCleared: "Kayıtlar temizlendi.",
+    },
+    import: {
+      emptyUrl: "URL boş",
+      resolvingMediaUrl: "Medya URL'si bulunuyor...",
+      couldNotResolveMediaUrl: "Medya URL'si çözümlenemedi",
+      couldNotResolveMediaFromPost: "Bu gönderiden medya URL'si çıkarılamadı.",
+      fetchingMedia: (suffix = "") => `Medya alınıyor${suffix}...`,
+      importedMany: (count) => `${count} öğe başarıyla aktarıldı.`,
+      importedSingle: "Aktarma tamamlandı.",
+      importTerminated: "Aktarma kullanıcı tarafından durduruldu.",
+      importFailed: "Aktarma başarısız",
+      failedToFetchMedia: "Medya alınamadı",
+      checkingVideoLength: "Video süresi kontrol ediliyor...",
+      convertingVideoToGif: "Video GIF'e dönüştürülüyor...",
+      savingToVault: "Vault'a aktarılıyor...",
+      hostAccessRequired: "Önce bu site için ek erişim izni gerekiyor.",
+      offscreenConversionFailed: "Video GIF'e dönüştürülemedi.",
+      offscreenProbeFailed: "Video süresi kontrol edilemedi.",
+      couldNotDetermineVideoDuration: "Video süresi belirlenemedi.",
+      resolvedUrlNotMedia: (contentType = "") =>
+        `Bu URL doğrudan medya içermiyor (${contentType || "bilinmiyor"})`,
+      videoTooLong: (maxSeconds, actualSeconds) =>
+        `Video çok uzun (${maxSeconds}s/${actualSeconds.toFixed(1)}s). Uzunluk sınırını Ayarlar'dan değiştir.`,
+      importTerminatedError: "IMPORT_TERMINATED",
+      missingRequestId: "İstek kimliği eksik.",
+      phaseResolving: "resolving",
+      phaseFetching: "fetching",
+      phaseChecking: "checking",
+      phaseConverting: "converting",
+      phaseSaving: "saving",
+      phaseComplete: "complete",
+      phaseIdle: "idle",
+    },
+    serviceWorker: {
+      contextMenuAddToVault: "GIF Vault'a Aktar",
+      resolveFailed: "Çözümleme başarısız",
+      terminateFailed: "Durdurma başarısız",
+      failedToSetIcon: "Araç çubuğu simgesi ayarlanamadı",
+    },
+    actionIcon: {
+      failedToSetImageData: "Eylem simgesi imageData ile ayarlanamadı",
+      failedToLoadAsset: (path) => `Simge dosyası yüklenemedi: ${path}`,
+      failedToCreate2dContext: "Simge çizimi için 2B bağlam oluşturulamadı",
+    },
+    offscreen: {
+      probeFailed: "Video süresi kontrol edilemedi.",
+      conversionFailed: "Video GIF'e dönüştürülemedi.",
+      inputMediaBytesEmpty: "Girdi medya verisi boş",
+      emptyGifOutput: "FFmpeg boş GIF çıktısı üretti",
+      couldNotDetermineVideoDuration: "Video süresi belirlenemedi",
+    },
+  };
+}
+
+const MESSAGE_CATALOG = deepFreeze({
+  en: createEnMessages(),
+  tr: createTrMessages(),
 });
+
+let activeLocale = DEFAULT_LOCALE;
+let UI_MESSAGES = MESSAGE_CATALOG[activeLocale];
+
+function setUiLocale(locale) {
+  activeLocale = normalizeLocale(locale);
+  UI_MESSAGES =
+    MESSAGE_CATALOG[activeLocale] || MESSAGE_CATALOG[DEFAULT_LOCALE];
+  return UI_MESSAGES;
+}
+
+function getUiLocale() {
+  return activeLocale;
+}
+
+function getMessagesForLocale(locale) {
+  const normalized = normalizeLocale(locale);
+  return MESSAGE_CATALOG[normalized] || MESSAGE_CATALOG[DEFAULT_LOCALE];
+}
+
+export {
+  SUPPORTED_LOCALES,
+  DEFAULT_LOCALE,
+  normalizeLocale,
+  getMessagesForLocale,
+  getUiLocale,
+  setUiLocale,
+  UI_MESSAGES,
+};

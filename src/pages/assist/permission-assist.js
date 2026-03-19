@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from "../../lib/settings.js";
 import { safeLog } from "../../lib/log.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
+import { applyStaticI18n, initializeI18n } from "../../lib/i18n.js";
 import { originPatternFromUrl } from "../../lib/ui.js";
 import { applyDocumentTheme } from "../../lib/theme.js";
 
@@ -14,11 +15,33 @@ const cancelBtn = document.getElementById("cancelBtn");
 const params = new URLSearchParams(window.location.search);
 const importUrl = (params.get("url") || "").trim();
 const pageUrl = (params.get("pageUrl") || "").trim();
-const reason = (params.get("reason") || UI_MESSAGES.assist.defaultReason).trim();
+const reasonHint = (params.get("reason") || "").trim();
 
 let pendingOrigins = [];
 let resolvedMediaUrls = [];
 let isBusy = false;
+let usingDefaultReason = false;
+
+async function applyLocale(localeHint = "") {
+  await initializeI18n(
+    localeHint
+      ? {
+          localeHint,
+          useStoredLocale: false,
+          persistDetectedLocale: false,
+        }
+      : {},
+  );
+  applyStaticI18n();
+  if (usingDefaultReason) {
+    reasonEl.textContent = UI_MESSAGES.assist.defaultReason;
+  }
+  if (pendingOrigins.length === 0) {
+    grantBtn.textContent = UI_MESSAGES.assist.importButtonIdle;
+  } else {
+    grantBtn.textContent = UI_MESSAGES.assist.grantAndImportButton;
+  }
+}
 
 init().catch(async (error) => {
   setStatus(
@@ -41,13 +64,21 @@ cancelBtn.addEventListener("click", () => {
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== "local" || !changes[STORAGE_KEYS.themeMode]) {
+  if (areaName !== "local") {
     return;
   }
-  applyTheme(changes[STORAGE_KEYS.themeMode].newValue);
+  if (changes[STORAGE_KEYS.themeMode]) {
+    applyTheme(changes[STORAGE_KEYS.themeMode].newValue);
+  }
+  if (changes[STORAGE_KEYS.locale]?.newValue) {
+    const nextLocale = String(changes[STORAGE_KEYS.locale].newValue || "").trim();
+    void applyLocale(nextLocale);
+  }
 });
 
 async function init() {
+  await applyLocale();
+
   if (!importUrl) {
     throw new Error(UI_MESSAGES.assist.missingImportUrl);
   }
@@ -55,6 +86,8 @@ async function init() {
   const currentTheme = await chrome.storage.local.get([STORAGE_KEYS.themeMode]);
   applyTheme(currentTheme[STORAGE_KEYS.themeMode]);
 
+  const reason = (reasonHint || UI_MESSAGES.assist.defaultReason).trim();
+  usingDefaultReason = !reasonHint;
   reasonEl.textContent = reason;
   reasonEl.hidden = false;
   pendingOrigins = await collectMissingOrigins(importUrl);

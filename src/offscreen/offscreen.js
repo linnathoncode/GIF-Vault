@@ -1,11 +1,14 @@
 import { GIF_CONVERSION } from "../lib/settings.js";
 import { normalizeRuntimeConfig } from "../lib/runtime-config.js";
 import { safeLog } from "../lib/log.js";
+import { UI_MESSAGES } from "../lib/messages.js";
+import { initializeI18n } from "../lib/i18n.js";
 import { FFmpeg } from "../vendor/@ffmpeg/ffmpeg/esm/index.js";
 import { fetchFile } from "../vendor/@ffmpeg/util/esm/index.js";
 
 const ffmpeg = new FFmpeg();
 let ffmpegLoadPromise = null;
+void initializeI18n();
 ffmpeg.on("log", ({ message }) => {
   if (!message) {
     return;
@@ -31,7 +34,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         await safeLog("offscreen", "Probe routine failed", {
           error: error?.message || "unknown",
         });
-        sendResponse({ ok: false, error: error?.message || "Probe failed" });
+        sendResponse({
+          ok: false,
+          error: error?.message || UI_MESSAGES.offscreen.probeFailed,
+        });
       });
     return true;
   }
@@ -54,7 +60,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       })
       .catch(async (error) => {
         await safeLog("offscreen", "Conversion routine failed", { error: error?.message || "unknown" });
-        sendResponse({ ok: false, error: error?.message || "Conversion failed" });
+        sendResponse({
+          ok: false,
+          error: error?.message || UI_MESSAGES.offscreen.conversionFailed,
+        });
       });
 
     return true;
@@ -62,6 +71,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function convertMp4ToGif(message) {
+  await initializeI18n();
   await ensureFfmpegLoaded();
   const gifConversion = resolveGifConversionConfig(message?.gifConversion);
 
@@ -74,7 +84,7 @@ async function convertMp4ToGif(message) {
 
   const inputData = await getInputData(message);
   if (!(inputData instanceof Uint8Array) || inputData.length === 0) {
-    throw new Error("Input media bytes are empty");
+    throw new Error(UI_MESSAGES.offscreen.inputMediaBytesEmpty);
   }
   await safeLog("offscreen", "Starting ffmpeg conversion", {
     inputBytes: inputData.length,
@@ -98,7 +108,7 @@ async function convertMp4ToGif(message) {
 
   const outputData = await ffmpeg.readFile(outputName);
   if (!(outputData instanceof Uint8Array) || outputData.length === 0) {
-    throw new Error("FFmpeg produced empty GIF output");
+    throw new Error(UI_MESSAGES.offscreen.emptyGifOutput);
   }
 
   await safeDeleteFile(inputName);
@@ -120,6 +130,7 @@ async function convertMp4ToGif(message) {
 }
 
 async function probeDuration(message) {
+  await initializeI18n();
   await ensureFfmpegLoaded();
 
   const inputExtension =
@@ -130,7 +141,7 @@ async function probeDuration(message) {
   const probeName = `probe-${Date.now()}.txt`;
   const inputData = await getInputData(message);
   if (!(inputData instanceof Uint8Array) || inputData.length === 0) {
-    throw new Error("Input media bytes are empty");
+    throw new Error(UI_MESSAGES.offscreen.inputMediaBytesEmpty);
   }
 
   await ffmpeg.writeFile(inputName, inputData);
@@ -234,7 +245,7 @@ async function probeVideoDuration(inputName, probeName) {
   const text = new TextDecoder().decode(probeData).trim();
   const value = Number.parseFloat(text);
   if (!Number.isFinite(value) || value < 0) {
-    throw new Error("Could not determine video duration");
+    throw new Error(UI_MESSAGES.offscreen.couldNotDetermineVideoDuration);
   }
   return value;
 }

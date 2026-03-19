@@ -30,6 +30,7 @@ Core capabilities:
 - Search your collection: Find saved items by name or source link in seconds.
 - Favorites tab: Star your best GIFs and access them fast.
 - Easy library management: Rename, copy, delete, or clear your saved items anytime.
+- Shift-click multi-select: Select ranges quickly and manage many items with safer bulk delete behavior.
 - Clean grid layout: Browse your GIFs in a simple visual gallery with pagination.
 - Import progress status: See import steps in real time and stop an import if needed.
 - Guided permissions flow: If a site needs access, GIF Vault walks you through it.
@@ -131,10 +132,22 @@ Rules:
 - Added test coverage for host-access/progress isolation.
 
 ## Recently Added
+- Logs page now includes an Expand/Bundle toggle button to switch between bundled and unbundled log views.
+- Increased log retention cap from 250 to 500 entries.
+- Logs page now bundles repeated successful action entries (for example preview creation) into `xN` summary lines while leaving error entries unbundled.
+- Added cross-page i18n plumbing with centralized locale storage and static `data-i18n*` key hydration.
+- Added Turkish (`tr`) locale support and a language selector on the options page.
+- Import progress now supports locale-safe `phase` metadata instead of English text matching.
+- Empty popup grid now renders mascot placeholder art above the empty-state message.
+- Added theme-aware mascots: `7billion` for popup empty/favorites state and `bug` for empty logs state.
+- Added low-opacity, theme-aware mascot background art to the permission-assist page.
+- Refreshed mascot set with theme-specific `otha` (light) and `pesto` (dark) variants for popup empty states and logs, using combined `*-log-bug` mascot art on the logs page.
+- Permission-assist page mascot now uses a shared dual-character `otha-pesto-permissions` art for both themes.
 - Centralized UI text in `src/lib/messages.js`.
 - Progress bar now handles long status text without breaking popup layout.
 - Permission-assist feedback is isolated from popup progress messaging.
 - Multi-select delete now arms all selected cards with a danger `!` state.
+- Popup grid now supports Shift-click range selection for faster multi-select workflows.
 - Armed multi-select delete is canceled if selection changes.
 - Header count now includes selected item count and supports overflow-safe truncation.
 - Added atomic batch import rollback for real per-item failures.

@@ -6,6 +6,7 @@ import {
 } from "../../lib/runtime-config.js";
 import { safeLog } from "../../lib/log.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
+import { applyStaticI18n, initializeI18n } from "../../lib/i18n.js";
 import { isValidUrl, originPatternFromUrl } from "../../lib/ui.js";
 import {
   applyDocumentTheme,
@@ -57,6 +58,8 @@ const state = {
   suppressNextImportStateClearUiReset: false,
   themeMode: "light",
 };
+let localeApplyVersion = 0;
+const INIT_STEP_TIMEOUT_MS = 3000;
 
 function defaultPopupMenuConfig() {
   return {
@@ -182,7 +185,9 @@ async function importUrl(rawUrl) {
       requestId,
     });
     if (!response?.ok) {
-      throw new Error(response?.error || UI_MESSAGES.popup.importFailed);
+      const importError = new Error(response?.error || UI_MESSAGES.popup.importFailed);
+      importError.code = String(response?.errorCode || "");
+      throw importError;
     }
 
     refs.importInput.value = "";
@@ -195,7 +200,10 @@ async function importUrl(rawUrl) {
     await clearStoredImportStatePreservingUi();
     await gridController.render();
   } catch (error) {
-    if (String(error?.message || "") === UI_MESSAGES.import.hostAccessRequired) {
+    if (
+      String(error?.code || "") === "HOST_ACCESS_REQUIRED" ||
+      String(error?.message || "") === UI_MESSAGES.import.hostAccessRequired
+    ) {
       await openPermissionAssist(url, "", []);
       statusController.setProgressState(null);
       state.activeImportRequestId = "";
@@ -297,6 +305,41 @@ function applyTheme(mode) {
     refs.brandLogo.src = `../../${ICONS[oppositeTheme]["128"]}`;
   }
   state.themeMode = theme;
+  gridController.updateEmptyStateMascotForTheme(theme);
+}
+
+async function applyLocale(localeHint = "") {
+  const applyVersion = ++localeApplyVersion;
+  await initializeI18n(
+    localeHint
+      ? {
+          localeHint,
+          useStoredLocale: false,
+          persistDetectedLocale: false,
+        }
+      : {},
+  );
+  if (applyVersion !== localeApplyVersion) {
+    return;
+  }
+  applyStaticI18n();
+}
+
+function invalidatePendingLocaleApply() {
+  localeApplyVersion += 1;
+}
+
+function withTimeout(promise, timeoutMs, code = "TIMEOUT") {
+  let timeoutId = 0;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(code));
+    }, Math.max(0, timeoutMs));
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    clearTimeout(timeoutId);
+  });
 }
 
 function getImportState() {
@@ -478,10 +521,29 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (changes[STORAGE_KEYS.themeMode]) {
     applyTheme(changes[STORAGE_KEYS.themeMode].newValue);
   }
+
+  if (changes[STORAGE_KEYS.locale]?.newValue) {
+    const nextLocale = String(changes[STORAGE_KEYS.locale].newValue || "").trim();
+    void (async () => {
+      await applyLocale(nextLocale);
+      statusController.syncImportActionButton();
+      await gridController.render();
+    })();
+  }
 });
 
 async function init() {
-  const runtimeConfig = await getRuntimeConfig();
+  await withTimeout(applyLocale(), INIT_STEP_TIMEOUT_MS, "LOCALE_INIT_TIMEOUT").catch(
+    () => {
+      // Prevent a late locale init from rewriting labels after primary render.
+      invalidatePendingLocaleApply();
+    },
+  );
+  const runtimeConfig = await withTimeout(
+    getRuntimeConfig(),
+    INIT_STEP_TIMEOUT_MS,
+    "RUNTIME_CONFIG_TIMEOUT",
+  ).catch(() => normalizeRuntimeConfig({}));
   state.popupMenuConfig = {
     ...runtimeConfig.popupMenu,
     importProgressPercent: {
@@ -492,10 +554,19 @@ async function init() {
     gridController.hideHoverPreview();
   }
   state.currentTab = state.popupMenuConfig.defaultTab;
-  applyTheme(await getThemeMode());
+  const initialTheme = await withTimeout(
+    getThemeMode(),
+    INIT_STEP_TIMEOUT_MS,
+    "THEME_LOAD_TIMEOUT",
+  ).catch(() => "light");
+  applyTheme(initialTheme);
   applyImportAssistFromQuery();
 
-  const importState = await getImportState();
+  const importState = await withTimeout(
+    getImportState(),
+    INIT_STEP_TIMEOUT_MS,
+    "IMPORT_STATE_TIMEOUT",
+  ).catch(() => null);
   if (importState?.text) {
     if (importState.active) {
       statusController.applyImportState(importState);
