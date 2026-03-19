@@ -58,6 +58,8 @@ const state = {
   suppressNextImportStateClearUiReset: false,
   themeMode: "light",
 };
+let localeApplyVersion = 0;
+const INIT_STEP_TIMEOUT_MS = 3000;
 
 function defaultPopupMenuConfig() {
   return {
@@ -307,6 +309,7 @@ function applyTheme(mode) {
 }
 
 async function applyLocale(localeHint = "") {
+  const applyVersion = ++localeApplyVersion;
   await initializeI18n(
     localeHint
       ? {
@@ -316,7 +319,27 @@ async function applyLocale(localeHint = "") {
         }
       : {},
   );
+  if (applyVersion !== localeApplyVersion) {
+    return;
+  }
   applyStaticI18n();
+}
+
+function invalidatePendingLocaleApply() {
+  localeApplyVersion += 1;
+}
+
+function withTimeout(promise, timeoutMs, code = "TIMEOUT") {
+  let timeoutId = 0;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(code));
+    }, Math.max(0, timeoutMs));
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    clearTimeout(timeoutId);
+  });
 }
 
 function getImportState() {
@@ -510,8 +533,17 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 async function init() {
-  await applyLocale();
-  const runtimeConfig = await getRuntimeConfig();
+  await withTimeout(applyLocale(), INIT_STEP_TIMEOUT_MS, "LOCALE_INIT_TIMEOUT").catch(
+    () => {
+      // Prevent a late locale init from rewriting labels after primary render.
+      invalidatePendingLocaleApply();
+    },
+  );
+  const runtimeConfig = await withTimeout(
+    getRuntimeConfig(),
+    INIT_STEP_TIMEOUT_MS,
+    "RUNTIME_CONFIG_TIMEOUT",
+  ).catch(() => normalizeRuntimeConfig({}));
   state.popupMenuConfig = {
     ...runtimeConfig.popupMenu,
     importProgressPercent: {
@@ -522,10 +554,19 @@ async function init() {
     gridController.hideHoverPreview();
   }
   state.currentTab = state.popupMenuConfig.defaultTab;
-  applyTheme(await getThemeMode());
+  const initialTheme = await withTimeout(
+    getThemeMode(),
+    INIT_STEP_TIMEOUT_MS,
+    "THEME_LOAD_TIMEOUT",
+  ).catch(() => "light");
+  applyTheme(initialTheme);
   applyImportAssistFromQuery();
 
-  const importState = await getImportState();
+  const importState = await withTimeout(
+    getImportState(),
+    INIT_STEP_TIMEOUT_MS,
+    "IMPORT_STATE_TIMEOUT",
+  ).catch(() => null);
   if (importState?.text) {
     if (importState.active) {
       statusController.applyImportState(importState);

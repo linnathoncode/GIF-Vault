@@ -71,6 +71,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function convertMp4ToGif(message) {
+  await initializeI18n();
   await ensureFfmpegLoaded();
   const gifConversion = resolveGifConversionConfig(message?.gifConversion);
 
@@ -129,6 +130,7 @@ async function convertMp4ToGif(message) {
 }
 
 async function probeDuration(message) {
+  await initializeI18n();
   await ensureFfmpegLoaded();
 
   const inputExtension =
