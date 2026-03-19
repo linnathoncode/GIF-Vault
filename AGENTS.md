@@ -30,6 +30,7 @@ Core capabilities:
 - Search your collection: Find saved items by name or source link in seconds.
 - Favorites tab: Star your best GIFs and access them fast.
 - Easy library management: Rename, copy, delete, or clear your saved items anytime.
+- Shift-click multi-select: Select ranges quickly and manage many items with safer bulk delete behavior.
 - Clean grid layout: Browse your GIFs in a simple visual gallery with pagination.
 - Import progress status: See import steps in real time and stop an import if needed.
 - Guided permissions flow: If a site needs access, GIF Vault walks you through it.
@@ -146,6 +147,7 @@ Rules:
 - Progress bar now handles long status text without breaking popup layout.
 - Permission-assist feedback is isolated from popup progress messaging.
 - Multi-select delete now arms all selected cards with a danger `!` state.
+- Popup grid now supports Shift-click range selection for faster multi-select workflows.
 - Armed multi-select delete is canceled if selection changes.
 - Header count now includes selected item count and supports overflow-safe truncation.
 - Added atomic batch import rollback for real per-item failures.
