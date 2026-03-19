@@ -189,7 +189,60 @@ function sortMediaUrls(urls) {
 
   const unique = [...new Set(urls)];
   unique.sort((a, b) => mediaSortScore(b) - mediaSortScore(a));
-  return unique;
+  return collapseVariantUrls(unique);
+}
+
+function collapseVariantUrls(sortedUrls) {
+  const seenKeys = new Set();
+  const collapsed = [];
+
+  for (const rawUrl of sortedUrls) {
+    const key = getVariantCollapseKey(rawUrl);
+    if (seenKeys.has(key)) {
+      continue;
+    }
+    seenKeys.add(key);
+    collapsed.push(rawUrl);
+  }
+
+  return collapsed;
+}
+
+function getVariantCollapseKey(rawUrl) {
+  if (isLikelyTweetVideoUrl(rawUrl)) {
+    return getVideoVariantKey(rawUrl);
+  }
+  if (isLikelyTweetImageUrl(rawUrl)) {
+    return getImageVariantKey(rawUrl);
+  }
+  return `other:${rawUrl}`;
+}
+
+function getVideoVariantKey(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const normalizedPath = url.pathname
+      .toLowerCase()
+      .replace(/\/vid\/\d+x\d+\//, "/vid/*/");
+    return `video:${url.host.toLowerCase()}${normalizedPath}`;
+  } catch {
+    return `video:${rawUrl}`;
+  }
+}
+
+function getImageVariantKey(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.host.toLowerCase();
+    const path = url.pathname.toLowerCase();
+    const format = (url.searchParams.get("format") || "").toLowerCase();
+    const normalizedPath = format && !/\.(png|jpe?g|gif|webp)$/i.test(path)
+      ? `${path}.${format}`
+      : path;
+    return `image:${host}${normalizedPath}`;
+  } catch {
+    return `image:${rawUrl}`;
+  }
 }
 
 async function resolveFromSyndication(tweetId) {

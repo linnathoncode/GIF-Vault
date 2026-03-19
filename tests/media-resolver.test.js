@@ -97,7 +97,7 @@ describe("media resolver", () => {
     expect(globalThis.fetch).not.toHaveBeenCalledWith(statusUrl);
   });
 
-  it("returns multiple tweet media URLs when available", async () => {
+  it("keeps one best URL per tweet media item when quality variants exist", async () => {
     globalThis.fetch = vi.fn(async (url) => {
       if (String(url).includes("cdn.syndication.twimg.com")) {
         return makeResponse({
@@ -123,7 +123,6 @@ describe("media resolver", () => {
     const resolved = await resolveMediaUrls("https://x.com/user/status/5555555");
     expect(resolved).toEqual([
       "https://video.twimg.com/ext_tw_video/1/pu/vid/1280x720/a.mp4",
-      "https://video.twimg.com/ext_tw_video/1/pu/vid/640x360/a.mp4",
       "https://pbs.twimg.com/media/ExampleId?format=jpg&name=orig",
     ]);
   });
