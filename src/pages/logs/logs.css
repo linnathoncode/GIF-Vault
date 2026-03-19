@@ -131,8 +131,8 @@ body {
   object-fit: contain;
   pointer-events: none;
   user-select: none;
-  opacity: 0.42;
   z-index: 0;
+  opacity: 0.42;
 }
 
 .logs-content {
@@ -163,7 +163,7 @@ body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   color: var(--muted);
   font-size: 14px;
-  white-space: normal;
+  white-space: pre-line;
   padding: 0;
 }
 

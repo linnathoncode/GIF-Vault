@@ -31,8 +31,9 @@ const LOGS_LOAD_TIMEOUT_MS = 4000;
 const LOG_ERROR_HINT_REGEX = /\b(failed|error|rejected|denied|invalid|missing|timeout|aborted|abort|unable|could not)\b/i;
 
 function getLogsEmptyMascotSrc(mode) {
-  const theme = mode === "dark" ? "dark" : "light";
-  return `../../assets/mascots/bug-${theme}.png`;
+  return mode === "dark"
+    ? "../../assets/mascots/pesto-log-bug.webp"
+    : "../../assets/mascots/otha-log-bug.webp";
 }
 
 function setStatus(text, ok = false) {

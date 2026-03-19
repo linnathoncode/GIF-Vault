@@ -75,16 +75,12 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: url("../../assets/mascots/permission-light.png");
+  background-image: url("../../assets/mascots/otha-pesto-permissions.webp");
   background-repeat: no-repeat;
   background-position: center bottom 10px;
   background-size: min(84%, 420px);
   opacity: 0.12;
   z-index: 0;
-}
-
-[data-theme="dark"] .panel::before {
-  background-image: url("../../assets/mascots/permission-dark.png");
 }
 
 .panel > * {

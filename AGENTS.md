@@ -140,6 +140,8 @@ Rules:
 - Empty popup grid now renders mascot placeholder art above the empty-state message.
 - Added theme-aware mascots: `7billion` for popup empty/favorites state and `bug` for empty logs state.
 - Added low-opacity, theme-aware mascot background art to the permission-assist page.
+- Refreshed mascot set with theme-specific `otha` (light) and `pesto` (dark) variants for popup empty states and logs, using combined `*-log-bug` mascot art on the logs page.
+- Permission-assist page mascot now uses a shared dual-character `otha-pesto-permissions` art for both themes.
 - Centralized UI text in `src/lib/messages.js`.
 - Progress bar now handles long status text without breaking popup layout.
 - Permission-assist feedback is isolated from popup progress messaging.

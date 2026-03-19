@@ -88,11 +88,11 @@ function createEnMessages() {
       cancelButton: "Cancel",
     },
     grid: {
-      noSearchMatches: "No matches. Try another keyword.",
+      noSearchMatches: "No matches found.\nTry a different search term.",
       noFavoritesYet:
         "All alone here...\nMark items as Favorite from the All tab.",
       emptyVaultPrompt:
-        "Your vault is empty. Paste a URL above to start your stash.",
+        "Your vault is empty.\nPaste a media URL above to add your first item.",
       emptyMascotAlt: "Empty vault mascot",
       selectionHintMany: (count) =>
         `${count} selected. Favorite/Delete now targets selected cards.`,
@@ -176,7 +176,7 @@ function createEnMessages() {
       loading: "Loading...",
       failedToLoad: "Couldn't load logs.",
       storageCalculating: "Storage: calculating...",
-      noLogsYet: "No logs yet.",
+      noLogsYet: "No logs yet.\nYour activity will appear here.",
       logsMascotAlt: "Logs mascot backdrop",
       storageEstimateApiUnavailable: "Storage: estimate API unavailable",
       storageEstimateFailed: "Storage: estimate failed",
@@ -304,11 +304,11 @@ function createTrMessages() {
       cancelButton: "İptal",
     },
     grid: {
-      noSearchMatches: "Aramana uygun sonuç yok. Başka bir kelime dene.",
+      noSearchMatches: "Eşleşme bulunamadı.\nFarklı bir arama terimi dene.",
       noFavoritesYet:
         "Kimseler yok burada...\nTümü sekmesinden öğeleri favorileyebilirsin.",
       emptyVaultPrompt:
-        "Vault şu an boş. Yukarıya bir URL yapıştırıp koleksiyonu başlat.",
+        "Vault'un şu an boş.\nİlk öğeni eklemek için yukarıya bir medya URL'si yapıştır.",
       emptyMascotAlt: "Boş Vault maskotu",
       selectionHintMany: (count) =>
         `${count} öğe seçildi. Favori/Sil işlemleri seçili kartlara uygulanır.`,
@@ -394,7 +394,7 @@ function createTrMessages() {
       loading: "Yükleniyor...",
       failedToLoad: "Kayıtlar yüklenemedi.",
       storageCalculating: "Depolama: hesaplanıyor...",
-      noLogsYet: "Henüz kayıt yok.",
+      noLogsYet: "Henüz kayıt yok.\nEtkinliklerin burada görünecek.",
       logsMascotAlt: "Kayıtlar maskotu",
       storageEstimateApiUnavailable: "Depolama: tahmin API'si kullanılamıyor",
       storageEstimateFailed: "Depolama: tahmin başarısız",
