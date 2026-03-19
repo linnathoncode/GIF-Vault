@@ -3,40 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GIF Vault</title>
+  <title data-i18n="popup.pageTitle">GIF Vault</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <main class="container">
     <section class="panel header">
       <div class="brand">
-        <img id="brandLogo" class="brand-logo" src="../../assets/icons/icon-dark-128.png" alt="GIF Vault logo" />
+        <img id="brandLogo" class="brand-logo" src="../../assets/icons/icon-dark-128.png" alt="GIF Vault logo" data-i18n-alt="popup.brandLogoAlt" />
         <div class="brand-text">
-        <h1 class="title">GIF Vault</h1>
+        <h1 class="title" data-i18n="common.appName">GIF Vault</h1>
         <div id="count" class="count">0 saved</div>
         </div>
       </div>
       <div class="header-actions">
-        <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme">&#9790;</button>
-        <button id="openOptionsBtn" class="icon-btn" type="button" title="Open Options" aria-label="Open Options">&#9881;</button>
-        <button id="openLogsBtn" class="icon-btn logs-btn" type="button" title="Open Logs" aria-label="Open Logs">
+        <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme" data-i18n-title="common.toggleTheme" data-i18n-aria-label="common.toggleTheme">&#9790;</button>
+        <button id="openOptionsBtn" class="icon-btn" type="button" title="Open Options" aria-label="Open Options" data-i18n-title="popup.openOptions" data-i18n-aria-label="popup.openOptions">&#9881;</button>
+        <button id="openLogsBtn" class="icon-btn logs-btn" type="button" title="Open Logs" aria-label="Open Logs" data-i18n-title="popup.openLogs" data-i18n-aria-label="popup.openLogs">
           <svg class="logs-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M7 4h8l4 4v12H7z" />
             <path d="M15 4v4h4" />
             <path d="M10 12h6M10 15h6M10 18h4" />
           </svg>
         </button>
-        <button id="clearAllBtn" class="danger-btn" type="button">Clear all</button>
+        <button id="clearAllBtn" class="danger-btn" type="button" data-i18n="popup.clearAllButton">Clear all</button>
       </div>
     </section>
 
     <section class="panel import-panel">
       <div class="import-row">
-        <input id="importInput" class="input" type="url" placeholder="Paste GIF / MP4 / tweet URL" />
+        <input id="importInput" class="input" type="url" placeholder="Paste GIF / MP4 / tweet URL" data-i18n-placeholder="popup.importInputPlaceholder" />
         <button id="importBtn" class="btn primary" type="button">Import</button>
       </div>
       <div class="import-row single">
-        <input id="searchInput" class="input" type="search" placeholder="Search by name or source" />
+        <input id="searchInput" class="input" type="search" placeholder="Search by name or source" data-i18n-placeholder="popup.searchInputPlaceholder" />
       </div>
       <div id="status" class="status" aria-live="polite">
         <div id="progressTrack" class="progress-track">
@@ -47,11 +47,11 @@
     </section>
 
     <section class="panel tab-pager">
-      <button id="tabAllBtn" class="btn tab-btn active" type="button">All</button>
-      <button id="tabFavoritesBtn" class="btn tab-btn" type="button">Favorites</button>
-      <button id="prevPageBtn" class="btn" type="button" aria-label="Previous page">Prev</button>
+      <button id="tabAllBtn" class="btn tab-btn active" type="button" data-i18n="popup.tabAll">All</button>
+      <button id="tabFavoritesBtn" class="btn tab-btn" type="button" data-i18n="popup.tabFavorites">Favorites</button>
+      <button id="prevPageBtn" class="btn" type="button" aria-label="Previous page" data-i18n="popup.prevPage" data-i18n-aria-label="popup.previousPageAriaLabel">Prev</button>
       <div id="pageIndicator" class="page-indicator">Page 1 / 1</div>
-      <button id="nextPageBtn" class="btn" type="button" aria-label="Next page">Next</button>
+      <button id="nextPageBtn" class="btn" type="button" aria-label="Next page" data-i18n="popup.nextPage" data-i18n-aria-label="popup.nextPageAriaLabel">Next</button>
     </section>
 
     <section id="grid" class="grid" aria-live="polite"></section>

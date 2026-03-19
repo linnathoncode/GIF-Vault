@@ -251,7 +251,7 @@ function idbLog(stage, message, details = {}) {
   });
 }
 
-function idbGetLogs(limit = 250) {
+function idbGetLogs(limit = DB.logMaxItems) {
   return runLogTx(
     "readonly",
     (store) =>

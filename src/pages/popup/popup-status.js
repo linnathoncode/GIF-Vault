@@ -6,6 +6,7 @@ export function createPopupStatusController({
   state,
   getPopupMenuConfig,
 }) {
+  const TRANSIENT_STATUS_DURATION_MS = 5000;
   const {
     statusEl,
     progressTrackEl,
@@ -19,30 +20,24 @@ export function createPopupStatusController({
   let transientProgressSnapshot = null;
 
   function getImportProgressPercent(importState) {
-    if (!importState?.text) {
+    if (!importState?.text && !importState?.phase) {
       return 0;
     }
 
     const popupMenuConfig = getPopupMenuConfig();
-    if (importState.kind === "success") {
-      return popupMenuConfig.importProgressPercent.complete;
+    const phase = String(importState?.phase || "").trim().toLowerCase();
+    if (
+      phase &&
+      Object.prototype.hasOwnProperty.call(
+        popupMenuConfig.importProgressPercent,
+        phase,
+      )
+    ) {
+      return popupMenuConfig.importProgressPercent[phase];
     }
 
-    const text = importState.text.toLowerCase();
-    if (text.includes("saving")) {
-      return popupMenuConfig.importProgressPercent.saving;
-    }
-    if (text.includes("checking video length")) {
-      return popupMenuConfig.importProgressPercent.checking;
-    }
-    if (text.includes("converting")) {
-      return popupMenuConfig.importProgressPercent.converting;
-    }
-    if (text.includes("fetching")) {
-      return popupMenuConfig.importProgressPercent.fetching;
-    }
-    if (text.includes("resolving")) {
-      return popupMenuConfig.importProgressPercent.resolving;
+    if (importState.kind === "success") {
+      return popupMenuConfig.importProgressPercent.complete;
     }
 
     return importState.active
@@ -125,7 +120,14 @@ export function createPopupStatusController({
       normalizedKind = String(kind);
     }
 
-    statusEl.className = normalizedKind ? `status ${normalizedKind}` : "status";
+    const classNames = ["status"];
+    if (normalizedKind) {
+      classNames.push(normalizedKind);
+    }
+    if (String(text || "").includes("\n")) {
+      classNames.push("multiline");
+    }
+    statusEl.className = classNames.join(" ");
   }
 
   function clearTransientStatusTimer() {
@@ -146,7 +148,7 @@ export function createPopupStatusController({
   function showTransientStatus(
     text,
     kind = "",
-    durationMs = 2000,
+    durationMs = TRANSIENT_STATUS_DURATION_MS,
     options = {},
   ) {
     const hasImportStateToRestore = Boolean(state.currentImportState?.text);

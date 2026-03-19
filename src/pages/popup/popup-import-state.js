@@ -3,6 +3,7 @@ export async function restoreInactiveImportState({
   statusController,
   clearStoredImportState,
 }) {
+  const RESTORED_IMPORT_STATE_DURATION_MS = 5000;
   if (!importState?.text || importState.active) {
     return false;
   }
@@ -13,7 +14,7 @@ export async function restoreInactiveImportState({
   statusController.showTransientStatus(
     importState.text,
     importState.kind === "success" ? "ok" : importState.kind || "",
-    2200,
+    RESTORED_IMPORT_STATE_DURATION_MS,
     { preserveProgress: false, forceTemporary: true },
   );
   return true;

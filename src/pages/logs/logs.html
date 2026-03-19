@@ -3,30 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GIF Vault Logs</title>
+  <title data-i18n="logs.pageTitle">GIF Vault Logs</title>
   <link rel="stylesheet" href="logs.css">
 </head>
 <body>
   <main class="wrap">
     <section class="panel header">
-      <h1 class="title">GIF Vault Debug Logs</h1>
+      <h1 class="title" data-i18n="logs.heading">GIF Vault Debug Logs</h1>
       <div class="actions">
-        <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme">&#9790;</button>
-        <button id="refreshBtn" class="btn" type="button">Refresh</button>
-        <button id="clearBtn" class="btn" type="button">Clear</button>
+        <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme" data-i18n-title="common.toggleTheme" data-i18n-aria-label="common.toggleTheme">&#9790;</button>
+        <button id="viewToggleBtn" class="btn" type="button" data-i18n="logs.expandAllButton">Expand all</button>
+        <button id="refreshBtn" class="btn" type="button" data-i18n="logs.refreshButton">Refresh</button>
+        <button id="clearBtn" class="btn" type="button" data-i18n="logs.clearButton">Clear</button>
       </div>
     </section>
 
     <section class="panel">
-      <div id="status" class="status">Loading logs...</div>
+      <div id="status" class="status" data-i18n="logs.loadingLogs">Loading logs...</div>
     </section>
 
     <section class="panel">
-      <div id="storageUsage" class="status">Storage: calculating...</div>
+      <div id="storageUsage" class="status" data-i18n="logs.storageCalculating">Storage: calculating...</div>
     </section>
 
     <section class="panel logs-panel">
-      <div id="logs" class="logs">Loading...</div>
+      <div id="logs" class="logs" data-i18n="logs.loading">Loading...</div>
     </section>
   </main>
 

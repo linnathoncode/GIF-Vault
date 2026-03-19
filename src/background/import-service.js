@@ -50,7 +50,13 @@ async function importFromUrl(
     throw new Error(UI_MESSAGES.import.emptyUrl);
   }
 
-  await reportProgress(progressId, UI_MESSAGES.import.resolvingMediaUrl, true, "info");
+  await reportProgress(
+    progressId,
+    UI_MESSAGES.import.resolvingMediaUrl,
+    true,
+    "info",
+    UI_MESSAGES.import.phaseResolving,
+  );
   try {
     ensureImportActive();
     await safeLog("import", "Import started", { url, pageUrl: pageUrl || "" });
@@ -81,6 +87,7 @@ async function importFromUrl(
         UI_MESSAGES.import.fetchingMedia(suffix),
         true,
         "info",
+        UI_MESSAGES.import.phaseFetching,
       );
       const item = await importResolvedMedia({
         sourceUrl: url,
@@ -103,6 +110,7 @@ async function importFromUrl(
         : UI_MESSAGES.import.importedSingle,
       false,
       "success",
+      UI_MESSAGES.import.phaseComplete,
     );
     return {
       id: savedItems[0]?.id || "",
@@ -125,9 +133,21 @@ async function importFromUrl(
     }
     if (message === UI_MESSAGES.import.hostAccessRequired) {
       // Permission-assist flow owns this feedback; keep popup progress clear.
-      await reportProgress(progressId, "", false, "info");
+      await reportProgress(
+        progressId,
+        "",
+        false,
+        "info",
+        UI_MESSAGES.import.phaseIdle,
+      );
     } else {
-      await reportProgress(progressId, message, false, "error");
+      await reportProgress(
+        progressId,
+        message,
+        false,
+        "error",
+        UI_MESSAGES.import.phaseComplete,
+      );
     }
     throw new Error(message);
   } finally {
@@ -193,7 +213,13 @@ async function importResolvedMedia({
   let converted = false;
 
   if (isVideoMedia) {
-    await reportProgress(progressId, UI_MESSAGES.import.checkingVideoLength, true, "info");
+    await reportProgress(
+      progressId,
+      UI_MESSAGES.import.checkingVideoLength,
+      true,
+      "info",
+      UI_MESSAGES.import.phaseChecking,
+    );
     await safeLog("convert", "Video detected, offscreen conversion requested", {
       resolvedMediaUrl,
       sourceUrl,
@@ -223,7 +249,13 @@ async function importResolvedMedia({
         );
       }
 
-      await reportProgress(progressId, UI_MESSAGES.import.convertingVideoToGif, true, "info");
+      await reportProgress(
+        progressId,
+        UI_MESSAGES.import.convertingVideoToGif,
+        true,
+        "info",
+        UI_MESSAGES.import.phaseConverting,
+      );
       const convertedPayload = await convertInOffscreen({
         url: resolvedMediaUrl,
         requestId: progressId,
@@ -268,7 +300,13 @@ async function importResolvedMedia({
     }
   }
 
-  await reportProgress(progressId, UI_MESSAGES.import.savingToVault, true, "info");
+  await reportProgress(
+    progressId,
+    UI_MESSAGES.import.savingToVault,
+    true,
+    "info",
+    UI_MESSAGES.import.phaseSaving,
+  );
   ensureImportActive();
   const item = {
     id: crypto.randomUUID(),
@@ -298,7 +336,7 @@ async function importResolvedMedia({
 async function terminateImport(requestId) {
   const id = String(requestId || "").trim();
   if (!id) {
-    throw new Error("Missing requestId");
+    throw new Error(UI_MESSAGES.import.missingRequestId);
   }
 
   terminatedImportIds.add(id);
@@ -308,7 +346,13 @@ async function terminateImport(requestId) {
   }
 
   await safeLog("import", "Terminate import requested", { requestId: id });
-  await reportProgress(id, UI_MESSAGES.import.importTerminated, false, "error");
+  await reportProgress(
+    id,
+    UI_MESSAGES.import.importTerminated,
+    false,
+    "error",
+    UI_MESSAGES.import.phaseComplete,
+  );
   return Boolean(controller);
 }
 
@@ -470,13 +514,21 @@ async function ensureOriginAccess(rawUrl) {
   throw new Error(UI_MESSAGES.import.hostAccessRequired);
 }
 
-async function reportProgress(requestId, text, active = true, kind = "info") {
+async function reportProgress(
+  requestId,
+  text,
+  active = true,
+  kind = "info",
+  phase = "",
+) {
   try {
+    const normalizedPhase = String(phase || "").trim();
     await chrome.storage.local.set({
       [STORAGE_KEYS.importState]: {
         requestId,
         text,
         kind,
+        phase: normalizedPhase,
         active: Boolean(active),
         updatedAt: Date.now(),
       },
@@ -486,6 +538,7 @@ async function reportProgress(requestId, text, active = true, kind = "info") {
       requestId,
       text,
       kind,
+      phase: normalizedPhase,
       active: Boolean(active),
     });
   } catch {
