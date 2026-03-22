@@ -179,6 +179,7 @@ Rules:
 - User-terminated imports no longer trigger rollback of already-saved items.
 - Fixed popup ghost progress-message replay and added restore/clear ordering safeguards.
 - Logs page now includes an email bug-report form that collects user notes, prepares a support email draft to `gifvault-support@gmail.com`, and downloads a log attachment file for sending.
+- Options page default tab now supports `Latest`, which reopens the popup on the most recently used tab (`All` or `Favorites`).
 
 ## Operational Notes
 

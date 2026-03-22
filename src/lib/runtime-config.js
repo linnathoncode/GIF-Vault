@@ -39,6 +39,9 @@ function normalizeDefaultTab(value, fallback) {
   if (value === "all") {
     return "all";
   }
+  if (value === "latest" || value === "last") {
+    return "latest";
+  }
   return fallback;
 }
 

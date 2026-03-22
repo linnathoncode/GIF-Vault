@@ -61,6 +61,39 @@ const state = {
 };
 let localeApplyVersion = 0;
 const INIT_STEP_TIMEOUT_MS = 3000;
+const FALLBACK_POPUP_TAB = "all";
+
+function normalizePopupTab(value, fallback = FALLBACK_POPUP_TAB) {
+  return value === "favorites" ? "favorites" : value === "all" ? "all" : fallback;
+}
+
+function getStoredLastPopupTab() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([STORAGE_KEYS.popupLastTab], (result) => {
+      resolve(normalizePopupTab(result?.[STORAGE_KEYS.popupLastTab]));
+    });
+  });
+}
+
+function storeLastPopupTab(tab) {
+  const normalized = normalizePopupTab(tab);
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [STORAGE_KEYS.popupLastTab]: normalized }, resolve);
+  });
+}
+
+async function applyCurrentTab(nextTab) {
+  state.currentTab = normalizePopupTab(nextTab);
+  state.currentPage = 1;
+  await storeLastPopupTab(state.currentTab);
+}
+
+async function resolveInitialTab(defaultTabSetting) {
+  if (defaultTabSetting === "latest") {
+    return getStoredLastPopupTab();
+  }
+  return normalizePopupTab(defaultTabSetting);
+}
 
 function defaultPopupMenuConfig() {
   return {
@@ -419,14 +452,12 @@ refs.themeToggleBtn.addEventListener("click", async () => {
 });
 refs.tabAllBtn.addEventListener("click", async () => {
   gridController.clearSelections();
-  state.currentTab = "all";
-  state.currentPage = 1;
+  await applyCurrentTab("all");
   await gridController.render();
 });
 refs.tabFavoritesBtn.addEventListener("click", async () => {
   gridController.clearSelections();
-  state.currentTab = "favorites";
-  state.currentPage = 1;
+  await applyCurrentTab("favorites");
   await gridController.render();
 });
 refs.searchInput.addEventListener("click", () => {
@@ -488,13 +519,18 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       },
     };
     if (previousDefaultTab !== state.popupMenuConfig.defaultTab) {
-      state.currentTab = state.popupMenuConfig.defaultTab;
-      state.currentPage = 1;
+      void (async () => {
+        state.currentTab = await resolveInitialTab(state.popupMenuConfig.defaultTab);
+        state.currentPage = 1;
+        await gridController.render();
+      })();
     }
     if (!state.popupMenuConfig.hoverPreviewEnabled) {
       gridController.hideHoverPreview();
     }
-    void gridController.render();
+    if (previousDefaultTab === state.popupMenuConfig.defaultTab) {
+      void gridController.render();
+    }
   }
 
   if (changes[STORAGE_KEYS.importState]?.newValue || changes[STORAGE_KEYS.importState]?.oldValue) {
@@ -554,7 +590,7 @@ async function init() {
   if (!state.popupMenuConfig.hoverPreviewEnabled) {
     gridController.hideHoverPreview();
   }
-  state.currentTab = state.popupMenuConfig.defaultTab;
+  state.currentTab = await resolveInitialTab(state.popupMenuConfig.defaultTab);
   const initialTheme = await withTimeout(
     getThemeMode(),
     INIT_STEP_TIMEOUT_MS,

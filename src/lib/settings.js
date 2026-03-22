@@ -3,6 +3,7 @@ const STORAGE_KEYS = {
   locale: "locale",
   importState: "importState",
   runtimeConfig: "runtimeConfig",
+  popupLastTab: "popupLastTab",
 };
 
 const CONTEXT_MENU = {
