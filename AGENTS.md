@@ -158,3 +158,7 @@ Rules:
 - Load extension from `dist/` in browser developer mode.
 - `release/` contains local package artifacts.
 - Avoid reverting permission-assist UX without a stronger, gesture-safe alternative.
+
+## Known Issues
+
+- Local-only issue tracking has been moved to `LOCAL_KNOWN_ISSUES.md` (gitignored via `.gitignore`).

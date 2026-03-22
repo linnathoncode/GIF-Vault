@@ -41,6 +41,14 @@ async function updateContextMenuTitle() {
 
 void ensureLocaleReady();
 
+function isTrustedRuntimeSender(sender) {
+  return sender?.id === chrome.runtime.id;
+}
+
+function isRuntimeMessage(message) {
+  return Boolean(message) && typeof message === "object" && !Array.isArray(message);
+}
+
 // Service worker lifecycle and browser event wiring.
 chrome.runtime.onInstalled.addListener(() => {
   void (async () => {
@@ -104,8 +112,8 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
 });
 
 // Runtime message routing.
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message) {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!isTrustedRuntimeSender(sender) || !isRuntimeMessage(message)) {
     return;
   }
   const localeSyncPromise = ensureLocaleReady();

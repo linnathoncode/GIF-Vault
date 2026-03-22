@@ -60,6 +60,54 @@ const state = {
 };
 let localeApplyVersion = 0;
 const INIT_STEP_TIMEOUT_MS = 3000;
+const QUERY_STATUS_MAX_LENGTH = 120;
+
+function isTrustedRuntimeSender(sender) {
+  return sender?.id === chrome.runtime.id;
+}
+
+function isRuntimeMessage(message) {
+  return Boolean(message) && typeof message === "object" && !Array.isArray(message);
+}
+
+function isVaultUpdatedMessage(message) {
+  if (!isRuntimeMessage(message) || message.type !== "VAULT_UPDATED") {
+    return false;
+  }
+  return !("itemId" in message) || typeof message.itemId === "string";
+}
+
+function isImportProgressMessage(message) {
+  if (!isRuntimeMessage(message) || message.type !== "IMPORT_PROGRESS") {
+    return false;
+  }
+
+  if ("requestId" in message && typeof message.requestId !== "string") {
+    return false;
+  }
+  if (typeof message.text !== "string" || typeof message.kind !== "string") {
+    return false;
+  }
+  if ("phase" in message && typeof message.phase !== "string") {
+    return false;
+  }
+  if ("active" in message && typeof message.active !== "boolean") {
+    return false;
+  }
+
+  return true;
+}
+
+function getSafeStatusQueryText(rawStatus) {
+  const status = String(rawStatus || "")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!status || status.length > QUERY_STATUS_MAX_LENGTH) {
+    return "";
+  }
+  return status;
+}
 
 function defaultPopupMenuConfig() {
   return {
@@ -287,7 +335,7 @@ async function openPermissionAssist(url, pageUrl, missingOrigins) {
 function applyImportAssistFromQuery() {
   const params = new URLSearchParams(window.location.search);
   const importUrlFromQuery = params.get("importUrl") || "";
-  const status = params.get("status") || "";
+  const status = getSafeStatusQueryText(params.get("status"));
   if (importUrlFromQuery && !refs.importInput.value) {
     refs.importInput.value = importUrlFromQuery;
   }
@@ -449,15 +497,16 @@ refs.nextPageBtn.addEventListener("click", async () => {
   await gridController.render();
 });
 
-chrome.runtime.onMessage.addListener((message) => {
-  if (!message) {
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (!isTrustedRuntimeSender(sender) || !isRuntimeMessage(message)) {
     return;
   }
-  if (message.type === "VAULT_UPDATED") {
+
+  if (isVaultUpdatedMessage(message)) {
     void gridController.render();
     return;
   }
-  if (message.type !== "IMPORT_PROGRESS") {
+  if (!isImportProgressMessage(message)) {
     return;
   }
   if (
