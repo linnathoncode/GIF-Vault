@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -13,9 +13,35 @@
       <div class="actions">
         <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme" data-i18n-title="common.toggleTheme" data-i18n-aria-label="common.toggleTheme">&#9790;</button>
         <button id="viewToggleBtn" class="btn" type="button" data-i18n="logs.expandAllButton">Expand all</button>
+        <button id="reportBugBtn" class="btn" type="button" data-i18n="logs.reportBugButtonCollapsed">Report bug</button>
         <button id="refreshBtn" class="btn" type="button" data-i18n="logs.refreshButton">Refresh</button>
         <button id="clearBtn" class="btn" type="button" data-i18n="logs.clearButton">Clear</button>
       </div>
+    </section>
+
+    <section id="reportPanel" class="panel report-panel" hidden>
+      <label
+        id="bugDescriptionLabel"
+        for="bugDescriptionInput"
+        class="report-label"
+        data-i18n="logs.reportDescriptionLabel"
+      >What happened?</label>
+      <textarea
+        id="bugDescriptionInput"
+        class="report-input"
+        rows="4"
+        data-i18n-placeholder="logs.reportDescriptionPlaceholder"
+        placeholder="Describe what you encountered"
+      ></textarea>
+      <div id="reportAttachmentHint" class="report-warning">
+        <span class="report-warning-icon" aria-hidden="true">!</span>
+        <p
+          class="status report-hint"
+          data-i18n="logs.reportAttachmentHint"
+        >A log file will be downloaded automatically. Attach it to the email before sending.</p>
+        <button id="sendReportBtn" class="btn" type="button" data-i18n="logs.reportBugButtonExpanded">Send by email</button>
+      </div>
+      <div id="reportStatus" class="status" hidden></div>
     </section>
 
     <section class="panel">
@@ -34,3 +60,4 @@
   <script type="module" src="logs.js"></script>
 </body>
 </html>
+

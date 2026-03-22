@@ -185,6 +185,23 @@ function createEnMessages() {
       expandAllButton: "Expand all",
       bundleAllButton: "Bundle view",
       logsCleared: "Logs cleared.",
+      reportDescriptionLabel: "What happened?",
+      reportDescriptionPlaceholder:
+        "Describe what you encountered, and how we can reproduce it.",
+      reportBugButtonCollapsed: "Report bug",
+      reportBugButtonExpanded: "Send by email",
+      reportDescriptionRequired:
+        "Please describe what you encountered before sending.",
+      reportAttachmentHint:
+        "A log file will be downloaded automatically. Attach it to the email before sending.",
+      reportPreparing: "Preparing report email...",
+      reportFailed: "Couldn't prepare the bug report email.",
+      reportEmailSubject: "GIF Vault Bug Report",
+      reportDescriptionDefault: "(No description provided)",
+      reportEmailBody: (description, attachmentName, logCount) =>
+        `Bug report from GIF Vault user\n\nWhat happened:\n${description}\n\nLogs attachment:\n${attachmentName} (${logCount} entries)\n\nA log file was downloaded automatically. Please attach it to this email before sending.`,
+      reportEmailOpened: (attachmentName) =>
+        `Email draft opened. Attach ${attachmentName} from your downloads before sending.`,
     },
     import: {
       emptyUrl: "URL is empty",
@@ -404,6 +421,23 @@ function createTrMessages() {
       expandAllButton: "Tümünü aç",
       bundleAllButton: "Gruplu görünüm",
       logsCleared: "Kayıtlar temizlendi.",
+      reportDescriptionLabel: "Ne oldu?",
+      reportDescriptionPlaceholder:
+        "Karşılaştığın durumu ve nasıl yeniden oluştuğunu yaz.",
+      reportBugButtonCollapsed: "Hata bildir",
+      reportBugButtonExpanded: "E-posta ile gönder",
+      reportDescriptionRequired:
+        "Göndermeden önce karşılaştığın durumu yaz.",
+      reportAttachmentHint:
+        "Kayıt dosyası otomatik indirilecek. Göndermeden önce e-postaya ekle.",
+      reportPreparing: "Hata raporu e-postası hazırlanıyor...",
+      reportFailed: "Hata raporu e-postası hazırlanamadı.",
+      reportEmailSubject: "GIF Vault Hata Bildirimi",
+      reportDescriptionDefault: "(Açıklama girilmedi)",
+      reportEmailBody: (description, attachmentName, logCount) =>
+        `GIF Vault kullanıcı hata bildirimi\n\nNe oldu:\n${description}\n\nKayıt eki:\n${attachmentName} (${logCount} kayıt)\n\nKayıt dosyası otomatik indirildi. Göndermeden önce lütfen bu dosyayı e-postaya ekle.`,
+      reportEmailOpened: (attachmentName) =>
+        `E-posta taslağı açıldı. Göndermeden önce indirmelerden ${attachmentName} dosyasını ekle.`,
     },
     import: {
       emptyUrl: "URL boş",
