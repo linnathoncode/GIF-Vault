@@ -20,6 +20,10 @@ const themeToggleBtn = document.getElementById("themeToggleBtn");
 const viewToggleBtn = document.getElementById("viewToggleBtn");
 const reportBugBtn = document.getElementById("reportBugBtn");
 const reportPanel = document.getElementById("reportPanel");
+const wrapEl =
+  typeof document?.querySelector === "function"
+    ? document.querySelector(".wrap")
+    : null;
 const sendReportBtn = document.getElementById("sendReportBtn");
 const bugDescriptionLabel = document.getElementById("bugDescriptionLabel");
 const bugDescriptionInput = document.getElementById("bugDescriptionInput");
@@ -91,6 +95,7 @@ function setReportComposerOpen(open) {
   if (reportPanel) {
     reportPanel.hidden = !isReportComposerOpen;
   }
+  wrapEl?.classList.toggle("report-open", isReportComposerOpen);
   if (reportAttachmentHint) {
     reportAttachmentHint.hidden = !isReportComposerOpen;
   }

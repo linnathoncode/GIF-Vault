@@ -25,6 +25,10 @@ body {
   padding: 16px;
   display: grid;
   gap: 10px;
+  grid-template-rows: auto auto auto 1fr;
+}
+
+.wrap.report-open {
   grid-template-rows: auto auto auto auto 1fr;
 }
 
