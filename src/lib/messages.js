@@ -425,7 +425,7 @@ function createTrMessages() {
       logsCleared: "Kayıtlar temizlendi.",
       reportDescriptionLabel: "Ne oldu?",
       reportDescriptionPlaceholder:
-        "Karşılaştığın durumu ve nasıl yeniden oluştuğunu yaz.",
+        "Karşılaştığın durumu ve nasıl yeniden oluşturabileceğimizi yaz.",
       reportBugButtonCollapsed: "Hata bildir",
       reportBugButtonExpanded: "E-posta ile gönder",
       reportDescriptionRequired:
