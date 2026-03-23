@@ -182,6 +182,8 @@ function createEnMessages() {
       storageEstimateFailed: "Storage: estimate failed",
       storageUsage: (used, total) => `Storage: ${used} used / ${total} total`,
       logCount: (count) => `${count} logs`,
+      logCountWithTotal: (visibleCount, totalCount) =>
+        `${visibleCount} logs (${totalCount} total)`,
       expandAllButton: "Expand all",
       bundleAllButton: "Bundle view",
       logsCleared: "Logs cleared.",
@@ -401,6 +403,8 @@ function createTrMessages() {
       storageUsage: (used, total) =>
         `Depolama: ${used} kullanıldı / ${total} toplam`,
       logCount: (count) => `${count} kayıt`,
+      logCountWithTotal: (visibleCount, totalCount) =>
+        `${visibleCount} kayıt (${totalCount} toplam)`,
       expandAllButton: "Tümünü aç",
       bundleAllButton: "Gruplu görünüm",
       logsCleared: "Kayıtlar temizlendi.",

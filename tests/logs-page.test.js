@@ -4,6 +4,7 @@ import { UI_MESSAGES } from "../src/lib/messages.js";
 const mocks = vi.hoisted(() => ({
   idbGetLogs: vi.fn(),
   idbClearLogs: vi.fn(),
+  idbLog: vi.fn(),
   initializeI18n: vi.fn(async () => ({ locale: "en" })),
   applyStaticI18n: vi.fn(),
   applyDocumentTheme: vi.fn(() => "light"),
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../src/lib/db.js", () => ({
   idbGetLogs: mocks.idbGetLogs,
   idbClearLogs: mocks.idbClearLogs,
+  idbLog: mocks.idbLog,
 }));
 
 vi.mock("../src/lib/i18n.js", () => ({
@@ -375,7 +377,7 @@ describe("logs page bootstrap", () => {
     const rendered = logsContentEl?.textContent || "";
     const lines = rendered.split("\n").filter(Boolean);
 
-    expect(statusEl.textContent).toBe(UI_MESSAGES.logs.logCount(1));
+    expect(statusEl.textContent).toBe(UI_MESSAGES.logs.logCountWithTotal(1, 3));
     expect(logsEl.classList.contains("has-logs")).toBe(true);
     expect(lines.length).toBe(1);
     expect(rendered).toContain("popup: Created object URL for preview (x3)");
@@ -417,7 +419,7 @@ describe("logs page bootstrap", () => {
     const viewToggleBtn = globalThis.document.getElementById("viewToggleBtn");
 
     expect(logsContentEl?.textContent || "").toContain("(x3)");
-    expect(statusEl.textContent).toBe(UI_MESSAGES.logs.logCount(1));
+    expect(statusEl.textContent).toBe(UI_MESSAGES.logs.logCountWithTotal(1, 3));
     expect(viewToggleBtn.textContent).toBe(UI_MESSAGES.logs.expandAllButton);
 
     viewToggleBtn.click();
@@ -483,5 +485,32 @@ describe("logs page bootstrap", () => {
     expect(logsEl.children.length).toBe(2);
     expect(logsEl.classList.contains("empty-state")).toBe(true);
     expect(logsContentEl?.textContent).toBe(UI_MESSAGES.logs.noLogsYet);
+  });
+
+  it("redacts query and hash values when rendering log details", async () => {
+    vi.useFakeTimers();
+    mocks.idbGetLogs.mockResolvedValue([
+      {
+        id: "log-1",
+        stage: "import",
+        message: "Resolved media",
+        details: {
+          url: "https://example.com/path/file.gif?token=secret#frag",
+        },
+        createdAt: 1000,
+      },
+    ]);
+
+    await import("../src/pages/logs/logs.js");
+    await vi.advanceTimersByTimeAsync(100);
+    await flushMicrotasks();
+
+    const logsEl = globalThis.document.getElementById("logs");
+    const logsContentEl = logsEl.children[1];
+    const rendered = logsContentEl?.textContent || "";
+
+    expect(rendered).toContain("\"url\":\"https://example.com/path/file.gif?[REDACTED]#[REDACTED]\"");
+    expect(rendered).not.toContain("token=secret");
+    expect(rendered).not.toContain("#frag");
   });
 });
