@@ -9,6 +9,7 @@ export function createPopupStatusController({
   const TRANSIENT_STATUS_DURATION_MS = 5000;
   const {
     statusEl,
+    statusTextEl,
     progressTrackEl,
     progressBarEl,
     progressLabelEl,
@@ -18,6 +19,7 @@ export function createPopupStatusController({
   let transientStatusTimer = 0;
   let transientStatusActive = false;
   let transientProgressSnapshot = null;
+  let transientDisplayMode = "below";
 
   function getImportProgressPercent(importState) {
     if (!importState?.text && !importState?.phase) {
@@ -106,11 +108,9 @@ export function createPopupStatusController({
     progressLabelEl.textContent = snapshot.text || "";
   }
 
-  function setStatus(text, kind = "") {
-    if (progressLabelEl) {
-      progressLabelEl.textContent = text;
-    }
-
+  function setStatus(text, kind = "", options = {}) {
+    const normalizedText = String(text || "");
+    const displayMode = options.displayMode === "inline" ? "inline" : "below";
     let normalizedKind = "";
     if (kind === true) {
       normalizedKind = "ok";
@@ -120,14 +120,39 @@ export function createPopupStatusController({
       normalizedKind = String(kind);
     }
 
-    const classNames = ["status"];
+    const classNames = ["status-text"];
+    if (normalizedText) {
+      classNames.push("has-text");
+    }
     if (normalizedKind) {
       classNames.push(normalizedKind);
     }
-    if (String(text || "").includes("\n")) {
+    if (normalizedText.includes("\n")) {
       classNames.push("multiline");
     }
-    statusEl.className = classNames.join(" ");
+
+    if (displayMode === "inline") {
+      if (progressLabelEl) {
+        progressLabelEl.textContent = normalizedText;
+      }
+      if (statusTextEl) {
+        statusTextEl.textContent = "";
+        statusTextEl.className = "status-text";
+      }
+      if (statusEl) {
+        statusEl.classList.remove("has-status-text");
+      }
+      return;
+    }
+
+    if (statusTextEl) {
+      statusTextEl.textContent = normalizedText;
+      statusTextEl.className = classNames.join(" ");
+    }
+
+    if (statusEl) {
+      statusEl.classList.toggle("has-status-text", Boolean(normalizedText));
+    }
   }
 
   function clearTransientStatusTimer() {
@@ -143,6 +168,7 @@ export function createPopupStatusController({
     transientStatusActive = false;
     clearTransientStatusTimer();
     transientProgressSnapshot = null;
+    transientDisplayMode = "below";
   }
 
   function showTransientStatus(
@@ -152,18 +178,20 @@ export function createPopupStatusController({
     options = {},
   ) {
     const hasImportStateToRestore = Boolean(state.currentImportState?.text);
+    const hasActiveImport = Boolean(state.currentImportState?.active);
+    transientDisplayMode = hasActiveImport ? "below" : "inline";
     const preserveProgress =
-      options.preserveProgress ?? hasImportStateToRestore;
+      options.preserveProgress ?? (hasImportStateToRestore || hasActiveImport);
     const forceTemporary = options.forceTemporary ?? false;
     const shouldAutoClear = preserveProgress || forceTemporary;
 
     transientProgressSnapshot = preserveProgress ? captureProgressVisuals() : null;
     clearTransientStatusTimer();
     transientStatusActive = shouldAutoClear;
-    if (!preserveProgress) {
+    if (!preserveProgress && !hasActiveImport) {
       clearProgressVisuals({ clearText: false });
     }
-    setStatus(text, kind);
+    setStatus(text, kind, { displayMode: transientDisplayMode });
 
     if (!shouldAutoClear) {
       return;
@@ -180,7 +208,11 @@ export function createPopupStatusController({
       if (transientProgressSnapshot) {
         restoreProgressVisuals(transientProgressSnapshot);
         transientProgressSnapshot = null;
+        setStatus("");
         return;
+      }
+      if (transientDisplayMode === "inline" && progressLabelEl) {
+        progressLabelEl.textContent = "";
       }
       setStatus("");
     }, durationMs);
@@ -199,16 +231,18 @@ export function createPopupStatusController({
     }
 
     if (transientStatusActive && !options.force) {
+      if (importState?.text) {
+        setProgressState(importState);
+      }
       return;
     }
     if (!importState || !importState.text) {
+      setStatus("");
       setProgressState(null);
       return;
     }
 
-    const statusKind =
-      importState.kind === "success" ? "ok" : importState.kind || "";
-    setStatus(importState.text, statusKind);
+    setStatus("");
     setProgressState(importState);
   }
 
@@ -223,7 +257,7 @@ export function createPopupStatusController({
     clearTransientStatus();
     state.currentImportState = null;
     syncImportActionButton();
-    setStatus(text, "error");
+    setStatus("");
     setProgressState({
       text,
       kind: "error",
@@ -235,7 +269,7 @@ export function createPopupStatusController({
     clearTransientStatus();
     state.currentImportState = null;
     syncImportActionButton();
-    setStatus(text, "ok");
+    setStatus("");
     setProgressState({
       text,
       kind: "success",

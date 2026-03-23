@@ -19,6 +19,17 @@ const refreshBtn = document.getElementById("refreshBtn");
 const clearBtn = document.getElementById("clearBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
 const viewToggleBtn = document.getElementById("viewToggleBtn");
+const reportBugBtn = document.getElementById("reportBugBtn");
+const reportPanel = document.getElementById("reportPanel");
+const wrapEl =
+  typeof document?.querySelector === "function"
+    ? document.querySelector(".wrap")
+    : null;
+const sendReportBtn = document.getElementById("sendReportBtn");
+const bugDescriptionLabel = document.getElementById("bugDescriptionLabel");
+const bugDescriptionInput = document.getElementById("bugDescriptionInput");
+const reportAttachmentHint = document.getElementById("reportAttachmentHint");
+const reportStatusEl = document.getElementById("reportStatus");
 
 let themeMode = "light";
 let logsMascotEl = null;
@@ -29,7 +40,9 @@ let showUnbundledLogs = false;
 const INIT_STEP_TIMEOUT_MS = 3000;
 const STORAGE_ESTIMATE_TIMEOUT_MS = 2500;
 const LOGS_LOAD_TIMEOUT_MS = 4000;
+const BUG_REPORT_SUPPORT_EMAIL = "gifvault.support@gmail.com";
 const LOG_ERROR_HINT_REGEX = /\b(failed|error|rejected|denied|invalid|missing|timeout|aborted|abort|unable|could not)\b/i;
+let isReportComposerOpen = false;
 
 function getLogsEmptyMascotSrc(mode) {
   return mode === "dark"
@@ -57,6 +70,45 @@ function updateViewToggleButton() {
   viewToggleBtn.title = label;
   viewToggleBtn.setAttribute("aria-label", label);
   viewToggleBtn.disabled = latestLoadedLogs.length === 0;
+}
+
+function setReportStatus(text, ok = false) {
+  if (!reportStatusEl) {
+    return;
+  }
+  const normalizedText = String(text || "").trim();
+  if (!normalizedText) {
+    reportStatusEl.textContent = "";
+    reportStatusEl.className = "status";
+    reportStatusEl.hidden = true;
+    return;
+  }
+  reportStatusEl.textContent = text;
+  reportStatusEl.className = ok ? "status ok" : "status";
+  reportStatusEl.hidden = false;
+}
+
+function setReportComposerOpen(open) {
+  isReportComposerOpen = Boolean(open);
+  if (reportBugBtn) {
+    reportBugBtn.textContent = UI_MESSAGES.logs.reportBugButtonCollapsed;
+  }
+  if (reportPanel) {
+    reportPanel.hidden = !isReportComposerOpen;
+  }
+  wrapEl?.classList.toggle("report-open", isReportComposerOpen);
+  if (reportAttachmentHint) {
+    reportAttachmentHint.hidden = !isReportComposerOpen;
+  }
+  if (bugDescriptionLabel) {
+    bugDescriptionLabel.hidden = false;
+  }
+  if (bugDescriptionInput) {
+    bugDescriptionInput.hidden = false;
+  }
+  if (!isReportComposerOpen) {
+    setReportStatus("");
+  }
 }
 
 function ensureLogsStructure() {
@@ -143,6 +195,14 @@ function formatLogLine(log) {
   return `[${when}] ${log.stage}: ${log.message}${details}`;
 }
 
+function formatLogExportLine(log) {
+  const when = new Date(log?.createdAt || Date.now()).toISOString();
+  const stage = String(log?.stage || "unknown");
+  const message = String(log?.message || "");
+  const details = log?.details ? ` ${JSON.stringify(log.details)}` : "";
+  return `[${when}] ${stage}: ${message}${details}`;
+}
+
 function formatBundledLogLine(group) {
   const latest = group[0];
   const when = new Date(latest.createdAt || Date.now()).toLocaleTimeString();
@@ -227,6 +287,59 @@ function renderLoadedLogs(logs) {
   updateViewToggleButton();
 }
 
+function buildReportLogsAttachmentText(logs) {
+  const manifest = globalThis.chrome?.runtime?.getManifest?.();
+  const extensionVersion = String(manifest?.version || "unknown");
+  const lines = Array.isArray(logs) ? logs.map((log) => formatLogExportLine(log)) : [];
+  const headerLines = [
+    "GIF Vault Bug Report Logs",
+    `Generated At (UTC): ${new Date().toISOString()}`,
+    `Extension Version: ${extensionVersion}`,
+    `Log Count: ${lines.length}`,
+    "----------------------------------------",
+  ];
+  return `${headerLines.join("\n")}\n${lines.join("\n")}\n`;
+}
+
+function buildLogsAttachmentName() {
+  const stamp = new Date()
+    .toISOString()
+    .replace(/[:]/g, "-")
+    .replace(/\.\d{3}Z$/, "Z");
+  return `gif-vault-logs-${stamp}.txt`;
+}
+
+function triggerAttachmentDownload(name, content) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = name;
+  anchor.style.display = "none";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+}
+
+function openBugReportDraft(description, attachmentName, logCount) {
+  const safeDescription = description || UI_MESSAGES.logs.reportDescriptionDefault;
+  const subject = UI_MESSAGES.logs.reportEmailSubject;
+  const body = UI_MESSAGES.logs.reportEmailBody(
+    safeDescription,
+    attachmentName,
+    logCount,
+  );
+  const composeUrl = new URL("https://mail.google.com/mail/");
+  composeUrl.searchParams.set("view", "cm");
+  composeUrl.searchParams.set("fs", "1");
+  composeUrl.searchParams.set("tf", "1");
+  composeUrl.searchParams.set("to", BUG_REPORT_SUPPORT_EMAIL);
+  composeUrl.searchParams.set("su", subject);
+  composeUrl.searchParams.set("body", body);
+  globalThis.open(composeUrl.toString(), "_blank", "noopener,noreferrer");
+}
+
 async function renderStorageEstimate() {
   if (!storageUsageEl) {
     return;
@@ -300,6 +413,7 @@ async function applyLocale(localeHint = "") {
   if (logsMascotEl) {
     logsMascotEl.alt = UI_MESSAGES.logs.logsMascotAlt;
   }
+  setReportComposerOpen(isReportComposerOpen);
   updateViewToggleButton();
 }
 
@@ -312,6 +426,44 @@ clearBtn?.addEventListener("click", async () => {
   setStatus(UI_MESSAGES.logs.logsCleared, true);
   await renderLogs();
 });
+
+function handleSendReport() {
+  const description = String(bugDescriptionInput?.value || "").trim();
+  if (!description) {
+    setReportStatus(UI_MESSAGES.logs.reportDescriptionRequired);
+    bugDescriptionInput?.focus();
+    return;
+  }
+
+  setReportStatus(UI_MESSAGES.logs.reportPreparing);
+  if (sendReportBtn) {
+    sendReportBtn.disabled = true;
+  }
+  try {
+    const attachmentText = buildReportLogsAttachmentText(latestLoadedLogs);
+    const attachmentName = buildLogsAttachmentName();
+    triggerAttachmentDownload(attachmentName, attachmentText);
+    openBugReportDraft(description, attachmentName, latestLoadedLogs.length);
+    setReportStatus(UI_MESSAGES.logs.reportEmailOpened(attachmentName), true);
+  } catch {
+    setReportStatus(UI_MESSAGES.logs.reportFailed);
+  } finally {
+    if (sendReportBtn) {
+      sendReportBtn.disabled = false;
+    }
+  }
+}
+
+reportBugBtn?.addEventListener("click", () => {
+  if (isReportComposerOpen) {
+    bugDescriptionInput?.focus();
+    return;
+  }
+  setReportComposerOpen(true);
+  bugDescriptionInput?.focus();
+});
+
+sendReportBtn?.addEventListener("click", handleSendReport);
 
 viewToggleBtn?.addEventListener("click", () => {
   showUnbundledLogs = !showUnbundledLogs;
@@ -347,6 +499,7 @@ if (globalThis.chrome?.storage?.onChanged?.addListener) {
 
 async function init() {
   ensureLogsStructure();
+  setReportComposerOpen(false);
   updateViewToggleButton();
   await withTimeout(applyLocale(), INIT_STEP_TIMEOUT_MS, "LOCALE_INIT_TIMEOUT").catch(
     () => {

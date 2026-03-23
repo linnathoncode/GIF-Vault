@@ -64,4 +64,14 @@ describe("runtime config normalization", () => {
       },
     });
   });
+
+  it("supports latest default tab mode", () => {
+    const normalized = normalizeRuntimeConfig({
+      popupMenu: {
+        defaultTab: "last",
+      },
+    });
+
+    expect(normalized.popupMenu.defaultTab).toBe("latest");
+  });
 });

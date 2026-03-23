@@ -84,7 +84,23 @@ function extractTweetId(rawUrl) {
   }
 }
 
-function collectMediaUrls(value, acc = []) {
+function isQuotedTweetBranchKey(key) {
+  const normalized = String(key || "").toLowerCase();
+  return (
+    normalized === "qrt" ||
+    normalized === "quote" ||
+    normalized === "quoted" ||
+    normalized === "quoted_status" ||
+    normalized === "quotedstatus" ||
+    normalized === "quoted_tweet" ||
+    normalized === "quotedtweet" ||
+    normalized === "quoted_tweet_result" ||
+    normalized === "quotedtweetresult"
+  );
+}
+
+function collectMediaUrls(value, acc = [], options = {}) {
+  const includeQuoted = options.includeQuoted !== false;
   if (!value) {
     return acc;
   }
@@ -96,13 +112,16 @@ function collectMediaUrls(value, acc = []) {
   }
   if (Array.isArray(value)) {
     for (const part of value) {
-      collectMediaUrls(part, acc);
+      collectMediaUrls(part, acc, options);
     }
     return acc;
   }
   if (typeof value === "object") {
-    for (const part of Object.values(value)) {
-      collectMediaUrls(part, acc);
+    for (const [key, part] of Object.entries(value)) {
+      if (!includeQuoted && isQuotedTweetBranchKey(key)) {
+        continue;
+      }
+      collectMediaUrls(part, acc, options);
     }
   }
   return acc;
@@ -153,7 +172,13 @@ function isLikelyTweetImageUrl(rawUrl) {
 
 function mediaSortScore(url) {
   if (isLikelyTweetVideoUrl(url)) {
-    const sizeMatch = url.match(/\/vid\/(\d+)x(\d+)\//);
+    const sizeMatch = (() => {
+      try {
+        return new URL(url).pathname.match(/\/(\d+)x(\d+)\//);
+      } catch {
+        return null;
+      }
+    })();
     const area = sizeMatch ? Number(sizeMatch[1]) * Number(sizeMatch[2]) : 0;
     return 1_000_000 + area;
   }
@@ -221,10 +246,20 @@ function getVariantCollapseKey(rawUrl) {
 function getVideoVariantKey(rawUrl) {
   try {
     const url = new URL(rawUrl);
-    const normalizedPath = url.pathname
-      .toLowerCase()
-      .replace(/\/vid\/\d+x\d+\//, "/vid/*/");
-    return `video:${url.host.toLowerCase()}${normalizedPath}`;
+    const host = url.host.toLowerCase();
+    let normalizedPath = url.pathname.toLowerCase();
+
+    // Normalize any resolution segment so quality variants collapse.
+    normalizedPath = normalizedPath.replace(/\/\d+x\d+(?=\/)/g, "/*");
+
+    // Collapse codec-qualified vid paths:
+    // /vid/avc1/1280x720/... and /vid/h264/640x360/... -> /vid/*/...
+    normalizedPath = normalizedPath.replace(/\/vid\/[^/]+\/\*(?=\/)/, "/vid/*");
+
+    // Ignore filename differences for the same media bucket.
+    normalizedPath = normalizedPath.replace(/\/[^/]+\.mp4$/i, "");
+
+    return `video:${host}${normalizedPath}`;
   } catch {
     return `video:${rawUrl}`;
   }
@@ -254,7 +289,7 @@ async function resolveFromSyndication(tweetId) {
     }
 
     const data = await response.json();
-    const urls = sortMediaUrls(collectMediaUrls(data));
+    const urls = sortMediaUrls(collectMediaUrls(data, [], { includeQuoted: false }));
     await safeLog("resolve", "Syndication lookup finished", {
       tweetId,
       foundCount: urls.length,
@@ -286,7 +321,7 @@ async function resolveFromPages(tweetId, originalUrl) {
       continue;
     }
 
-    const urls = sortMediaUrls(extractMediaUrlsFromText(text));
+    const urls = extractMediaUrlsFromResponseText(text);
     if (urls.length > 0) {
       await safeLog("resolve", "Resolved from page fallback", {
         tweetId,
@@ -326,6 +361,27 @@ function extractMediaUrlsFromText(text) {
   return [...new Set(merged)].filter(
     (rawUrl) => isLikelyTweetVideoUrl(rawUrl) || isLikelyTweetImageUrl(rawUrl),
   );
+}
+
+function extractMediaUrlsFromResponseText(text) {
+  const normalizedText = String(text || "");
+  const structuredUrls = collectMediaUrls(
+    tryParseJson(normalizedText),
+    [],
+    { includeQuoted: false },
+  );
+  if (structuredUrls.length > 0) {
+    return sortMediaUrls(structuredUrls);
+  }
+  return sortMediaUrls(extractMediaUrlsFromText(normalizedText));
+}
+
+function tryParseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 async function expandUrl(rawUrl) {

@@ -127,6 +127,69 @@ describe("media resolver", () => {
     ]);
   });
 
+  it("collapses codec-qualified video variants to the highest resolution only", async () => {
+    globalThis.fetch = vi.fn(async (url) => {
+      if (String(url).includes("cdn.syndication.twimg.com")) {
+        return makeResponse({
+          ok: true,
+          json: {
+            mediaDetails: [
+              {
+                variants: [
+                  "https://video.twimg.com/ext_tw_video/42/pu/vid/avc1/640x360/clip.mp4?tag=12",
+                  "https://video.twimg.com/ext_tw_video/42/pu/vid/avc1/1280x720/clip.mp4?tag=12",
+                  "https://video.twimg.com/ext_tw_video/42/pu/vid/h264/320x180/clip.mp4?tag=12",
+                ],
+              },
+            ],
+          },
+        });
+      }
+      return makeResponse({ ok: false });
+    });
+
+    const resolved = await resolveMediaUrls("https://x.com/user/status/8888888");
+    expect(resolved).toEqual([
+      "https://video.twimg.com/ext_tw_video/42/pu/vid/avc1/1280x720/clip.mp4?tag=12",
+    ]);
+  });
+
+  it("excludes quoted-tweet media from syndication results", async () => {
+    globalThis.fetch = vi.fn(async (url) => {
+      if (String(url).includes("cdn.syndication.twimg.com")) {
+        return makeResponse({
+          ok: true,
+          json: {
+            mediaDetails: [
+              {
+                variants: [
+                  "https://video.twimg.com/ext_tw_video/99/pu/vid/1280x720/main.mp4",
+                ],
+              },
+            ],
+            quoted_tweet: {
+              mediaDetails: [
+                {
+                  variants: [
+                    "https://video.twimg.com/ext_tw_video/777/pu/vid/1280x720/quoted.mp4",
+                  ],
+                },
+              ],
+            },
+          },
+        });
+      }
+      return makeResponse({ ok: false });
+    });
+
+    const resolved = await resolveMediaUrls(
+      "https://twitter.com/Jaehaerys06/status/2016482330173374520",
+    );
+    expect(resolved).toEqual([
+      "https://video.twimg.com/ext_tw_video/99/pu/vid/1280x720/main.mp4",
+    ]);
+  });
+
   it("falls back to page scraping when syndication fails", async () => {
     // Arrange: force syndication miss, then provide page text with escaped URL.
     globalThis.fetch = vi.fn(async (url) => {
@@ -150,6 +213,38 @@ describe("media resolver", () => {
     expect(resolved).toBe(
       "https://video.twimg.com/ext_tw_video/1/pu/vid/640x360/b.mp4?tag=12&foo=bar",
     );
+  });
+
+  it("ignores quoted media in page-fallback JSON payloads", async () => {
+    globalThis.fetch = vi.fn(async (url) => {
+      const asString = String(url);
+      if (asString.includes("cdn.syndication.twimg.com")) {
+        return makeResponse({ ok: true, json: {} });
+      }
+      if (asString.includes("api.fxtwitter.com/status/2016482330173374520")) {
+        return makeResponse({
+          ok: true,
+          text: JSON.stringify({
+            mediaURLs: [
+              "https://video.twimg.com/amplify_video/2015437264600363009/vid/avc1/720x720/main.mp4",
+            ],
+            qrt: {
+              mediaURLs: [
+                "https://pbs.twimg.com/media/G_v5-QrXMAANyas.png",
+              ],
+            },
+          }),
+        });
+      }
+      return makeResponse({ ok: false, text: "" });
+    });
+
+    const resolved = await resolveMediaUrls(
+      "https://twitter.com/Jaehaerys06/status/2016482330173374520",
+    );
+    expect(resolved).toEqual([
+      "https://video.twimg.com/amplify_video/2015437264600363009/vid/avc1/720x720/main.mp4",
+    ]);
   });
 
   it("resolves tweet image media from syndication payload", async () => {

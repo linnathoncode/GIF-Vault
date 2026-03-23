@@ -102,9 +102,15 @@ body {
 .status {
   padding: 0;
   height: 22px;
-  display: flex;
-  align-items: center;
+  display: block;
   margin: 0;
+}
+
+.status.has-status-text {
+  height: auto;
+  display: grid;
+  align-content: start;
+  row-gap: 4px;
 }
 
 .progress-track {
@@ -188,25 +194,37 @@ body {
   text-shadow: 0 1px 0 color-mix(in srgb, var(--card) 86%, transparent 14%);
 }
 
-.status.multiline {
-  height: auto;
-  align-items: stretch;
+.status-text {
+  display: none;
+  font-size: 11px;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--muted);
+  min-height: 0;
+  min-width: 0;
+  margin: 0;
+  padding: 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.status.multiline .progress-track {
-  height: auto;
-  min-height: 22px;
+.status-text.has-text {
+  display: block;
 }
 
-.status.multiline .progress-label {
-  height: auto;
-  min-height: 22px;
+.status-text.multiline {
   white-space: pre-line;
   overflow-wrap: anywhere;
-  text-align: center;
-  line-height: 1.28;
-  padding-top: 3px;
-  padding-bottom: 3px;
+  text-overflow: clip;
+}
+
+.status-text.ok {
+  color: var(--ok);
+}
+
+.status-text.error {
+  color: #8b2635;
 }
 
 .progress-track.ok .progress-label {
@@ -443,7 +461,7 @@ body {
   align-items: center;
   gap: 4px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .name {

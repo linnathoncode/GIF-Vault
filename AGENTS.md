@@ -1,20 +1,24 @@
 # AGENTS.md
 
 ## Workspace Context
+
 - Date snapshot: 2026-03-17
 - Workspace: `c:\Users\MONSTER\Desktop\GIF_Manager`
 - Shell: `powershell`
 - Timezone: `Europe/Istanbul`
 
 ## Release State
+
 - Branch: `test`
 - HEAD: `fd8ed17a542b0645a6fcab7f539f4f30bbe5a47e`
-- Version: `1.4.1`
+- Version: `1.5.1`
 
 ## Project Purpose
+
 GIF Vault is a Manifest V3 Chrome/Opera extension that saves GIFs and short media into a local vault.
 
 Core capabilities:
+
 - Save media via context menu and popup URL import.
 - Resolve Twitter/X post URLs to direct media URLs.
 - Convert supported video inputs (mp4/webm) to GIF in an offscreen document.
@@ -22,25 +26,28 @@ Core capabilities:
 - Browse with pagination, favorites, search, rename, copy, and delete controls.
 
 ## Store Listing Features
-- Save from the web in one click: Right-click images or videos and add them to your vault instantly.
+
+- Save from the web in one click: Right-click GIFs or images and add them to your vault instantly.
 - Paste-and-import support: Import GIF, image, video, or X/Twitter post links directly from the popup.
-- X/Twitter support: Grab media from posts quickly without extra steps.
 - Video to GIF conversion: Turn supported videos into GIFs automatically during import.
 - Privacy-first storage: Your media stays in your browser. No account, no tracking.
 - Search your collection: Find saved items by name or source link in seconds.
 - Favorites tab: Star your best GIFs and access them fast.
 - Easy library management: Rename, copy, delete, or clear your saved items anytime.
-- Shift-click multi-select: Select ranges quickly and manage many items with safer bulk delete behavior.
+- Shift-click multi-select: Select and manage many items at once by shift clicking.
 - Clean grid layout: Browse your GIFs in a simple visual gallery with pagination.
 - Import progress status: See import steps in real time and stop an import if needed.
 - Guided permissions flow: If a site needs access, GIF Vault walks you through it.
 - Custom options: Adjust conversion quality and popup behavior.
 - Light and dark themes: Pick the look you prefer.
+- Supported languages: English and Turkish (change via options).
 
 Maintenance rule:
+
 - When a worthwhile user-facing feature is added, append it to `## Recently Added` below (and update this section if store-copy should change).
 
 ## Source Layout
+
 - `src/manifest.json`: MV3 manifest.
 - `src/background/service-worker.js`: Chrome event/message routing.
 - `src/background/import-service.js`: Import orchestration, permission checks, progress reporting.
@@ -54,30 +61,37 @@ Maintenance rule:
 - `src/lib/`: Shared helpers (`db.js`, `theme.js`, `ui.js`, `log.js`, `runtime-config.js`, `messages.js`).
 
 ## Build and Test
+
 - Build: `npm.cmd run build`
 - Verify: `npm.cmd run build:verify`
 - Tests: `npm.cmd test`
 
 PowerShell note:
+
 - `npm.ps1` may be blocked by execution policy in this environment; use `npm.cmd`.
 
 ## Architecture Notes
+
 ### Import Pipeline
+
 - `importFromUrl(rawUrl, pageUrl, requestId, resolvedMediaUrlHint)` runs in background.
 - Pipeline order: permission check -> media resolve -> fetch -> optional convert -> save -> notify.
 - Progress updates are written to `chrome.storage.local` and sent as runtime messages.
 
 ### Storage
+
 - IndexedDB splits metadata and blob payloads.
 - Popup fetches metadata first, then hydrates blobs for visible page items.
 - `chrome.storage.local` holds lightweight runtime state (theme/import status).
 
 ### Popup UI
+
 - Uses paginated grid, favorites tab, search, rename, and two-step delete confirmation.
 - Import progress bar and transient status are controlled by `popup-status.js`.
 - Grid item actions and selection hints are handled by `popup-grid.js`.
 
 ### Progress Bar Behavior Contract (Important)
+
 - Progress UI source of truth is `STORAGE_KEYS.importState` + `IMPORT_PROGRESS` runtime messages.
 - Permission/access guidance must stay on the assist page; do not inject host-access text into popup progress.
 - Popup-owned import outcomes (success/error/terminate/permission handoff) must clear stored `importState` after handling to prevent replay on next popup open.
@@ -91,18 +105,23 @@ PowerShell note:
   - background/context-menu outcomes can still appear when popup is opened later
 
 ## Permissions Model
+
 Required permissions:
+
 - `contextMenus`
 - `storage`
 - `offscreen`
 
 Required host permissions are scoped to core supported hosts.
 Optional host permissions:
+
 - `https://*/*`
 - `http://*/*`
 
 ### Host Access Flow
+
 Current intended flow for missing host access:
+
 1. Background detects missing origin permission.
 2. Background opens `pages/assist/permission-assist.html` in a tab.
 3. User grants permissions from assist page in a direct user gesture.
@@ -111,27 +130,33 @@ Current intended flow for missing host access:
 Do not move permission request logic back to popup/background gesture-less paths.
 
 ## Centralized Messages (New)
+
 User-facing hints/messages are centralized in:
+
 - `src/lib/messages.js`
 
 Rules:
+
 - Reuse `UI_MESSAGES` constants/functions instead of hardcoded UI strings.
 - Keep popup/import/assist user text in this module.
 - Favor message builders for count-based strings.
 
 ### Permission vs Progress Feedback Rule (Important)
+
 - Permission messaging belongs to the assist page.
 - Popup progress bar must not show host-access hint text.
 - In `import-service.js`, host-access failures clear progress state without pushing the access hint into `IMPORT_PROGRESS` text.
 - Regression coverage exists in `tests/import-service.test.js` to ensure host-access hint text is not sent to popup progress messages.
 
 ## Recent Key Changes
+
 - Added `src/lib/messages.js` and moved popup/import/assist/grid text into it.
 - Fixed progress-bar overflow handling for long messages.
 - Removed duplicate feedback by preventing permission-access hints from being injected into popup progress updates.
 - Added test coverage for host-access/progress isolation.
 
 ## Recently Added
+
 - Logs page now includes an Expand/Bundle toggle button to switch between bundled and unbundled log views.
 - Increased log retention cap from 250 to 500 entries.
 - Logs page now bundles repeated successful action entries (for example preview creation) into `xN` summary lines while leaving error entries unbundled.
@@ -153,8 +178,11 @@ Rules:
 - Added atomic batch import rollback for real per-item failures.
 - User-terminated imports no longer trigger rollback of already-saved items.
 - Fixed popup ghost progress-message replay and added restore/clear ordering safeguards.
+- Logs page now includes an email bug-report form that collects user notes, prepares a support email draft to `gifvault-support@gmail.com`, and downloads a log attachment file for sending.
+- Options page default tab now supports `Latest`, which reopens the popup on the most recently used tab (`All` or `Favorites`).
 
 ## Operational Notes
+
 - Load extension from `dist/` in browser developer mode.
 - `release/` contains local package artifacts.
 - Avoid reverting permission-assist UX without a stronger, gesture-safe alternative.

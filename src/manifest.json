@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GIF Vault: Save, Convert & Organize",
-  "version": "1.4.2",
+  "version": "1.5.1",
   "description": "Save GIFs from X/Twitter and web links, convert videos to GIFs, and organize everything in your own private vault.",
   "icons": {
     "16": "assets/icons/icon-light-16.png",
