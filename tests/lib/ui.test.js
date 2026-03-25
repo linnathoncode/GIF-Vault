@@ -3,7 +3,7 @@ import {
   hostFromUrl,
   isValidUrl,
   originPatternFromUrl,
-} from "../src/lib/ui.js";
+} from "../../src/lib/ui.js";
 
 describe("ui URL helpers", () => {
   it("validates and trims manual import URLs", () => {

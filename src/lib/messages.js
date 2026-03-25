@@ -41,6 +41,10 @@ function createEnMessages() {
       importFailed: "Import failed.",
       importButtonIdle: "Import",
       importButtonTerminate: "Stop",
+      importAlreadyRunning: "An import is already running. Wait or stop it first.",
+      initializing: "Loading vault...",
+      initializingDetail: "Please wait while GIF Vault finishes startup.",
+      initializationFailed: "Vault is still starting. Reopen the popup.",
       clearVaultConfirm: "Clear the whole vault? This cannot be undone.",
       vaultCleared: "Vault wiped clean. Good as new!",
       successImportedSingle: "Imported successfully!",
@@ -104,9 +108,12 @@ function createEnMessages() {
       confirmDeleteHintSingle: "Click delete again to confirm.",
       copyFailed: "Copy didn't work. Try again.",
       copiedGif: "GIF copied.",
+      copiedAnimatedWebp: "Animated WebP copied.",
       copiedImage: "Image copied.",
       copiedVideoLink: "Video link copied.",
+      copiedVideoLinkTip: "Tip: drag the preview to drop the GIF directly.",
       copiedGifLink: "GIF link copied.",
+      copiedAnimatedWebpLink: "Animated WebP link copied.",
       copiedImageLink: "Image link copied.",
       copiedLinkTip: "Tip: drag the preview to drop it directly.",
       copiedGifLinkTip: "Tip: drag the preview to drop the GIF directly.",
@@ -126,6 +133,7 @@ function createEnMessages() {
       deletedMany: (count) => `${count} items deleted.`,
       deletedSingle: "Item deleted.",
       deletedGifSingle: "GIF deleted.",
+      deletedAnimatedWebpSingle: "Animated WebP deleted.",
       deletedImageSingle: "Image deleted.",
       deletedVideoSingle: "Video deleted.",
       pageLabel: (currentPage, totalPages) =>
@@ -148,7 +156,7 @@ function createEnMessages() {
       fpsLabel: "FPS (1-30)",
       widthLabel: "Width (120-1920)",
       maxColorsLabel: "Max Colors (2-256)",
-      maxDurationLabel: "Max Duration Seconds (1-60)",
+      maxDownloadSizeLabel: "Max Download Size MB (5-200)",
       popupUiHeading: "Popup UI",
       defaultTabLabel: "Default Tab",
       defaultTabAll: "All",
@@ -183,6 +191,8 @@ function createEnMessages() {
       storageEstimateFailed: "Storage: estimate failed",
       storageUsage: (used, total) => `Storage: ${used} used / ${total} total`,
       logCount: (count) => `${count} logs`,
+      logCountWithTotal: (visibleCount, totalCount) =>
+        `${visibleCount} logs (${totalCount} total)`,
       expandAllButton: "Expand all",
       bundleAllButton: "Bundle view",
       logsCleared: "Logs cleared.",
@@ -214,9 +224,12 @@ function createEnMessages() {
       importedMany: (count) => `Imported ${count} items successfully.`,
       importedSingle: "Import complete.",
       importTerminated: "Import stopped by user.",
+      concurrentImportInProgress: "Another import is already in progress.",
+      mediaTooLarge: (maxMb) =>
+        `Media is too large (max ${maxMb} MB). Adjust the limit in Options.`,
       importFailed: "Import failed",
       failedToFetchMedia: "Couldn't fetch media",
-      checkingVideoLength: "Checking video duration...",
+      checkingMediaSize: "Checking media size...",
       convertingVideoToGif: "Converting video to GIF...",
       savingToVault: "Saving to vault...",
       hostAccessRequired: "This site needs extra access first.",
@@ -225,8 +238,6 @@ function createEnMessages() {
       couldNotDetermineVideoDuration: "Couldn't determine video duration.",
       resolvedUrlNotMedia: (contentType = "") =>
         `That URL does not point to media (${contentType || "unknown"})`,
-      videoTooLong: (maxSeconds, actualSeconds) =>
-        `Video is too long (${maxSeconds}s/${actualSeconds.toFixed(1)}s). Change the limit in Options.`,
       importTerminatedError: "IMPORT_TERMINATED",
       missingRequestId: "Missing request ID.",
       phaseResolving: "resolving",
@@ -236,6 +247,7 @@ function createEnMessages() {
       phaseSaving: "saving",
       phaseComplete: "complete",
       phaseIdle: "idle",
+      phaseBoot: "boot",
     },
     serviceWorker: {
       contextMenuAddToVault: "Add to GIF Vault",
@@ -276,6 +288,10 @@ function createTrMessages() {
       importFailed: "Aktarmada bir pürüz çıktı",
       importButtonIdle: "Vault'a Aktar",
       importButtonTerminate: "Durdur",
+      importAlreadyRunning: "Zaten bir aktarma sürüyor. Önce bekle ya da durdur.",
+      initializing: "Vault yükleniyor...",
+      initializingDetail: "GIF Vault başlatılırken lütfen bekle.",
+      initializationFailed: "Vault hala başlıyor. Açılır pencereyi yeniden aç.",
       clearVaultConfirm:
         "Vault'taki her şeyi silelim mi? Bu işlem geri alınamaz.",
       vaultCleared: "Vault temizlendi. Yepyeni oldu!",
@@ -338,9 +354,13 @@ function createTrMessages() {
       confirmDeleteHintSingle: "Onaylamak için Sil'e tekrar tıkla.",
       copyFailed: "Kopyalama olmadı, tekrar deneyelim.",
       copiedGif: "GIF kopyalandı.",
+      copiedAnimatedWebp: "Animasyonlu WebP kopyalandı.",
       copiedImage: "Görsel kopyalandı.",
       copiedVideoLink: "Video bağlantısı kopyalandı.",
+      copiedVideoLinkTip:
+        "İpucu: GIF'i doğrudan kullanmak için önizlemeyi sürükleyip bırak.",
       copiedGifLink: "GIF bağlantısı kopyalandı.",
+      copiedAnimatedWebpLink: "Animasyonlu WebP bağlantısı kopyalandı.",
       copiedImageLink: "Görsel bağlantısı kopyalandı.",
       copiedLinkTip: "İpucu: önizlemeyi sürükleyip doğrudan kullan.",
       copiedGifLinkTip:
@@ -362,6 +382,7 @@ function createTrMessages() {
       deletedMany: (count) => `${count} öğe silindi.`,
       deletedSingle: "Öğe silindi.",
       deletedGifSingle: "GIF silindi.",
+      deletedAnimatedWebpSingle: "Animasyonlu WebP silindi.",
       deletedImageSingle: "Görsel silindi.",
       deletedVideoSingle: "Video silindi.",
       pageLabel: (currentPage, totalPages) =>
@@ -384,7 +405,7 @@ function createTrMessages() {
       fpsLabel: "FPS (1-30)",
       widthLabel: "Genişlik (120-1920)",
       maxColorsLabel: "Maks Renk (2-256)",
-      maxDurationLabel: "Maks Süre Saniye (1-60)",
+      maxDownloadSizeLabel: "Maks İndirme Boyutu MB (5-200)",
       popupUiHeading: "Açılır Pencere",
       defaultTabLabel: "Varsayılan Sekme",
       defaultTabAll: "Tümü",
@@ -420,6 +441,8 @@ function createTrMessages() {
       storageUsage: (used, total) =>
         `Depolama: ${used} kullanıldı / ${total} toplam`,
       logCount: (count) => `${count} kayıt`,
+      logCountWithTotal: (visibleCount, totalCount) =>
+        `${visibleCount} kayıt (${totalCount} toplam)`,
       expandAllButton: "Tümünü aç",
       bundleAllButton: "Gruplu görünüm",
       logsCleared: "Kayıtlar temizlendi.",
@@ -450,9 +473,12 @@ function createTrMessages() {
       importedMany: (count) => `${count} öğe başarıyla aktarıldı.`,
       importedSingle: "Aktarma tamamlandı.",
       importTerminated: "Aktarma kullanıcı tarafından durduruldu.",
+      concurrentImportInProgress: "Başka bir aktarma zaten devam ediyor.",
+      mediaTooLarge: (maxMb) =>
+        `Medya çok büyük (maks ${maxMb} MB). Sınırı Ayarlar'dan değiştirebilirsin.`,
       importFailed: "Aktarma başarısız",
       failedToFetchMedia: "Medya alınamadı",
-      checkingVideoLength: "Video süresi kontrol ediliyor...",
+      checkingMediaSize: "Medya boyutu kontrol ediliyor...",
       convertingVideoToGif: "Video GIF'e dönüştürülüyor...",
       savingToVault: "Vault'a aktarılıyor...",
       hostAccessRequired: "Önce bu site için ek erişim izni gerekiyor.",
@@ -461,8 +487,6 @@ function createTrMessages() {
       couldNotDetermineVideoDuration: "Video süresi belirlenemedi.",
       resolvedUrlNotMedia: (contentType = "") =>
         `Bu URL doğrudan medya içermiyor (${contentType || "bilinmiyor"})`,
-      videoTooLong: (maxSeconds, actualSeconds) =>
-        `Video çok uzun (${maxSeconds}s/${actualSeconds.toFixed(1)}s). Uzunluk sınırını Ayarlar'dan değiştir.`,
       importTerminatedError: "IMPORT_TERMINATED",
       missingRequestId: "İstek kimliği eksik.",
       phaseResolving: "resolving",
@@ -472,6 +496,7 @@ function createTrMessages() {
       phaseSaving: "saving",
       phaseComplete: "complete",
       phaseIdle: "idle",
+      phaseBoot: "boot",
     },
     serviceWorker: {
       contextMenuAddToVault: "GIF Vault'a Aktar",

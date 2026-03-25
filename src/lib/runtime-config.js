@@ -1,11 +1,16 @@
-import { STORAGE_KEYS, GIF_CONVERSION, POPUP_MENU } from "./settings.js";
+import {
+  STORAGE_KEYS,
+  GIF_CONVERSION,
+  POPUP_MENU,
+  IMPORT_PIPELINE,
+} from "./settings.js";
 
 const DEFAULT_RUNTIME_CONFIG = Object.freeze({
   gifConversion: Object.freeze({
     fps: GIF_CONVERSION.fps,
     width: GIF_CONVERSION.width,
     maxColors: GIF_CONVERSION.maxColors,
-    maxDurationSeconds: GIF_CONVERSION.maxDurationSeconds,
+    maxDownloadSizeMb: GIF_CONVERSION.maxDownloadSizeMb,
   }),
   popupMenu: Object.freeze({
     pageSize: POPUP_MENU.pageSize,
@@ -86,11 +91,11 @@ function normalizeRuntimeConfig(raw) {
         2,
         256,
       ),
-      maxDurationSeconds: normalizePositiveInt(
-        gifInput.maxDurationSeconds,
-        DEFAULT_RUNTIME_CONFIG.gifConversion.maxDurationSeconds,
-        1,
-        60,
+      maxDownloadSizeMb: normalizePositiveInt(
+        gifInput.maxDownloadSizeMb,
+        DEFAULT_RUNTIME_CONFIG.gifConversion.maxDownloadSizeMb,
+        IMPORT_PIPELINE.minDownloadSizeMb,
+        IMPORT_PIPELINE.maxDownloadSizeMb,
       ),
     },
     popupMenu: {
@@ -121,6 +126,7 @@ function normalizeRuntimeConfig(raw) {
         5000,
       ),
       importProgressPercent: {
+        boot: normalizeProgressValue(progressInput.boot, defaultProgress.boot),
         resolving: normalizeProgressValue(
           progressInput.resolving,
           defaultProgress.resolving,

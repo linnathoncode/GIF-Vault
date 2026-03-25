@@ -14,6 +14,38 @@ import {
 
 const importAbortControllerById = new Map();
 const terminatedImportIds = new Set();
+let activeImportRequestId = "";
+const SNIFF_BYTES_LENGTH = 16;
+
+function isHttpUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || "").trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function normalizeHttpUrl(rawUrl, fallbackError = UI_MESSAGES.popup.enterValidUrl) {
+  const value = String(rawUrl || "").trim();
+  if (!isHttpUrl(value)) {
+    throw new Error(fallbackError);
+  }
+  return new URL(value).toString();
+}
+
+function resolveMaxDownloadBytes(gifConversionConfig) {
+  const mb = Number(gifConversionConfig?.maxDownloadSizeMb);
+  if (!Number.isFinite(mb) || mb <= 0) {
+    return 50 * 1024 * 1024;
+  }
+  return Math.round(mb * 1024 * 1024);
+}
+
+function mediaTooLargeMessage(maxBytes) {
+  const maxMb = Math.max(1, Math.round(maxBytes / (1024 * 1024)));
+  return UI_MESSAGES.import.mediaTooLarge(maxMb);
+}
 
 function isUserTerminatedImport(requestId, abortController, error) {
   if (error?.message === UI_MESSAGES.import.importTerminatedError) {
@@ -36,51 +68,61 @@ async function importFromUrl(
   resolvedMediaUrlHint = "",
 ) {
   const progressId = requestId || crypto.randomUUID();
-  const abortController = new AbortController();
-  const ensureImportActive = () => throwIfTerminated(progressId, abortController);
-  importAbortControllerById.set(progressId, abortController);
-
-  const runtimeConfig = await getRuntimeConfig();
-  const gifConversionConfig = runtimeConfig.gifConversion;
   const url = String(rawUrl || "").trim();
-  const resolvedHints = normalizeResolvedHints(resolvedMediaUrlHint);
-  const savedItems = [];
   if (!url) {
     await safeLog("import", "Rejected empty URL");
     throw new Error(UI_MESSAGES.import.emptyUrl);
   }
+  const normalizedUrl = normalizeHttpUrl(url);
+  if (activeImportRequestId) {
+    throw new Error(UI_MESSAGES.import.concurrentImportInProgress);
+  }
+  activeImportRequestId = progressId;
 
-  await reportProgress(
-    progressId,
-    UI_MESSAGES.import.resolvingMediaUrl,
-    true,
-    "info",
-    UI_MESSAGES.import.phaseResolving,
-  );
+  const abortController = new AbortController();
+  const ensureImportActive = () => throwIfTerminated(progressId, abortController);
+  importAbortControllerById.set(progressId, abortController);
+  let resolvedHints = [];
+  const savedItems = [];
   try {
+    resolvedHints = normalizeResolvedHints(resolvedMediaUrlHint);
+    const runtimeConfig = await getRuntimeConfig();
+    const gifConversionConfig = runtimeConfig.gifConversion;
+
+    await reportProgress(
+      progressId,
+      UI_MESSAGES.import.resolvingMediaUrl,
+      true,
+      "info",
+      UI_MESSAGES.import.phaseResolving,
+    );
+
     ensureImportActive();
-    await safeLog("import", "Import started", { url, pageUrl: pageUrl || "" });
-    await ensureOriginAccess(url);
+    await safeLog("import", "Import started", { url: normalizedUrl, pageUrl: pageUrl || "" });
+    await ensureOriginAccess(normalizedUrl);
 
     const resolvedMediaUrls =
-      resolvedHints.length > 0 ? resolvedHints : await resolveMediaUrls(url);
+      resolvedHints.length > 0 ? resolvedHints : await resolveMediaUrls(normalizedUrl);
     ensureImportActive();
     if (!resolvedMediaUrls.length) {
-      await safeLog("resolve", "Failed to resolve media URL", { url });
+      await safeLog("resolve", "Failed to resolve media URL", { url: normalizedUrl });
       throw new Error(UI_MESSAGES.import.couldNotResolveMediaUrl);
     }
+    const safeResolvedMediaUrls = resolvedMediaUrls.map((candidate) =>
+      normalizeHttpUrl(candidate),
+    );
     await safeLog("resolve", "Resolved media URL", {
-      url,
-      resolvedMediaUrl: resolvedMediaUrls[0],
-      resolvedMediaUrlCount: resolvedMediaUrls.length,
+      url: normalizedUrl,
+      resolvedMediaUrl: safeResolvedMediaUrls[0],
+      resolvedMediaUrlCount: safeResolvedMediaUrls.length,
       reusedResolvedUrl: resolvedHints.length > 0,
     });
-    for (let index = 0; index < resolvedMediaUrls.length; index += 1) {
-      const resolvedMediaUrl = resolvedMediaUrls[index];
+    for (let index = 0; index < safeResolvedMediaUrls.length; index += 1) {
+      const resolvedMediaUrl = safeResolvedMediaUrls[index];
       ensureImportActive();
       await ensureOriginAccess(resolvedMediaUrl);
       const current = index + 1;
-      const total = resolvedMediaUrls.length;
+      const total = safeResolvedMediaUrls.length;
       const suffix = total > 1 ? ` (${current}/${total})` : "";
       await reportProgress(
         progressId,
@@ -90,7 +132,7 @@ async function importFromUrl(
         UI_MESSAGES.import.phaseFetching,
       );
       const item = await importResolvedMedia({
-        sourceUrl: url,
+        sourceUrl: normalizedUrl,
         resolvedMediaUrl,
         pageUrl,
         progressId,
@@ -153,16 +195,19 @@ async function importFromUrl(
   } finally {
     importAbortControllerById.delete(progressId);
     terminatedImportIds.delete(progressId);
+    if (activeImportRequestId === progressId) {
+      activeImportRequestId = "";
+    }
   }
 }
 
 function normalizeResolvedHints(resolvedMediaUrlHint) {
   if (Array.isArray(resolvedMediaUrlHint)) {
-    return [...new Set(resolvedMediaUrlHint.map((url) => String(url || "").trim()).filter(Boolean))];
+    return [...new Set(resolvedMediaUrlHint.map((url) => normalizeHttpUrl(url)).filter(Boolean))];
   }
 
   const single = String(resolvedMediaUrlHint || "").trim();
-  return single ? [single] : [];
+  return single ? [normalizeHttpUrl(single)] : [];
 }
 
 async function importResolvedMedia({
@@ -191,18 +236,39 @@ async function importResolvedMedia({
     status: response.status,
   });
 
+  const finalResponseUrl = normalizeHttpUrl(response.url || resolvedMediaUrl);
+  await ensureOriginAccess(finalResponseUrl);
+
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
-  if (!isSupportedMediaType(contentType)) {
+  const isBinaryFallback =
+    !contentType || contentType.includes("octet-stream");
+  if (
+    !isBinaryFallback &&
+    !isSupportedMediaType(contentType, { url: finalResponseUrl })
+  ) {
     await safeLog("fetch", "Rejected non-media response", {
-      resolvedMediaUrl,
+      resolvedMediaUrl: finalResponseUrl,
       contentType,
     });
     throw new Error(getReadableImportError(sourceUrl, contentType));
   }
 
-  const inputBlob = await response.blob();
+  const inputBlob = await readBlobWithMaxSize(
+    response,
+    resolveMaxDownloadBytes(gifConversionConfig),
+    ensureImportActive,
+  );
   ensureImportActive();
-  const ext = extensionFromUrl(resolvedMediaUrl, inputBlob.type);
+  const sniffBytes = await readBlobSniffBytes(inputBlob);
+  if (!isSupportedMediaType(contentType, { url: finalResponseUrl, sniffBytes })) {
+    await safeLog("fetch", "Rejected non-media response after binary fallback checks", {
+      resolvedMediaUrl: finalResponseUrl,
+      contentType,
+    });
+    throw new Error(getReadableImportError(sourceUrl, contentType));
+  }
+
+  const ext = extensionFromUrl(finalResponseUrl, inputBlob.type);
   const isVideoMedia =
     (inputBlob.type || "").startsWith("video/") ||
     ext === "mp4" ||
@@ -215,7 +281,7 @@ async function importResolvedMedia({
   if (isVideoMedia) {
     await reportProgress(
       progressId,
-      UI_MESSAGES.import.checkingVideoLength,
+      UI_MESSAGES.import.checkingMediaSize,
       true,
       "info",
       UI_MESSAGES.import.phaseChecking,
@@ -230,25 +296,6 @@ async function importResolvedMedia({
     try {
       const inputBytes = new Uint8Array(await inputBlob.arrayBuffer());
       ensureImportActive();
-      const durationSeconds = await probeDurationInOffscreen({
-        url: resolvedMediaUrl,
-        inputExtension: ext,
-        inputBytes,
-      });
-      ensureImportActive();
-      if (durationSeconds > gifConversionConfig.maxDurationSeconds) {
-        await safeLog("convert", "Rejected long video in background", {
-          durationSeconds,
-          maxDurationSeconds: gifConversionConfig.maxDurationSeconds,
-        });
-        throw new Error(
-          UI_MESSAGES.import.videoTooLong(
-            gifConversionConfig.maxDurationSeconds,
-            durationSeconds,
-          ),
-        );
-      }
-
       await reportProgress(
         progressId,
         UI_MESSAGES.import.convertingVideoToGif,
@@ -312,7 +359,7 @@ async function importResolvedMedia({
     id: crypto.randomUUID(),
     name: inferName(sourceUrl, resolvedMediaUrl),
     sourceUrl,
-    mediaUrl: resolvedMediaUrl,
+    mediaUrl: finalResponseUrl,
     pageUrl: pageUrl || "",
     mimeType: finalMime,
     kind: finalMime.startsWith("video/") ? "video" : "image",
@@ -331,6 +378,58 @@ async function importResolvedMedia({
     converted: item.converted,
   });
   return item;
+}
+
+async function readBlobSniffBytes(blob) {
+  try {
+    const bytes = new Uint8Array(
+      await blob.slice(0, SNIFF_BYTES_LENGTH).arrayBuffer(),
+    );
+    return bytes;
+  } catch {
+    return new Uint8Array();
+  }
+}
+
+async function readBlobWithMaxSize(response, maxBytes, ensureImportActive) {
+  if (response?.body?.getReader) {
+    const reader = response.body.getReader();
+    const chunks = [];
+    let totalBytes = 0;
+
+    try {
+      while (true) {
+        ensureImportActive();
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        const chunk = value instanceof Uint8Array ? value : new Uint8Array(value || []);
+        totalBytes += chunk.byteLength;
+        if (totalBytes > maxBytes) {
+          throw new Error(mediaTooLargeMessage(maxBytes));
+        }
+        chunks.push(chunk);
+      }
+    } finally {
+      try {
+        await reader.cancel();
+      } catch {
+        // no-op
+      }
+    }
+
+    const mimeType = response.headers.get("content-type") || "application/octet-stream";
+    return new Blob(chunks, { type: mimeType });
+  }
+
+  const blob = await response.blob();
+  ensureImportActive();
+  if (blob.size > maxBytes) {
+    throw new Error(mediaTooLargeMessage(maxBytes));
+  }
+  return blob;
 }
 
 async function terminateImport(requestId) {
@@ -428,33 +527,6 @@ async function convertInOffscreen({
   }
 
   return response.payload;
-}
-
-async function probeDurationInOffscreen({
-  url,
-  inputExtension = "",
-  inputBytes = null,
-}) {
-  await ensureOffscreenDocument();
-
-  const response = await chrome.runtime.sendMessage({
-    type: "OFFSCREEN_PROBE_VIDEO_DURATION",
-    url,
-    inputExtension,
-    inputBytes,
-  });
-  if (!response?.ok) {
-    await safeLog("convert", "Offscreen probe failed", {
-      error: response?.error || "unknown",
-    });
-    throw new Error(response?.error || UI_MESSAGES.import.offscreenProbeFailed);
-  }
-
-  const durationSeconds = Number(response?.durationSeconds);
-  if (!Number.isFinite(durationSeconds) || durationSeconds < 0) {
-    throw new Error(UI_MESSAGES.import.couldNotDetermineVideoDuration);
-  }
-  return durationSeconds;
 }
 
 function blobFromConvertedPayload(payload) {

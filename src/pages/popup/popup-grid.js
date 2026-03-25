@@ -4,7 +4,10 @@ import {
   idbGetMediaBlobs,
   idbSave,
 } from "../../lib/db.js";
-import { fileExtensionFromMime } from "../../lib/media.js";
+import {
+  fileExtensionFromMime,
+  getWebpAnimationState,
+} from "../../lib/media.js";
 import { formatBytes, hostFromUrl } from "../../lib/ui.js";
 import { safeLog } from "../../lib/log.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
@@ -36,6 +39,30 @@ export function shouldCancelArmedDeleteOnSelectionChange(
 
 export function armedDeleteGlyph(count) {
   return count > 1 ? "!" : "\u2713";
+}
+
+export function sanitizeCopyFallbackUrl(candidateUrl) {
+  const normalized = String(candidateUrl || "")
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .trim();
+  if (!normalized) {
+    return "";
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(normalized);
+  } catch {
+    return "";
+  }
+
+  const protocol = parsedUrl.protocol.toLowerCase();
+  if (protocol !== "http:" && protocol !== "https:") {
+    return "";
+  }
+
+  return parsedUrl.toString();
 }
 
 function getEmptyMascotVariant({ query = "", currentTab = "all" } = {}) {
@@ -75,6 +102,7 @@ export function createPopupGridController({
   } = refs;
 
   const objectUrlById = new Map();
+  const mediaKindCacheById = new Map();
   const selectedItemIds = new Set();
   let latestItemById = new Map();
   let latestVisiblePageIds = new Set();
@@ -88,6 +116,8 @@ export function createPopupGridController({
   let latestVisibleItemCount = 0;
   let latestSavedItemCount = 0;
   let latestFavoritesCount = 0;
+  const WEBP_ANIMATION_SNIFF_BYTES = 512;
+  const WEBP_ANIMATION_FALLBACK_SNIFF_BYTES = 16 * 1024;
 
   function getFilteredItems(items) {
     const normalized = items.map((item) => ({
@@ -229,6 +259,7 @@ export function createPopupGridController({
       }
       URL.revokeObjectURL(url);
       objectUrlById.delete(id);
+      mediaKindCacheById.delete(String(id));
     }
   }
 
@@ -519,7 +550,15 @@ export function createPopupGridController({
     const canWriteText =
       navigator.clipboard && typeof navigator.clipboard.writeText === "function";
     if (canWriteText) {
-      const copiedUrl = item.mediaUrl || item.sourceUrl || "";
+      const copiedUrl = sanitizeCopyFallbackUrl(
+        item.mediaUrl || item.sourceUrl || "",
+      );
+      if (!copiedUrl) {
+        await safeLog("popup", "Copy url fallback blocked", {
+          id: item.id,
+        });
+        return { ok: false, method: "none" };
+      }
       try {
         await navigator.clipboard.writeText(copiedUrl);
         await safeLog("popup", "Copy fallback succeeded (url text)", {
@@ -558,6 +597,15 @@ export function createPopupGridController({
   }
 
   function resolveMediaCopyKind(item, copiedUrl = "") {
+    if (
+      item?.mediaKind === "gif" ||
+      item?.mediaKind === "image" ||
+      item?.mediaKind === "video" ||
+      item?.mediaKind === "animated-webp"
+    ) {
+      return item.mediaKind;
+    }
+
     const mime = String(item?.mimeType || item?.blob?.type || "")
       .trim()
       .toLowerCase();
@@ -584,6 +632,78 @@ export function createPopupGridController({
     return "unknown";
   }
 
+  async function detectStoredMediaKind(item) {
+    const itemId = String(item?.id || "");
+    const mime = String(item?.mimeType || item?.blob?.type || "")
+      .trim()
+      .toLowerCase();
+    const candidateUrl = String(item?.mediaUrl || item?.sourceUrl || "");
+    const blobSize = item?.blob instanceof Blob ? item.blob.size : 0;
+    const cacheKey = `${mime}|${blobSize}|${candidateUrl}`;
+    const cached = mediaKindCacheById.get(itemId);
+    if (cached?.cacheKey === cacheKey && cached?.mediaKind) {
+      return cached.mediaKind;
+    }
+
+    if (mime.startsWith("video/") || isVideoLikeUrl(candidateUrl)) {
+      mediaKindCacheById.set(itemId, { cacheKey, mediaKind: "video" });
+      return "video";
+    }
+    if (mime.includes("image/gif") || isGifLikeUrl(candidateUrl)) {
+      mediaKindCacheById.set(itemId, { cacheKey, mediaKind: "gif" });
+      return "gif";
+    }
+
+    if (
+      mime.includes("image/webp") &&
+      item?.blob instanceof Blob &&
+      item.blob.size > 0
+    ) {
+      try {
+        const primaryBytes = new Uint8Array(
+          await item.blob.slice(0, WEBP_ANIMATION_SNIFF_BYTES).arrayBuffer(),
+        );
+        let animationState = getWebpAnimationState(primaryBytes);
+        if (
+          animationState === "indeterminate" &&
+          item.blob.size > WEBP_ANIMATION_SNIFF_BYTES
+        ) {
+          const fallbackBytes = new Uint8Array(
+            await item.blob
+              .slice(0, WEBP_ANIMATION_FALLBACK_SNIFF_BYTES)
+              .arrayBuffer(),
+          );
+          animationState = getWebpAnimationState(fallbackBytes);
+        }
+
+        if (animationState === "animated") {
+          mediaKindCacheById.set(itemId, {
+            cacheKey,
+            mediaKind: "animated-webp",
+          });
+          return "animated-webp";
+        }
+        if (animationState === "indeterminate") {
+          mediaKindCacheById.set(itemId, { cacheKey, mediaKind: "image" });
+          return "image";
+        }
+      } catch (error) {
+        await safeLog("popup", "Animated WebP detection failed", {
+          id: item.id,
+          error: error?.message || "unknown",
+        });
+      }
+    }
+
+    if (mime.startsWith("image/") || isImageLikeUrl(candidateUrl)) {
+      mediaKindCacheById.set(itemId, { cacheKey, mediaKind: "image" });
+      return "image";
+    }
+
+    mediaKindCacheById.set(itemId, { cacheKey, mediaKind: "unknown" });
+    return "unknown";
+  }
+
   function deletedStatusTextForIds(ids) {
     const targetIds = [...new Set((ids || []).map((id) => String(id)).filter(Boolean))];
     if (targetIds.length > 1) {
@@ -604,6 +724,9 @@ export function createPopupGridController({
     if (mediaKind === "gif") {
       return UI_MESSAGES.grid.deletedGifSingle || UI_MESSAGES.grid.deletedSingle;
     }
+    if (mediaKind === "animated-webp") {
+      return UI_MESSAGES.grid.deletedAnimatedWebpSingle || UI_MESSAGES.grid.deletedSingle;
+    }
     return UI_MESSAGES.grid.deletedSingle;
   }
 
@@ -620,10 +743,14 @@ export function createPopupGridController({
       const label =
         mediaKind === "image"
           ? UI_MESSAGES.grid.copiedImage
+          : mediaKind === "animated-webp"
+            ? UI_MESSAGES.grid.copiedAnimatedWebp
           : UI_MESSAGES.grid.copiedGif;
       const hint =
         mediaKind === "image"
           ? UI_MESSAGES.grid.copiedImageLinkTip
+          : mediaKind === "animated-webp"
+            ? UI_MESSAGES.grid.copiedLinkTip
           : UI_MESSAGES.grid.copiedGifLinkTip;
       showTransientStatus(`${label}\n${hint}`, "ok", COPY_HINT_DURATION_MS, {
         forceTemporary: true,
@@ -634,11 +761,15 @@ export function createPopupGridController({
 
     const label = mediaKind === "video"
       ? UI_MESSAGES.grid.copiedVideoLink
+      : mediaKind === "animated-webp"
+        ? UI_MESSAGES.grid.copiedAnimatedWebpLink
       : mediaKind === "image"
         ? UI_MESSAGES.grid.copiedImageLink
         : UI_MESSAGES.grid.copiedGifLink;
     const hint = mediaKind === "video"
-      ? ""
+      ? UI_MESSAGES.grid.copiedVideoLinkTip
+      : mediaKind === "animated-webp"
+        ? UI_MESSAGES.grid.copiedLinkTip
       : mediaKind === "image"
         ? UI_MESSAGES.grid.copiedImageLinkTip
         : UI_MESSAGES.grid.copiedGifLinkTip;
@@ -669,6 +800,7 @@ export function createPopupGridController({
         URL.revokeObjectURL(objectUrl);
         objectUrlById.delete(id);
       }
+      mediaKindCacheById.delete(String(id));
       selectedItemIds.delete(id);
     }
     await render();
@@ -735,6 +867,49 @@ export function createPopupGridController({
     };
   }
 
+  function queueActionFocusRestore(itemId, actionKey) {
+    const cards = Array.from(grid.querySelectorAll(".item"));
+    const currentCard = document.activeElement?.closest(".item");
+    const fallbackIndex = cards.findIndex(
+      (card) => card.dataset.itemId === String(itemId),
+    );
+    const cardIndex = cards.indexOf(currentCard);
+    const sourceIndex = cardIndex >= 0 ? cardIndex : fallbackIndex;
+
+    state.pendingFocusRestore = {
+      type: "action",
+      actionKey: String(actionKey || ""),
+      itemId: String(itemId || ""),
+      index: sourceIndex >= 0 ? sourceIndex : 0,
+    };
+  }
+
+  function captureGridFocusSnapshot() {
+    const focused = document.activeElement;
+    if (!(focused instanceof Element) || !grid.contains(focused)) {
+      return null;
+    }
+
+    const cards = Array.from(grid.querySelectorAll(".item"));
+    const card = focused.closest(".item");
+    if (!card) {
+      return null;
+    }
+
+    const actionNode = focused.closest("[data-action]");
+    const actionKey =
+      actionNode instanceof HTMLElement
+        ? String(actionNode.dataset.action || "")
+        : "";
+    const index = Math.max(0, cards.indexOf(card));
+    return {
+      type: "action",
+      itemId: String(card.dataset.itemId || ""),
+      actionKey,
+      index,
+    };
+  }
+
   function focusFirstAvailableAction(card) {
     if (!card) {
       return false;
@@ -745,7 +920,7 @@ export function createPopupGridController({
       return false;
     }
 
-    nextTarget.focus();
+    nextTarget.focus({ preventScroll: true });
     return true;
   }
 
@@ -766,13 +941,31 @@ export function createPopupGridController({
     const focusState = state.pendingFocusRestore;
     state.pendingFocusRestore = null;
 
-    if (focusState.type !== "removal") {
+    const cards = Array.from(grid.querySelectorAll(".item"));
+    if (cards.length === 0) {
+      importInput.focus({ preventScroll: true });
       return;
     }
 
-    const cards = Array.from(grid.querySelectorAll(".item"));
-    if (cards.length === 0) {
-      importInput.focus();
+    if (focusState.type === "action") {
+      const targetCard = cards.find(
+        (card) => card.dataset.itemId === String(focusState.itemId || ""),
+      );
+      if (targetCard) {
+        const actionTarget = targetCard.querySelector(
+          `[data-action="${String(focusState.actionKey || "")}"]`,
+        );
+        if (actionTarget instanceof HTMLElement) {
+          actionTarget.focus({ preventScroll: true });
+          return;
+        }
+        if (focusFirstAvailableAction(targetCard)) {
+          return;
+        }
+      }
+    }
+
+    if (focusState.type !== "removal" && focusState.type !== "action") {
       return;
     }
 
@@ -784,12 +977,64 @@ export function createPopupGridController({
     focusFirstAvailableAction(cards[targetIndex - 1] || cards[0]);
   }
 
+  function restoreFocusSnapshot(snapshot) {
+    if (!snapshot) {
+      return;
+    }
+
+    const cards = Array.from(grid.querySelectorAll(".item"));
+    if (cards.length === 0) {
+      return;
+    }
+
+    const targetCard = cards.find(
+      (card) => card.dataset.itemId === String(snapshot.itemId || ""),
+    );
+    if (targetCard) {
+      if (snapshot.actionKey) {
+        const actionTarget = targetCard.querySelector(
+          `[data-action="${String(snapshot.actionKey)}"]`,
+        );
+        if (actionTarget instanceof HTMLElement) {
+          actionTarget.focus({ preventScroll: true });
+          return;
+        }
+      }
+      if (focusFirstAvailableAction(targetCard)) {
+        return;
+      }
+    }
+
+    const targetIndex = Math.min(
+      Math.max(0, Number(snapshot.index) || 0),
+      cards.length - 1,
+    );
+    focusFirstAvailableAction(cards[targetIndex] || cards[0]);
+  }
+
+  function restoreGridScrollPosition(scrollTop, scrollLeft) {
+    const top = Math.max(0, Number(scrollTop) || 0);
+    const left = Math.max(0, Number(scrollLeft) || 0);
+    const apply = () => {
+      grid.scrollTop = top;
+      grid.scrollLeft = left;
+    };
+    apply();
+    requestAnimationFrame(() => {
+      apply();
+    });
+    setTimeout(apply, 0);
+  }
+
   // Card and media element construction for the grid.
-  function createButton({ className, text, title, label, onClick }) {
+  function createButton({ className, text, title, label, onClick, actionKey }) {
     const button = document.createElement("button");
     button.className = className;
     button.type = "button";
     button.textContent = text;
+    if (actionKey) {
+      button.dataset.action = actionKey;
+    }
     if (title) {
       button.title = title;
     }
@@ -822,6 +1067,7 @@ export function createPopupGridController({
       createButton({
         className: "btn",
         text: UI_MESSAGES.grid.remove,
+        actionKey: "delete",
         title: UI_MESSAGES.grid.delete,
         onClick: () => removeItems([item.id], item.id),
       }),
@@ -888,6 +1134,7 @@ export function createPopupGridController({
     const renameBtn = createButton({
       className: "name-btn",
       text: "\u270E",
+      actionKey: "rename",
       title: UI_MESSAGES.grid.rename,
       label: UI_MESSAGES.grid.rename,
       onClick: () => renameItem(item),
@@ -911,6 +1158,7 @@ export function createPopupGridController({
     const copyBtn = createButton({
       className: "btn primary",
       text: "\u29C9",
+      actionKey: "copy",
       title: UI_MESSAGES.grid.copy,
       label: UI_MESSAGES.grid.copy,
     });
@@ -927,11 +1175,13 @@ export function createPopupGridController({
     const favoriteBtn = createButton({
       className: "btn",
       text: item.favorite ? "\u2605" : "\u2606",
+      actionKey: "favorite",
       title: `${item.favorite ? UI_MESSAGES.grid.unfavorite : UI_MESSAGES.grid.favorite} ${UI_MESSAGES.grid.favoriteBatchHint}`,
       label: `${item.favorite ? UI_MESSAGES.grid.unfavorite : UI_MESSAGES.grid.favorite} ${UI_MESSAGES.grid.favoriteBatchHint}`,
       onClick: () => {
         const targetIds = resolveTargetIdsForAction(item.id);
         const nextFavorite = !Boolean(item.favorite);
+        queueActionFocusRestore(item.id, "favorite");
         void setFavoriteForItems(targetIds, nextFavorite);
       },
     });
@@ -942,6 +1192,7 @@ export function createPopupGridController({
     const removeBtn = createButton({
       className: "btn danger",
       text: "\u2715",
+      actionKey: "delete",
       title: UI_MESSAGES.grid.delete,
       label: UI_MESSAGES.grid.delete,
     });
@@ -1012,6 +1263,10 @@ export function createPopupGridController({
   async function render() {
     hideHoverPreview();
     clearArmedDelete();
+    const gridFocusSnapshot =
+      state.pendingFocusRestore ? null : captureGridFocusSnapshot();
+    const previousScrollTop = grid.scrollTop;
+    const previousScrollLeft = grid.scrollLeft;
     const renderId = ++state.renderSequence;
     const items = await idbGetAllMedia();
     if (renderId !== state.renderSequence) {
@@ -1049,10 +1304,19 @@ export function createPopupGridController({
       return;
     }
 
-    const pagedItems = pagedItemsMeta.map((item) => ({
+    const pagedItemsWithBlobs = pagedItemsMeta.map((item) => ({
       ...item,
       blob: blobById.get(item.id) || null,
     }));
+    const pagedItems = await Promise.all(
+      pagedItemsWithBlobs.map(async (item) => ({
+        ...item,
+        mediaKind: await detectStoredMediaKind(item),
+      })),
+    );
+    if (renderId !== state.renderSequence) {
+      return;
+    }
 
     for (const item of pagedItems) {
       try {
@@ -1065,7 +1329,13 @@ export function createPopupGridController({
       }
     }
 
-    restorePendingFocus();
+    restoreGridScrollPosition(previousScrollTop, previousScrollLeft);
+
+    if (state.pendingFocusRestore) {
+      restorePendingFocus();
+      return;
+    }
+    restoreFocusSnapshot(gridFocusSnapshot);
   }
 
   function cleanupObjectUrls() {
@@ -1075,6 +1345,7 @@ export function createPopupGridController({
       URL.revokeObjectURL(url);
     }
     objectUrlById.clear();
+    mediaKindCacheById.clear();
   }
 
   return {

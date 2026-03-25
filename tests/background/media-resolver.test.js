@@ -5,8 +5,8 @@ import {
   isTwitterUrl,
   resolveMediaUrl,
   resolveMediaUrls,
-} from "../src/background/media-resolver.js";
-import { UI_MESSAGES } from "../src/lib/messages.js";
+} from "../../src/background/media-resolver.js";
+import { UI_MESSAGES } from "../../src/lib/messages.js";
 
 function makeResponse({ ok = true, url = "", text = "", json = {} } = {}) {
   // Minimal fetch-like response helper for deterministic network-path tests.
@@ -34,13 +34,49 @@ describe("media resolver", () => {
     // Host detection should include Twitter/X and twimg delivery domains.
     expect(isTwitterUrl("https://x.com/user/status/123")).toBe(true);
     expect(isTwitterUrl("https://video.twimg.com/ext_tw_video/abc.mp4")).toBe(true);
+    expect(isTwitterUrl("https://eviltwitter.com/user/status/123")).toBe(false);
+    expect(isTwitterUrl("https://x.com.evil.com/user/status/123")).toBe(false);
     expect(isTwitterUrl("https://example.com")).toBe(false);
 
-    // Content-type gate should only allow image/video and octet-stream.
+    // Content-type gate should allow image/video directly.
     expect(isSupportedMediaType("image/gif")).toBe(true);
     expect(isSupportedMediaType("video/mp4")).toBe(true);
-    expect(isSupportedMediaType("application/octet-stream")).toBe(true);
+    expect(isSupportedMediaType("application/octet-stream")).toBe(false);
+    expect(
+      isSupportedMediaType("application/octet-stream", {
+        url: "https://cdn.example.com/file.gif",
+      }),
+    ).toBe(true);
+    expect(
+      isSupportedMediaType("", {
+        url: "https://cdn.example.com/download",
+        sniffBytes: new Uint8Array([0x47, 0x49, 0x46, 0x38]),
+      }),
+    ).toBe(true);
     expect(isSupportedMediaType("text/html")).toBe(false);
+    expect(
+      isSupportedMediaType("application/octet-stream", {
+        url: "https://cdn.example.com/download",
+      }),
+    ).toBe(false);
+    expect(isSupportedMediaType("", { url: "data:text/plain,hello" })).toBe(false);
+    expect(
+      isSupportedMediaType("application/octet-stream", {
+        sniffBytes: new Uint8Array([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70]),
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps host matching strict for trusted twitter domains", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      makeResponse({
+        ok: true,
+        text: '"https://video.twimg.com.evil.com/ext_tw_video/1/pu/vid/640x360/x.mp4"',
+      }),
+    );
+
+    const resolved = await resolveMediaUrls("https://x.com/user/status/123456");
+    expect(resolved).toEqual(["https://x.com/user/status/123456"]);
   });
 
   it("maps readable import errors by content and source type", () => {

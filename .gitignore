@@ -31,3 +31,6 @@ release/
 
 # Local agent context
 agentcontext
+
+# Local issue tracking
+LOCAL_KNOWN_ISSUES.md

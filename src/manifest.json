@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GIF Vault: Save, Convert & Organize",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "Save GIFs from X/Twitter and web links, convert videos to GIFs, and organize everything in your own private vault.",
   "icons": {
     "16": "assets/icons/icon-light-16.png",
@@ -18,8 +18,7 @@
     "https://*.vxtwitter.com/*",
     "https://*.fixupx.com/*",
     "https://*.giphy.com/*",
-    "https://*.tenor.com/*",
-    "https://*.google.com/*"
+    "https://*.tenor.com/*"
   ],
   "optional_host_permissions": [
     "https://*/*",
@@ -41,19 +40,6 @@
   "options_page": "pages/options/options.html",
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
-  },
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "offscreen/offscreen.html",
-        "offscreen/offscreen.js",
-        "lib/db.js",
-        "vendor/@ffmpeg/ffmpeg/esm/*",
-        "vendor/@ffmpeg/core/esm/*",
-        "vendor/@ffmpeg/util/esm/*"
-      ],
-      "matches": ["<all_urls>"]
-    }
-  ]
+  }
 }
 

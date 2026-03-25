@@ -18,12 +18,168 @@ ffmpeg.on("log", ({ message }) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message) {
+function isTrustedRuntimeSender(sender) {
+  if (sender?.id === chrome.runtime.id) {
+    return true;
+  }
+  if (!sender || typeof sender !== "object") {
+    return true;
+  }
+  if ("id" in sender && sender.id && sender.id !== chrome.runtime.id) {
+    return false;
+  }
+
+  const extensionBase = chrome.runtime.getURL("");
+  const extensionOrigin = new URL(extensionBase).origin;
+  const senderUrl = String(sender?.url || "");
+  const senderOrigin = String(sender?.origin || "");
+
+  return senderUrl.startsWith(extensionBase) || senderOrigin === extensionOrigin;
+}
+
+function isRuntimeMessage(message) {
+  return Boolean(message) && typeof message === "object" && !Array.isArray(message);
+}
+
+function parseSerializedByteObjectMeta(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || value instanceof Blob) {
+    return null;
+  }
+
+  const hasExplicitLength = Object.prototype.hasOwnProperty.call(value, "length");
+  const explicitLength = hasExplicitLength ? Number(value.length) : -1;
+  if (hasExplicitLength && (!Number.isInteger(explicitLength) || explicitLength < 0)) {
+    return null;
+  }
+
+  const allowedMetaKeys = new Set([
+    "length",
+    "byteLength",
+    "byteOffset",
+    "BYTES_PER_ELEMENT",
+    "buffer",
+  ]);
+  let byteEntryCount = 0;
+  let maxIndex = -1;
+  for (const [key, byteValue] of Object.entries(value)) {
+    if (allowedMetaKeys.has(key)) {
+      continue;
+    }
+    if (!/^(0|[1-9]\d*)$/.test(key)) {
+      return null;
+    }
+    const index = Number(key);
+    if (!Number.isInteger(byteValue) || byteValue < 0 || byteValue > 255) {
+      return null;
+    }
+    byteEntryCount += 1;
+    maxIndex = Math.max(maxIndex, index);
+  }
+
+  if (hasExplicitLength) {
+    if (explicitLength === 0) {
+      return byteEntryCount === 0 ? { length: 0 } : null;
+    }
+    if (byteEntryCount !== explicitLength || maxIndex !== explicitLength - 1) {
+      return null;
+    }
+    return { length: explicitLength };
+  }
+
+  if (byteEntryCount === 0) {
+    return null;
+  }
+  const inferredLength = maxIndex + 1;
+  if (byteEntryCount !== inferredLength) {
+    return null;
+  }
+  return { length: inferredLength };
+}
+
+function isSerializedByteObject(value) {
+  return Boolean(parseSerializedByteObjectMeta(value));
+}
+
+function deserializeSerializedByteObject(value) {
+  const meta = parseSerializedByteObjectMeta(value);
+  if (!meta) {
+    return null;
+  }
+
+  const bytes = new Uint8Array(meta.length);
+  for (let i = 0; i < meta.length; i += 1) {
+    bytes[i] = Number(value[i] || 0);
+  }
+  return bytes;
+}
+
+function isBinaryInput(value) {
+  return (
+    value == null ||
+    isSerializedByteObject(value) ||
+    value instanceof Uint8Array ||
+    value instanceof ArrayBuffer ||
+    ArrayBuffer.isView(value)
+  );
+}
+
+function isProbeMessage(message) {
+  if (!isRuntimeMessage(message) || message.type !== "OFFSCREEN_PROBE_VIDEO_DURATION") {
+    return false;
+  }
+
+  if ("url" in message && typeof message.url !== "string") {
+    return false;
+  }
+  if (
+    "inputExtension" in message &&
+    !["", "mp4", "webm"].includes(String(message.inputExtension || ""))
+  ) {
+    return false;
+  }
+  if ("inputBytes" in message && !isBinaryInput(message.inputBytes)) {
+    return false;
+  }
+
+  return true;
+}
+
+function isConvertMessage(message) {
+  if (!isRuntimeMessage(message) || message.type !== "OFFSCREEN_CONVERT_MP4") {
+    return false;
+  }
+
+  if ("url" in message && typeof message.url !== "string") {
+    return false;
+  }
+  if ("filename" in message && typeof message.filename !== "string") {
+    return false;
+  }
+  if (
+    "inputExtension" in message &&
+    !["", "mp4", "webm"].includes(String(message.inputExtension || ""))
+  ) {
+    return false;
+  }
+  if ("gifConversion" in message && message.gifConversion != null && typeof message.gifConversion !== "object") {
+    return false;
+  }
+  if ("inputBytes" in message && !isBinaryInput(message.inputBytes)) {
+    return false;
+  }
+
+  return true;
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!isTrustedRuntimeSender(sender) || !isRuntimeMessage(message)) {
     return;
   }
 
   if (message.type === "OFFSCREEN_PROBE_VIDEO_DURATION") {
+    if (!isProbeMessage(message)) {
+      return;
+    }
     void safeLog("offscreen", "Probe request received", {
       url: message.url || "",
       hasInputBytes: Boolean(message.inputBytes),
@@ -43,6 +199,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === "OFFSCREEN_CONVERT_MP4") {
+    if (!isConvertMessage(message)) {
+      return;
+    }
     void safeLog("offscreen", "Conversion request received", {
       url: message.url || "",
       filename: message.filename || "",
@@ -91,7 +250,7 @@ async function convertMp4ToGif(message) {
     fps: gifConversion.fps,
     width: gifConversion.width,
     maxColors: gifConversion.maxColors,
-    maxDurationSeconds: gifConversion.maxDurationSeconds
+    maxDownloadSizeMb: gifConversion.maxDownloadSizeMb
   });
 
   await ffmpeg.writeFile(inputName, inputData);
@@ -167,6 +326,10 @@ async function getInputData(message) {
       inputBytes.byteOffset,
       inputBytes.byteLength,
     );
+  }
+  const deserializedBytes = deserializeSerializedByteObject(inputBytes);
+  if (deserializedBytes) {
+    return deserializedBytes;
   }
   if (message?.url) {
     return fetchFile(message.url);

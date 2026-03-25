@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getMessagesForLocale } from "../src/lib/messages.js";
+import { getMessagesForLocale } from "../../src/lib/messages.js";
 
 function collectLeafEntries(node, prefix = "") {
   return Object.entries(node).flatMap(([key, value]) => {

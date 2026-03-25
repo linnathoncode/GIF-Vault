@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { UI_MESSAGES } from "../src/lib/messages.js";
+import { UI_MESSAGES } from "../../src/lib/messages.js";
 
 const mocks = vi.hoisted(() => ({
   idbSave: vi.fn(),
@@ -13,32 +13,33 @@ const mocks = vi.hoisted(() => ({
   originPatternFromUrl: vi.fn(),
 }));
 
-vi.mock("../src/lib/db.js", () => ({
+vi.mock("../../src/lib/db.js", () => ({
   idbSave: mocks.idbSave,
   idbDelete: mocks.idbDelete,
 }));
 
-vi.mock("../src/lib/runtime-config.js", () => ({
+vi.mock("../../src/lib/runtime-config.js", () => ({
   getRuntimeConfig: mocks.getRuntimeConfig,
 }));
 
-vi.mock("../src/lib/log.js", () => ({
+vi.mock("../../src/lib/log.js", () => ({
   safeLog: mocks.safeLog,
 }));
 
-vi.mock("../src/background/media-resolver.js", () => ({
+vi.mock("../../src/background/media-resolver.js", () => ({
   resolveMediaUrls: mocks.resolveMediaUrls,
   isSupportedMediaType: mocks.isSupportedMediaType,
   getReadableImportError: mocks.getReadableImportError,
   isTwitterUrl: mocks.isTwitterUrl,
 }));
 
-vi.mock("../src/lib/ui.js", () => ({
+vi.mock("../../src/lib/ui.js", () => ({
   originPatternFromUrl: mocks.originPatternFromUrl,
 }));
 
 describe("import service long-video gate", () => {
   let importFromUrl;
+  let terminateImport;
   let originalFetch;
   let sendMessageMock;
 
@@ -97,7 +98,7 @@ describe("import service long-video gate", () => {
         fps: 10,
         width: 360,
         maxColors: 96,
-        maxDurationSeconds: 15,
+        maxDownloadSizeMb: 50,
       },
     });
     mocks.resolveMediaUrls.mockResolvedValue(["https://video.example.com/clip.mp4"]);
@@ -107,7 +108,7 @@ describe("import service long-video gate", () => {
     mocks.originPatternFromUrl.mockReturnValue("https://video.example.com/*");
     mocks.idbDelete.mockResolvedValue(undefined);
 
-    ({ importFromUrl } = await import("../src/background/import-service.js"));
+    ({ importFromUrl, terminateImport } = await import("../../src/background/import-service.js"));
   });
 
   afterEach(() => {
@@ -115,22 +116,8 @@ describe("import service long-video gate", () => {
     vi.restoreAllMocks();
   });
 
-  it("rejects videos over max duration before conversion call", async () => {
-    await expect(importFromUrl("https://x.com/i/status/1", "")).rejects.toThrow(
-      UI_MESSAGES.import.videoTooLong(15, 18.2),
-    );
-
-    const messageTypes = sendMessageMock.mock.calls.map(([msg]) => msg?.type);
-    expect(messageTypes).toContain("OFFSCREEN_PROBE_VIDEO_DURATION");
-    expect(messageTypes).not.toContain("OFFSCREEN_CONVERT_MP4");
-    expect(mocks.idbSave).not.toHaveBeenCalled();
-  });
-
-  it("continues to conversion when video duration is within limit", async () => {
+  it("converts supported video imports and saves result", async () => {
     sendMessageMock.mockImplementation(async (message) => {
-      if (message?.type === "OFFSCREEN_PROBE_VIDEO_DURATION") {
-        return { ok: true, durationSeconds: 9.4 };
-      }
       if (message?.type === "OFFSCREEN_CONVERT_MP4") {
         return {
           ok: true,
@@ -149,7 +136,6 @@ describe("import service long-video gate", () => {
     ).resolves.toMatchObject({ kind: "image", converted: true });
 
     const messageTypes = sendMessageMock.mock.calls.map(([msg]) => msg?.type);
-    expect(messageTypes).toContain("OFFSCREEN_PROBE_VIDEO_DURATION");
     expect(messageTypes).toContain("OFFSCREEN_CONVERT_MP4");
     expect(mocks.idbSave).toHaveBeenCalledTimes(1);
 
@@ -363,5 +349,208 @@ describe("import service long-video gate", () => {
 
     expect(mocks.idbSave).toHaveBeenCalledTimes(2);
     expect(mocks.idbDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects concurrent import attempts while one import is in progress", async () => {
+    globalThis.fetch = vi.fn((_, init = {}) => {
+      const signal = init?.signal;
+      return new Promise((_, reject) => {
+        const abortNow = () => {
+          const abortError = new Error("aborted");
+          abortError.name = "AbortError";
+          reject(abortError);
+        };
+        if (signal?.aborted) {
+          abortNow();
+          return;
+        }
+        signal?.addEventListener("abort", abortNow, { once: true });
+      });
+    });
+
+    const firstImportPromise = importFromUrl(
+      "https://x.com/i/status/8",
+      "",
+      "request-8",
+    );
+    await Promise.resolve();
+
+    await expect(
+      importFromUrl("https://x.com/i/status/9", "", "request-9"),
+    ).rejects.toThrow(UI_MESSAGES.import.concurrentImportInProgress);
+
+    await expect(terminateImport("request-8")).resolves.toBe(true);
+    await expect(firstImportPromise).rejects.toThrow(
+      UI_MESSAGES.import.importTerminated,
+    );
+  });
+
+  it("releases import lock when setup fails before progress loop", async () => {
+    mocks.getRuntimeConfig.mockRejectedValueOnce(new Error("Runtime unavailable"));
+
+    await expect(
+      importFromUrl("https://x.com/i/status/10", "", "request-10"),
+    ).rejects.toThrow("Runtime unavailable");
+
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: {
+        get: () => "image/jpeg",
+      },
+      blob: async () => new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/jpeg" }),
+    }));
+    mocks.resolveMediaUrls.mockResolvedValue(["https://image.example.com/pic.jpg"]);
+    mocks.originPatternFromUrl.mockImplementation((url) => {
+      if (String(url).includes("image.example.com")) {
+        return "https://image.example.com/*";
+      }
+      return "https://x.com/*";
+    });
+
+    await expect(
+      importFromUrl("https://x.com/i/status/11", "", "request-11"),
+    ).resolves.toMatchObject({
+      importedCount: 1,
+    });
+  });
+
+  it("rejects non-http import entry URLs early", async () => {
+    await expect(importFromUrl("file:///C:/temp/test.gif", "")).rejects.toThrow(
+      UI_MESSAGES.popup.enterValidUrl,
+    );
+    expect(mocks.resolveMediaUrls).not.toHaveBeenCalled();
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-http resolved hint URLs early", async () => {
+    await expect(
+      importFromUrl("https://x.com/i/status/12", "", "request-12", [
+        "javascript:alert(1)",
+      ]),
+    ).rejects.toThrow(UI_MESSAGES.popup.enterValidUrl);
+    expect(mocks.resolveMediaUrls).not.toHaveBeenCalled();
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-http resolved URLs returned by resolver", async () => {
+    mocks.resolveMediaUrls.mockResolvedValueOnce(["data:text/plain;base64,SGVsbG8="]);
+    await expect(
+      importFromUrl("https://x.com/i/status/13", "", "request-13"),
+    ).rejects.toThrow(UI_MESSAGES.popup.enterValidUrl);
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("enforces max media size limit during download", async () => {
+    const MB = 1024 * 1024;
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      url: "https://video.example.com/clip.mp4",
+      headers: {
+        get: () => "video/mp4",
+      },
+      blob: async () => ({ size: 60 * MB }),
+    }));
+
+    await expect(
+      importFromUrl("https://x.com/i/status/14", "", "request-14"),
+    ).rejects.toThrow(UI_MESSAGES.import.mediaTooLarge(50));
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("enforces max media size while streaming response chunks", async () => {
+    const MB = 1024 * 1024;
+    const chunk = new Uint8Array(30 * MB);
+    const blobSpy = vi.fn(async () =>
+      new Blob([new Uint8Array([1, 2, 3])], { type: "video/mp4" }),
+    );
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      url: "https://video.example.com/clip.mp4",
+      headers: {
+        get: () => "video/mp4",
+      },
+      body: {
+        getReader: () => {
+          let readCount = 0;
+          return {
+            read: async () => {
+              readCount += 1;
+              if (readCount <= 2) {
+                return { done: false, value: chunk };
+              }
+              return { done: true, value: undefined };
+            },
+            cancel: async () => {},
+          };
+        },
+      },
+      blob: blobSpy,
+    }));
+
+    await expect(
+      importFromUrl("https://x.com/i/status/14b", "", "request-14b"),
+    ).rejects.toThrow(UI_MESSAGES.import.mediaTooLarge(50));
+    expect(blobSpy).not.toHaveBeenCalled();
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("re-validates redirected response URL access before reading blob", async () => {
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      url: "https://unauthorized.example.com/file.gif",
+      headers: {
+        get: () => "image/gif",
+      },
+      blob: async () =>
+        new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/gif" }),
+    }));
+    mocks.resolveMediaUrls.mockResolvedValueOnce([
+      "https://video.example.com/clip.gif",
+    ]);
+    mocks.originPatternFromUrl.mockImplementation((url) => {
+      if (String(url).includes("unauthorized.example.com")) {
+        return "https://unauthorized.example.com/*";
+      }
+      if (String(url).includes("video.example.com")) {
+        return "https://video.example.com/*";
+      }
+      return "https://x.com/*";
+    });
+    globalThis.chrome.permissions.contains.mockImplementation(async ({ origins }) =>
+      !origins.includes("https://unauthorized.example.com/*"),
+    );
+
+    await expect(
+      importFromUrl("https://x.com/i/status/15", "", "request-15"),
+    ).rejects.toThrow(UI_MESSAGES.import.hostAccessRequired);
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("rejects redirected non-http response URLs before reading blob", async () => {
+    const blobSpy = vi.fn(async () =>
+      new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/gif" }),
+    );
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      url: "chrome-extension://other-extension/file.gif",
+      headers: {
+        get: () => "image/gif",
+      },
+      blob: blobSpy,
+    }));
+    mocks.resolveMediaUrls.mockResolvedValueOnce([
+      "https://video.example.com/clip.gif",
+    ]);
+
+    await expect(
+      importFromUrl("https://x.com/i/status/16", "", "request-16"),
+    ).rejects.toThrow(UI_MESSAGES.popup.enterValidUrl);
+    expect(blobSpy).not.toHaveBeenCalled();
+    expect(mocks.idbSave).not.toHaveBeenCalled();
   });
 });

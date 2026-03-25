@@ -28,6 +28,22 @@ body {
   color: var(--text);
 }
 
+body.boot-loading .container {
+  opacity: 0.88;
+}
+
+body.boot-loading .grid {
+  pointer-events: none;
+}
+
+body.boot-loading .btn,
+body.boot-loading .icon-btn,
+body.boot-loading .danger-btn,
+body.boot-loading .name-btn,
+body.boot-loading .input {
+  cursor: wait;
+}
+
 .container {
   height: 100%;
   min-height: 0;
@@ -376,6 +392,7 @@ body {
   max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   scrollbar-width: thin;

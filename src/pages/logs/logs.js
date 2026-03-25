@@ -3,6 +3,7 @@ import { DB, STORAGE_KEYS } from "../../lib/settings.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
 import { applyStaticI18n, initializeI18n } from "../../lib/i18n.js";
 import { formatBytes } from "../../lib/ui.js";
+import { safeStringifyLogValue } from "../../lib/log.js";
 import {
   applyDocumentTheme,
   getThemeMode,
@@ -190,7 +191,7 @@ function isErrorLikeLog(log) {
 
 function formatLogLine(log) {
   const when = new Date(log.createdAt || Date.now()).toLocaleTimeString();
-  const details = log.details ? ` ${JSON.stringify(log.details)}` : "";
+  const details = log.details ? ` ${safeStringifyLogValue(log.details)}` : "";
   return `[${when}] ${log.stage}: ${log.message}${details}`;
 }
 
@@ -211,6 +212,10 @@ function formatBundledLogLine(group) {
 
 function buildUnbundledLogLines(logs) {
   return logs.map((log) => formatLogLine(log));
+}
+
+function buildExportLogLines(logs) {
+  return buildUnbundledLogLines(logs);
 }
 
 function buildRenderedLogLines(logs) {
@@ -248,8 +253,17 @@ function buildRenderedLogLines(logs) {
 
 function getVisibleLogLines(logs) {
   return showUnbundledLogs
-    ? buildUnbundledLogLines(logs)
+    ? buildExportLogLines(logs)
     : buildRenderedLogLines(logs);
+}
+
+function formatLogsStatusCount(visibleCount, totalCount) {
+  const safeVisibleCount = Math.max(0, Number(visibleCount) || 0);
+  const safeTotalCount = Math.max(0, Number(totalCount) || 0);
+  if (safeTotalCount > safeVisibleCount) {
+    return UI_MESSAGES.logs.logCountWithTotal(safeVisibleCount, safeTotalCount);
+  }
+  return UI_MESSAGES.logs.logCount(safeVisibleCount);
 }
 
 function renderLoadedLogs(logs) {
@@ -269,7 +283,7 @@ function renderLoadedLogs(logs) {
   logsEl.classList.add("has-logs");
   logsMascotEl.src = getLogsEmptyMascotSrc(themeMode);
   logsContentEl.textContent = lines.join("\n");
-  setStatus(UI_MESSAGES.logs.logCount(lines.length), true);
+  setStatus(formatLogsStatusCount(lines.length, latestLoadedLogs.length), true);
   updateViewToggleButton();
 }
 

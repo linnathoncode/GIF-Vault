@@ -14,6 +14,11 @@ const OFFSCREEN = {
   url: "offscreen/offscreen.html",
 };
 
+const IMPORT_PIPELINE = {
+  minDownloadSizeMb: 5,
+  maxDownloadSizeMb: 200,
+};
+
 const DB = {
   name: "gifVaultDB",
   version: 3,
@@ -27,7 +32,7 @@ const GIF_CONVERSION = {
   fps: 10,
   width: 360,
   maxColors: 96,
-  maxDurationSeconds: 15,
+  maxDownloadSizeMb: 50,
 };
 
 const BADGE = {
@@ -60,6 +65,7 @@ const POPUP_MENU = {
   hoverPreviewDelayMs: 500,
   copyFeedbackResetDelayMs: 900,
   importProgressPercent: {
+    boot: 0,
     resolving: 16,
     fetching: 40,
     checking: 58,
@@ -70,13 +76,21 @@ const POPUP_MENU = {
   },
 };
 
+const POPUP_BOOT = {
+  initStepTimeoutMs: 3000,
+  statusQueryMaxLength: 120,
+  fallbackTab: "all",
+};
+
 export {
   STORAGE_KEYS,
   CONTEXT_MENU,
   OFFSCREEN,
+  IMPORT_PIPELINE,
   DB,
   GIF_CONVERSION,
   BADGE,
   ICONS,
   POPUP_MENU,
+  POPUP_BOOT,
 };

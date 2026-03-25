@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_RUNTIME_CONFIG,
   normalizeRuntimeConfig,
-} from "../src/lib/runtime-config.js";
+} from "../../src/lib/runtime-config.js";
 
 describe("runtime config normalization", () => {
   it("returns defaults for null input", () => {
@@ -18,7 +18,7 @@ describe("runtime config normalization", () => {
         fps: "0",
         width: 999999,
         maxColors: "bad",
-        maxDurationSeconds: -10,
+        maxDownloadSizeMb: -10,
       },
       popupMenu: {
         pageSize: 0,
@@ -43,7 +43,7 @@ describe("runtime config normalization", () => {
       fps: 1,
       width: 1920,
       maxColors: DEFAULT_RUNTIME_CONFIG.gifConversion.maxColors,
-      maxDurationSeconds: 1,
+      maxDownloadSizeMb: 5,
     });
 
     // Assert: booleans/tabs/progress fields normalize to safe runtime values.
@@ -54,6 +54,7 @@ describe("runtime config normalization", () => {
       hoverPreviewDelayMs: 500,
       copyFeedbackResetDelayMs: 5000,
       importProgressPercent: {
+        boot: DEFAULT_RUNTIME_CONFIG.popupMenu.importProgressPercent.boot,
         resolving: 0,
         fetching: 100,
         checking: 58,

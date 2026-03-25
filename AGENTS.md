@@ -180,9 +180,20 @@ Rules:
 - Fixed popup ghost progress-message replay and added restore/clear ordering safeguards.
 - Logs page now includes an email bug-report form that collects user notes, prepares a support email draft to `gifvault-support@gmail.com`, and downloads a log attachment file for sending.
 - Options page default tab now supports `Latest`, which reopens the popup on the most recently used tab (`All` or `Favorites`).
+- Popup now shows an explicit startup loading state on browser launch and temporarily disables popup interactions until initialization completes.
+- Popup now blocks concurrent imports by preventing new import starts while an import is active.
+- Background import pipeline now enforces a single active import globally, so context-menu, popup, and assist imports cannot run concurrently.
+- Import pipeline now enforces strict `http/https` URL validation, redirect URL re-validation, and hard download-size limits, with stricter media-type fallback checks.
+- Options now use a configurable max download-size limit (MB) instead of max video duration for import safety limits.
 
 ## Operational Notes
 
 - Load extension from `dist/` in browser developer mode.
 - `release/` contains local package artifacts.
 - Avoid reverting permission-assist UX without a stronger, gesture-safe alternative.
+- Keep tweakable/static constants centralized in `src/lib/settings.js` (for example popup boot/init timeouts, query limits, fallback tabs) and import them into feature modules instead of redefining local literals.
+- Add brief doc comments for abstract logic and non-obvious intent.
+
+## Known Issues
+
+- Local-only issue tracking has been moved to `LOCAL_KNOWN_ISSUES.md` (gitignored via `.gitignore`).
