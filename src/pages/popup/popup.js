@@ -1,5 +1,10 @@
 import { idbClear } from "../../lib/db.js";
-import { STORAGE_KEYS, ICONS, POPUP_MENU } from "../../lib/settings.js";
+import {
+  STORAGE_KEYS,
+  ICONS,
+  POPUP_MENU,
+  POPUP_BOOT,
+} from "../../lib/settings.js";
 import {
   getRuntimeConfig,
   normalizeRuntimeConfig,
@@ -52,6 +57,7 @@ const state = {
   currentImportState: null,
   currentPage: 1,
   currentTab: POPUP_MENU.defaultTab,
+  isBootLoading: true,
   pendingFocusRestore: null,
   popupMenuConfig: defaultPopupMenuConfig(),
   renderSequence: 0,
@@ -60,16 +66,31 @@ const state = {
   themeMode: "light",
 };
 let localeApplyVersion = 0;
-const INIT_STEP_TIMEOUT_MS = 3000;
-const QUERY_STATUS_MAX_LENGTH = 120;
-const FALLBACK_POPUP_TAB = "all";
+const INIT_STEP_TIMEOUT_MS = POPUP_BOOT.initStepTimeoutMs;
+const QUERY_STATUS_MAX_LENGTH = POPUP_BOOT.statusQueryMaxLength;
+const FALLBACK_POPUP_TAB = POPUP_BOOT.fallbackTab;
+const INTERACTIVE_REFS = [
+  "clearAllBtn",
+  "importBtn",
+  "importInput",
+  "nextPageBtn",
+  "openLogsBtn",
+  "openOptionsBtn",
+  "prevPageBtn",
+  "searchInput",
+  "tabAllBtn",
+  "tabFavoritesBtn",
+  "themeToggleBtn",
+];
 
 function isTrustedRuntimeSender(sender) {
   return sender?.id === chrome.runtime.id;
 }
 
 function isRuntimeMessage(message) {
-  return Boolean(message) && typeof message === "object" && !Array.isArray(message);
+  return (
+    Boolean(message) && typeof message === "object" && !Array.isArray(message)
+  );
 }
 
 function isVaultUpdatedMessage(message) {
@@ -112,7 +133,11 @@ function getSafeStatusQueryText(rawStatus) {
 }
 
 function normalizePopupTab(value, fallback = FALLBACK_POPUP_TAB) {
-  return value === "favorites" ? "favorites" : value === "all" ? "all" : fallback;
+  return value === "favorites"
+    ? "favorites"
+    : value === "all"
+      ? "all"
+      : fallback;
 }
 
 function getStoredLastPopupTab() {
@@ -126,7 +151,10 @@ function getStoredLastPopupTab() {
 function storeLastPopupTab(tab) {
   const normalized = normalizePopupTab(tab);
   return new Promise((resolve) => {
-    chrome.storage.local.set({ [STORAGE_KEYS.popupLastTab]: normalized }, resolve);
+    chrome.storage.local.set(
+      { [STORAGE_KEYS.popupLastTab]: normalized },
+      resolve,
+    );
   });
 }
 
@@ -158,6 +186,58 @@ function defaultPopupMenuConfig() {
 
 function getPopupMenuConfig() {
   return state.popupMenuConfig;
+}
+
+function setInteractiveEnabled(enabled) {
+  const isEnabled = Boolean(enabled);
+  state.isBootLoading = !isEnabled;
+  document.body.classList.toggle("boot-loading", !isEnabled);
+  refs.grid.setAttribute("aria-busy", isEnabled ? "false" : "true");
+
+  for (const key of INTERACTIVE_REFS) {
+    const element = refs[key];
+    if (
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLButtonElement
+    ) {
+      element.disabled = !isEnabled;
+    }
+  }
+}
+
+function showBootLoadingState() {
+  setInteractiveEnabled(false);
+  state.activeImportRequestId = "";
+  state.currentImportState = null;
+  statusController.clearTransientStatus();
+  statusController.setStatus(UI_MESSAGES.popup.initializingDetail);
+  statusController.setProgressState({
+    text: UI_MESSAGES.popup.initializing,
+    kind: "info",
+    phase: UI_MESSAGES.import.phaseIdle,
+    active: true,
+  });
+  refs.countEl.textContent = UI_MESSAGES.popup.initializing;
+}
+
+function clearBootLoadingUiIfPresent() {
+  statusController.setProgressState(null);
+  if (refs.statusTextEl?.textContent === UI_MESSAGES.popup.initializingDetail) {
+    statusController.setStatus("");
+  }
+}
+
+function isBootLoading() {
+  return state.isBootLoading;
+}
+
+function runWhenInteractive(handler) {
+  return (...args) => {
+    if (isBootLoading()) {
+      return;
+    }
+    return handler(...args);
+  };
 }
 
 const statusController = createPopupStatusController({
@@ -267,7 +347,9 @@ async function importUrl(rawUrl) {
       requestId,
     });
     if (!response?.ok) {
-      const importError = new Error(response?.error || UI_MESSAGES.popup.importFailed);
+      const importError = new Error(
+        response?.error || UI_MESSAGES.popup.importFailed,
+      );
       importError.code = String(response?.errorCode || "");
       throw importError;
     }
@@ -276,7 +358,11 @@ async function importUrl(rawUrl) {
     refs.importBtn.textContent = UI_MESSAGES.popup.importButtonIdle;
     const importedCount = Number(response.result?.importedCount) || 1;
     const convertedCount = Number(response.result?.convertedCount) || 0;
-    const successMessage = buildImportSuccessMessage(url, importedCount, convertedCount);
+    const successMessage = buildImportSuccessMessage(
+      url,
+      importedCount,
+      convertedCount,
+    );
     statusController.setImportSuccessState(successMessage);
     state.activeImportRequestId = "";
     await clearStoredImportStatePreservingUi();
@@ -354,7 +440,9 @@ async function findMissingOrigins(origins) {
 }
 
 async function openPermissionAssist(url, pageUrl, missingOrigins) {
-  const assistUrl = new URL(chrome.runtime.getURL("pages/assist/permission-assist.html"));
+  const assistUrl = new URL(
+    chrome.runtime.getURL("pages/assist/permission-assist.html"),
+  );
   assistUrl.searchParams.set("url", url || "");
   if (pageUrl) {
     assistUrl.searchParams.set("pageUrl", pageUrl);
@@ -414,9 +502,12 @@ function invalidatePendingLocaleApply() {
 function withTimeout(promise, timeoutMs, code = "TIMEOUT") {
   let timeoutId = 0;
   const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error(code));
-    }, Math.max(0, timeoutMs));
+    timeoutId = setTimeout(
+      () => {
+        reject(new Error(code));
+      },
+      Math.max(0, timeoutMs),
+    );
   });
 
   return Promise.race([promise, timeoutPromise]).finally(() => {
@@ -443,91 +534,134 @@ async function clearStoredImportStatePreservingUi() {
   await clearStoredImportState();
 }
 
-refs.importBtn.addEventListener("click", () => {
-  gridController.clearSelections();
-  if (state.currentImportState?.active) {
-    void terminateImport();
-    return;
-  }
-  void importUrl(refs.importInput.value);
-});
-refs.importInput.addEventListener("click", () => {
-  gridController.clearSelections();
-});
-refs.importInput.addEventListener("focus", () => {
-  gridController.clearSelections();
-});
-refs.importInput.addEventListener("keydown", (event) => {
-  gridController.clearSelections();
-  if (event.key === "Enter") {
+refs.importBtn.addEventListener(
+  "click",
+  runWhenInteractive(() => {
+    gridController.clearSelections();
+    if (state.currentImportState?.active) {
+      void terminateImport();
+      return;
+    }
     void importUrl(refs.importInput.value);
-  }
-});
+  }),
+);
+refs.importInput.addEventListener(
+  "click",
+  runWhenInteractive(() => {
+    gridController.clearSelections();
+  }),
+);
+refs.importInput.addEventListener(
+  "focus",
+  runWhenInteractive(() => {
+    gridController.clearSelections();
+  }),
+);
+refs.importInput.addEventListener(
+  "keydown",
+  runWhenInteractive((event) => {
+    gridController.clearSelections();
+    if (event.key === "Enter") {
+      void importUrl(refs.importInput.value);
+    }
+  }),
+);
 refs.grid.addEventListener("scroll", gridController.hideHoverPreview);
 window.addEventListener("blur", gridController.hideHoverPreview);
 
-refs.clearAllBtn.addEventListener("click", async () => {
-  const confirmed = window.confirm(
-    UI_MESSAGES.popup.clearVaultConfirm,
-  );
-  if (!confirmed) {
-    return;
-  }
-  await idbClear();
-  gridController.cleanupObjectUrls();
-  statusController.showTransientStatus(UI_MESSAGES.popup.vaultCleared, "ok");
-  await safeLog("popup", "Vault cleared");
-  await gridController.render();
-});
+refs.clearAllBtn.addEventListener(
+  "click",
+  runWhenInteractive(async () => {
+    const confirmed = window.confirm(UI_MESSAGES.popup.clearVaultConfirm);
+    if (!confirmed) {
+      return;
+    }
+    await idbClear();
+    gridController.cleanupObjectUrls();
+    statusController.showTransientStatus(UI_MESSAGES.popup.vaultCleared, "ok");
+    await safeLog("popup", "Vault cleared");
+    await gridController.render();
+  }),
+);
 
 window.addEventListener("unload", gridController.cleanupObjectUrls);
-refs.openOptionsBtn.addEventListener("click", () => {
-  if (typeof chrome.runtime.openOptionsPage === "function") {
-    void chrome.runtime.openOptionsPage();
-    return;
-  }
-  const url = chrome.runtime.getURL("pages/options/options.html");
-  void chrome.tabs.create({ url });
-});
-refs.openLogsBtn.addEventListener("click", () => {
-  const url = chrome.runtime.getURL("pages/logs/logs.html");
-  void chrome.tabs.create({ url });
-});
-refs.themeToggleBtn.addEventListener("click", async () => {
-  state.themeMode = state.themeMode === "dark" ? "light" : "dark";
-  applyTheme(state.themeMode);
-  await setThemeMode(state.themeMode);
-});
-refs.tabAllBtn.addEventListener("click", async () => {
-  gridController.clearSelections();
-  await applyCurrentTab("all");
-  await gridController.render();
-});
-refs.tabFavoritesBtn.addEventListener("click", async () => {
-  gridController.clearSelections();
-  await applyCurrentTab("favorites");
-  await gridController.render();
-});
-refs.searchInput.addEventListener("click", () => {
-  gridController.clearSelections();
-});
-refs.searchInput.addEventListener("focus", () => {
-  gridController.clearSelections();
-});
-refs.searchInput.addEventListener("input", async () => {
-  gridController.clearSelections();
-  state.searchTerm = refs.searchInput.value || "";
-  state.currentPage = 1;
-  await gridController.render();
-});
-refs.prevPageBtn.addEventListener("click", async () => {
-  state.currentPage = Math.max(1, state.currentPage - 1);
-  await gridController.render();
-});
-refs.nextPageBtn.addEventListener("click", async () => {
-  state.currentPage += 1;
-  await gridController.render();
-});
+refs.openOptionsBtn.addEventListener(
+  "click",
+  runWhenInteractive(() => {
+    if (typeof chrome.runtime.openOptionsPage === "function") {
+      void chrome.runtime.openOptionsPage();
+      return;
+    }
+    const url = chrome.runtime.getURL("pages/options/options.html");
+    void chrome.tabs.create({ url });
+  }),
+);
+refs.openLogsBtn.addEventListener(
+  "click",
+  runWhenInteractive(() => {
+    const url = chrome.runtime.getURL("pages/logs/logs.html");
+    void chrome.tabs.create({ url });
+  }),
+);
+refs.themeToggleBtn.addEventListener(
+  "click",
+  runWhenInteractive(async () => {
+    state.themeMode = state.themeMode === "dark" ? "light" : "dark";
+    applyTheme(state.themeMode);
+    await setThemeMode(state.themeMode);
+  }),
+);
+refs.tabAllBtn.addEventListener(
+  "click",
+  runWhenInteractive(async () => {
+    gridController.clearSelections();
+    await applyCurrentTab("all");
+    await gridController.render();
+  }),
+);
+refs.tabFavoritesBtn.addEventListener(
+  "click",
+  runWhenInteractive(async () => {
+    gridController.clearSelections();
+    await applyCurrentTab("favorites");
+    await gridController.render();
+  }),
+);
+refs.searchInput.addEventListener(
+  "click",
+  runWhenInteractive(() => {
+    gridController.clearSelections();
+  }),
+);
+refs.searchInput.addEventListener(
+  "focus",
+  runWhenInteractive(() => {
+    gridController.clearSelections();
+  }),
+);
+refs.searchInput.addEventListener(
+  "input",
+  runWhenInteractive(async () => {
+    gridController.clearSelections();
+    state.searchTerm = refs.searchInput.value || "";
+    state.currentPage = 1;
+    await gridController.render();
+  }),
+);
+refs.prevPageBtn.addEventListener(
+  "click",
+  runWhenInteractive(async () => {
+    state.currentPage = Math.max(1, state.currentPage - 1);
+    await gridController.render();
+  }),
+);
+refs.nextPageBtn.addEventListener(
+  "click",
+  runWhenInteractive(async () => {
+    state.currentPage += 1;
+    await gridController.render();
+  }),
+);
 
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (!isTrustedRuntimeSender(sender) || !isRuntimeMessage(message)) {
@@ -535,6 +669,9 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   }
 
   if (isVaultUpdatedMessage(message)) {
+    if (isBootLoading()) {
+      return;
+    }
     void gridController.render();
     return;
   }
@@ -569,26 +706,39 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     };
     if (previousDefaultTab !== state.popupMenuConfig.defaultTab) {
       void (async () => {
-        state.currentTab = await resolveInitialTab(state.popupMenuConfig.defaultTab);
+        state.currentTab = await resolveInitialTab(
+          state.popupMenuConfig.defaultTab,
+        );
         state.currentPage = 1;
-        await gridController.render();
+        if (!isBootLoading()) {
+          await gridController.render();
+        }
       })();
     }
     if (!state.popupMenuConfig.hoverPreviewEnabled) {
       gridController.hideHoverPreview();
     }
     if (previousDefaultTab === state.popupMenuConfig.defaultTab) {
-      void gridController.render();
+      if (!isBootLoading()) {
+        void gridController.render();
+      }
     }
   }
 
-  if (changes[STORAGE_KEYS.importState]?.newValue || changes[STORAGE_KEYS.importState]?.oldValue) {
+  if (
+    changes[STORAGE_KEYS.importState]?.newValue ||
+    changes[STORAGE_KEYS.importState]?.oldValue
+  ) {
     const nextState = changes[STORAGE_KEYS.importState].newValue || null;
     const prevState = changes[STORAGE_KEYS.importState].oldValue || null;
     if (nextState) {
       statusController.applyImportState(nextState);
     } else {
       state.currentImportState = null;
+      if (isBootLoading()) {
+        statusController.syncImportActionButton();
+        return;
+      }
       const shouldClearProgress = shouldClearProgressVisualsOnStorageClear({
         hasTransientStatus: statusController.hasTransientStatus(),
         suppressUiReset: state.suppressNextImportStateClearUiReset,
@@ -599,7 +749,11 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       }
     }
     statusController.syncImportActionButton();
-    if ((prevState?.active || false) && !nextState?.active) {
+    if (
+      (prevState?.active || false) &&
+      !nextState?.active &&
+      !isBootLoading()
+    ) {
       void gridController.render();
     }
   }
@@ -609,9 +763,15 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 
   if (changes[STORAGE_KEYS.locale]?.newValue) {
-    const nextLocale = String(changes[STORAGE_KEYS.locale].newValue || "").trim();
+    const nextLocale = String(
+      changes[STORAGE_KEYS.locale].newValue || "",
+    ).trim();
     void (async () => {
       await applyLocale(nextLocale);
+      if (isBootLoading()) {
+        showBootLoadingState();
+        return;
+      }
       statusController.syncImportActionButton();
       await gridController.render();
     })();
@@ -619,57 +779,90 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 async function init() {
-  await withTimeout(applyLocale(), INIT_STEP_TIMEOUT_MS, "LOCALE_INIT_TIMEOUT").catch(
-    () => {
+  // Enter guarded startup mode before any async work.
+  showBootLoadingState();
+
+  try {
+    // Apply locale first so startup copy and labels are in the right language.
+    await withTimeout(
+      applyLocale(),
+      INIT_STEP_TIMEOUT_MS,
+      "LOCALE_INIT_TIMEOUT",
+    ).catch(() => {
       // Prevent a late locale init from rewriting labels after primary render.
       invalidatePendingLocaleApply();
-    },
-  );
-  const runtimeConfig = await withTimeout(
-    getRuntimeConfig(),
-    INIT_STEP_TIMEOUT_MS,
-    "RUNTIME_CONFIG_TIMEOUT",
-  ).catch(() => normalizeRuntimeConfig({}));
-  state.popupMenuConfig = {
-    ...runtimeConfig.popupMenu,
-    importProgressPercent: {
-      ...runtimeConfig.popupMenu.importProgressPercent,
-    },
-  };
-  if (!state.popupMenuConfig.hoverPreviewEnabled) {
-    gridController.hideHoverPreview();
-  }
-  state.currentTab = await resolveInitialTab(state.popupMenuConfig.defaultTab);
-  const initialTheme = await withTimeout(
-    getThemeMode(),
-    INIT_STEP_TIMEOUT_MS,
-    "THEME_LOAD_TIMEOUT",
-  ).catch(() => "light");
-  applyTheme(initialTheme);
-  applyImportAssistFromQuery();
+    });
+    // Repaint boot text after locale init because localized labels can
+    // overwrite startup copy; this reapplies the loading message in the active locale.
+    showBootLoadingState();
 
-  const importState = await withTimeout(
-    getImportState(),
-    INIT_STEP_TIMEOUT_MS,
-    "IMPORT_STATE_TIMEOUT",
-  ).catch(() => null);
-  if (importState?.text) {
-    if (importState.active) {
-      statusController.applyImportState(importState);
-    } else {
-      state.currentImportState = null;
-      await restoreInactiveImportState({
-        importState,
-        statusController,
-        clearStoredImportState,
-      });
+    // Load runtime popup config and apply UI behavior flags.
+    const runtimeConfig = await withTimeout(
+      getRuntimeConfig(),
+      INIT_STEP_TIMEOUT_MS,
+      "RUNTIME_CONFIG_TIMEOUT",
+    ).catch(() => normalizeRuntimeConfig({}));
+    state.popupMenuConfig = {
+      ...runtimeConfig.popupMenu,
+      importProgressPercent: {
+        ...runtimeConfig.popupMenu.importProgressPercent,
+      },
+    };
+    if (!state.popupMenuConfig.hoverPreviewEnabled) {
+      gridController.hideHoverPreview();
     }
-  } else {
-    state.currentImportState = importState || null;
-  }
 
-  statusController.syncImportActionButton();
-  await gridController.render();
+    // Resolve persisted UI state (tab + theme) and query-based assist hints.
+    state.currentTab = await resolveInitialTab(
+      state.popupMenuConfig.defaultTab,
+    );
+    const initialTheme = await withTimeout(
+      getThemeMode(),
+      INIT_STEP_TIMEOUT_MS,
+      "THEME_LOAD_TIMEOUT",
+    ).catch(() => "light");
+    applyTheme(initialTheme);
+    applyImportAssistFromQuery();
+
+    // Restore import progress/state from storage (if present).
+    const importState = await withTimeout(
+      getImportState(),
+      INIT_STEP_TIMEOUT_MS,
+      "IMPORT_STATE_TIMEOUT",
+    ).catch(() => null);
+    if (importState?.text) {
+      if (importState.active) {
+        statusController.applyImportState(importState);
+      } else {
+        state.currentImportState = null;
+        await restoreInactiveImportState({
+          importState,
+          statusController,
+          clearStoredImportState,
+        });
+      }
+    } else {
+      state.currentImportState = importState || null;
+    }
+
+    // First full render, then unlock interactions.
+    statusController.syncImportActionButton();
+    await gridController.render();
+    if (!state.currentImportState?.text) {
+      clearBootLoadingUiIfPresent();
+    }
+    setInteractiveEnabled(true);
+  } catch (error) {
+    // Fail-safe path keeps interactions locked and surfaces a clear status.
+    setInteractiveEnabled(false);
+    statusController.setImportErrorState(
+      UI_MESSAGES.popup.initializationFailed,
+    );
+    refs.countEl.textContent = UI_MESSAGES.popup.initializationFailed;
+    await safeLog("popup", "Popup initialization failed", {
+      error: error?.message || "unknown",
+    });
+  }
 }
 
 init();

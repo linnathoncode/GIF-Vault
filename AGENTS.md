@@ -180,12 +180,15 @@ Rules:
 - Fixed popup ghost progress-message replay and added restore/clear ordering safeguards.
 - Logs page now includes an email bug-report form that collects user notes, prepares a support email draft to `gifvault-support@gmail.com`, and downloads a log attachment file for sending.
 - Options page default tab now supports `Latest`, which reopens the popup on the most recently used tab (`All` or `Favorites`).
+- Popup now shows an explicit startup loading state on browser launch and temporarily disables popup interactions until initialization completes.
 
 ## Operational Notes
 
 - Load extension from `dist/` in browser developer mode.
 - `release/` contains local package artifacts.
 - Avoid reverting permission-assist UX without a stronger, gesture-safe alternative.
+- Keep tweakable/static constants centralized in `src/lib/settings.js` (for example popup boot/init timeouts, query limits, fallback tabs) and import them into feature modules instead of redefining local literals.
+- Add brief doc comments for abstract logic and non-obvious intent.
 
 ## Known Issues
 

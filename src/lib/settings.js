@@ -70,6 +70,12 @@ const POPUP_MENU = {
   },
 };
 
+const POPUP_BOOT = {
+  initStepTimeoutMs: 3000,
+  statusQueryMaxLength: 120,
+  fallbackTab: "all",
+};
+
 export {
   STORAGE_KEYS,
   CONTEXT_MENU,
@@ -79,4 +85,5 @@ export {
   BADGE,
   ICONS,
   POPUP_MENU,
+  POPUP_BOOT,
 };
