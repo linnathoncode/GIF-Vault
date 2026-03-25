@@ -18,12 +18,96 @@ ffmpeg.on("log", ({ message }) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message) {
+function isTrustedRuntimeSender(sender) {
+  if (sender?.id === chrome.runtime.id) {
+    return true;
+  }
+  if (!sender || typeof sender !== "object") {
+    return true;
+  }
+  if ("id" in sender && sender.id && sender.id !== chrome.runtime.id) {
+    return false;
+  }
+
+  const extensionBase = chrome.runtime.getURL("");
+  const extensionOrigin = new URL(extensionBase).origin;
+  const senderUrl = String(sender?.url || "");
+  const senderOrigin = String(sender?.origin || "");
+
+  return senderUrl.startsWith(extensionBase) || senderOrigin === extensionOrigin;
+}
+
+function isRuntimeMessage(message) {
+  return Boolean(message) && typeof message === "object" && !Array.isArray(message);
+}
+
+function isBinaryInput(value) {
+  return (
+    value == null ||
+    (typeof value === "object" && !(value instanceof Blob)) ||
+    value instanceof Uint8Array ||
+    value instanceof ArrayBuffer ||
+    ArrayBuffer.isView(value)
+  );
+}
+
+function isProbeMessage(message) {
+  if (!isRuntimeMessage(message) || message.type !== "OFFSCREEN_PROBE_VIDEO_DURATION") {
+    return false;
+  }
+
+  if ("url" in message && typeof message.url !== "string") {
+    return false;
+  }
+  if (
+    "inputExtension" in message &&
+    !["", "mp4", "webm"].includes(String(message.inputExtension || ""))
+  ) {
+    return false;
+  }
+  if ("inputBytes" in message && !isBinaryInput(message.inputBytes)) {
+    return false;
+  }
+
+  return true;
+}
+
+function isConvertMessage(message) {
+  if (!isRuntimeMessage(message) || message.type !== "OFFSCREEN_CONVERT_MP4") {
+    return false;
+  }
+
+  if ("url" in message && typeof message.url !== "string") {
+    return false;
+  }
+  if ("filename" in message && typeof message.filename !== "string") {
+    return false;
+  }
+  if (
+    "inputExtension" in message &&
+    !["", "mp4", "webm"].includes(String(message.inputExtension || ""))
+  ) {
+    return false;
+  }
+  if ("gifConversion" in message && message.gifConversion != null && typeof message.gifConversion !== "object") {
+    return false;
+  }
+  if ("inputBytes" in message && !isBinaryInput(message.inputBytes)) {
+    return false;
+  }
+
+  return true;
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!isTrustedRuntimeSender(sender) || !isRuntimeMessage(message)) {
     return;
   }
 
   if (message.type === "OFFSCREEN_PROBE_VIDEO_DURATION") {
+    if (!isProbeMessage(message)) {
+      return;
+    }
     void safeLog("offscreen", "Probe request received", {
       url: message.url || "",
       hasInputBytes: Boolean(message.inputBytes),
@@ -43,6 +127,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === "OFFSCREEN_CONVERT_MP4") {
+    if (!isConvertMessage(message)) {
+      return;
+    }
     void safeLog("offscreen", "Conversion request received", {
       url: message.url || "",
       filename: message.filename || "",
