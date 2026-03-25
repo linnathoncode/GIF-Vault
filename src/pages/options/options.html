@@ -13,79 +13,125 @@
         <h1 class="title" data-i18n="options.heading">GIF Vault Options</h1>
         <div class="subtitle" data-i18n="options.subtitle">Adjust UI and GIF conversion constants</div>
       </div>
-      <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme" data-i18n-title="common.toggleTheme" data-i18n-aria-label="common.toggleTheme">&#9790;</button>
+      <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme" data-i18n-title="common.toggleTheme" data-i18n-aria-label="common.toggleTheme">
+        <img id="themeToggleIcon" class="icon-img icon-img-md" src="../../assets/shared/icon-theme-light.svg" alt="" aria-hidden="true">
+      </button>
     </section>
 
     <section class="panel notice-panel" aria-label="Options warning" data-i18n-aria-label="options.warningAriaLabel">
-      <strong data-i18n="options.warningStrong">Use defaults when possible.</strong>
+      <strong>
+        <img class="section-icon" src="../../assets/shared/icon-warning.svg" alt="" aria-hidden="true">
+        <span data-i18n="options.warningStrong">Use defaults when possible.</span>
+      </strong>
       <p data-i18n="options.warningBody">
         Changing these settings can increase CPU usage, memory usage, and storage size. Default settings are recommended for stability and predictable performance.
       </p>
     </section>
 
     <form id="optionsForm" class="form-grid" novalidate>
-      <section class="panel">
-        <h2 data-i18n="options.gifConversionHeading">GIF Conversion</h2>
-        <div class="field-grid">
-          <label class="field">
-            <span data-i18n="options.fpsLabel">FPS (1-30)</span>
-            <input id="gifFps" name="gifFps" type="number" min="1" max="30" step="1" required>
-          </label>
-          <label class="field">
-            <span data-i18n="options.widthLabel">Width (120-1920)</span>
-            <input id="gifWidth" name="gifWidth" type="number" min="120" max="1920" step="1" required>
-          </label>
-          <label class="field">
-            <span data-i18n="options.maxColorsLabel">Max Colors (2-256)</span>
-            <input id="gifMaxColors" name="gifMaxColors" type="number" min="2" max="256" step="1" required>
-          </label>
-          <label class="field">
-            <span data-i18n="options.maxDownloadSizeLabel">Max Download Size MB (5-200)</span>
-            <input id="gifMaxDownloadSizeMb" name="gifMaxDownloadSizeMb" type="number" min="5" max="200" step="1" required>
-          </label>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2 data-i18n="options.popupUiHeading">Popup UI</h2>
-        <div class="field-grid">
-          <label class="field">
-            <span data-i18n="options.languageLabel">Language</span>
-            <select id="locale" name="locale">
-              <option value="en" data-i18n="common.languageEnglish">English</option>
-              <option value="tr" data-i18n="common.languageTurkish">Turkish</option>
-            </select>
-          </label>
-          <label class="field">
-            <span data-i18n="options.defaultTabLabel">Default Tab</span>
-            <select id="popupDefaultTab" name="popupDefaultTab">
-              <option value="all" data-i18n="options.defaultTabAll">All</option>
-              <option value="favorites" data-i18n="options.defaultTabFavorites">Favorites</option>
-              <option value="latest" data-i18n="options.defaultTabLatest">Latest</option>
-            </select>
-          </label>
-          <label class="field">
-            <span data-i18n="options.pageSizeLabel">Page Size (1-60)</span>
-            <input id="popupPageSize" name="popupPageSize" type="number" min="1" max="60" step="1" required>
-          </label>
-          <div class="hover-preview-group">
-            <label class="toggle-row" for="popupHoverPreviewEnabled">
-              <input id="popupHoverPreviewEnabled" name="popupHoverPreviewEnabled" type="checkbox">
-              <span data-i18n="options.hoverPreviewEnabledLabel">Enable Hover Preview</span>
+      <div class="settings-grid">
+        <section class="panel settings-panel">
+          <h2>
+            <img class="section-icon" src="../../assets/shared/icon-import.svg" alt="" aria-hidden="true">
+            <span data-i18n="options.gifConversionHeading">GIF Conversion</span>
+          </h2>
+          <div class="field-grid">
+            <label class="field">
+              <span data-i18n="options.fpsLabel">FPS (1-30)</span>
+              <input id="gifFps" name="gifFps" type="number" min="1" max="30" step="1" required>
             </label>
-            <label id="popupHoverPreviewDelayField" class="field delay-field">
-              <span data-i18n="options.hoverPreviewDelayLabel">Preview Delay ms (500-5000)</span>
-              <input id="popupHoverPreviewDelayMs" name="popupHoverPreviewDelayMs" type="number" min="500" max="5000" step="100" required>
+            <label class="field">
+              <span data-i18n="options.widthLabel">Width (120-1920)</span>
+              <input id="gifWidth" name="gifWidth" type="number" min="120" max="1920" step="1" required>
+            </label>
+            <label class="field full-row">
+              <span data-i18n="options.maxColorsLabel">Max Colors (2-256)</span>
+              <input id="gifMaxColors" name="gifMaxColors" type="number" min="2" max="256" step="1" required>
+            </label>
+            <label class="field full-row">
+              <span data-i18n="options.maxDownloadSizeLabel">Max Download Size MB (5-200)</span>
+              <input id="gifMaxDownloadSizeMb" name="gifMaxDownloadSizeMb" type="number" min="5" max="200" step="1" required>
             </label>
           </div>
+        </section>
+
+        <section class="panel settings-panel">
+          <h2>
+            <img class="section-icon" src="../../assets/shared/icon-open-options.svg" alt="" aria-hidden="true">
+            <span data-i18n="options.popupUiHeading">Popup UI</span>
+          </h2>
+          <div class="field-grid">
+            <label class="field">
+              <span data-i18n="options.languageLabel">Language</span>
+              <select id="locale" name="locale">
+                <option value="en" data-i18n="common.languageEnglish">English</option>
+                <option value="tr" data-i18n="common.languageTurkish">Turkish</option>
+              </select>
+            </label>
+            <label class="field">
+              <span data-i18n="options.defaultTabLabel">Default Tab</span>
+              <select id="popupDefaultTab" name="popupDefaultTab">
+                <option value="all" data-i18n="options.defaultTabAll">All</option>
+                <option value="favorites" data-i18n="options.defaultTabFavorites">Favorites</option>
+                <option value="latest" data-i18n="options.defaultTabLatest">Latest</option>
+              </select>
+            </label>
+            <label class="field full-row">
+              <span data-i18n="options.pageSizeLabel">Page Size (1-60)</span>
+              <input id="popupPageSize" name="popupPageSize" type="number" min="1" max="60" step="1" required>
+            </label>
+            <div class="hover-preview-group">
+              <label class="toggle-row" for="popupHoverPreviewEnabled">
+                <input id="popupHoverPreviewEnabled" name="popupHoverPreviewEnabled" type="checkbox">
+                <span data-i18n="options.hoverPreviewEnabledLabel">Enable Hover Preview</span>
+              </label>
+              <label id="popupHoverPreviewDelayField" class="field delay-field">
+                <span data-i18n="options.hoverPreviewDelayLabel">Preview Delay ms (500-5000)</span>
+                <input id="popupHoverPreviewDelayMs" name="popupHoverPreviewDelayMs" type="number" min="500" max="5000" step="100" required>
+              </label>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel guide-panel">
+        <div class="guide-copy">
+          <h2>
+            <img class="section-icon" src="../../assets/shared/icon-report-bug.svg" alt="" aria-hidden="true">
+            <span data-i18n="options.guideHeading">My Vault &amp; Otha's Guide</span>
+          </h2>
+          <p data-i18n="options.guideBodyPrimary">Our Gibbon guides are here. Find answers or submit feedback.</p>
+          <p data-i18n="options.guideBodySecondary">Otha helps you with settings. Submit feedback below.</p>
+          <div class="guide-actions">
+            <button id="helpDocsBtn" class="btn icon-text-btn" type="button">
+              <img class="icon-img" src="../../assets/shared/icon-open-options.svg" alt="" aria-hidden="true">
+              <span data-i18n="options.helpDocsButton">Help Docs</span>
+            </button>
+            <button id="submitFeedbackBtn" class="btn icon-text-btn" type="button">
+              <img class="icon-img" src="../../assets/shared/icon-send-email.svg" alt="" aria-hidden="true">
+              <span data-i18n="options.submitFeedbackButton">Submit Feedback</span>
+            </button>
+          </div>
+        </div>
+        <div class="guide-mascot-wrap" aria-hidden="true">
+          <img id="guideMascot" class="guide-mascot mirrored" src="../../assets/mascots/otha-all-no-item.webp" alt="Options mascot" data-i18n-alt="options.guideMascotAlt">
         </div>
       </section>
 
       <section class="panel actions-panel">
-        <div id="status" class="status" aria-live="polite" data-i18n="options.loadingOptions">Loading options...</div>
+        <div class="status-wrap">
+          <img class="section-icon" src="../../assets/shared/icon-storage.svg" alt="" aria-hidden="true">
+          <div id="status" class="status" aria-live="polite" data-i18n="options.loadingOptions">Loading options...</div>
+        </div>
         <div class="actions">
-          <button id="resetBtn" class="btn" type="button" data-i18n="options.resetDefaultsButton">Reset defaults</button>
-          <button id="saveBtn" class="btn primary" type="submit" data-i18n="options.saveOptionsButton">Save options</button>
+          <button id="resetBtn" class="btn icon-text-btn" type="button">
+            <img class="icon-img" src="../../assets/shared/icon-refresh.svg" alt="" aria-hidden="true">
+            <span data-i18n="options.resetDefaultsButton">Reset defaults</span>
+          </button>
+          <button id="saveBtn" class="btn primary icon-text-btn" type="submit">
+            <img class="icon-img" src="../../assets/shared/icon-confirm.svg" alt="" aria-hidden="true">
+            <span data-i18n="options.saveOptionsButton">Save options</span>
+          </button>
         </div>
       </section>
     </form>

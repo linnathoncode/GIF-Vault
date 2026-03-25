@@ -9,17 +9,29 @@
 <body>
   <main class="wrap">
     <section class="panel">
-      <h1 data-i18n="assist.heading">Grant Site Access</h1>
+      <h1>
+        <img class="btn-icon" src="../../assets/shared/icon-confirm.svg" alt="" aria-hidden="true">
+        <span data-i18n="assist.heading">Grant Site Access</span>
+      </h1>
       <p data-i18n="assist.intro">This import needs temporary site access before GIF Vault can fetch the media.</p>
       <div id="reason" class="reason"></div>
       <div id="origins" class="origins" hidden>
-        <strong data-i18n="assist.requestedHosts">Requested hosts</strong>
+        <strong>
+          <img class="btn-icon" src="../../assets/shared/icon-hosts.svg" alt="" aria-hidden="true">
+          <span data-i18n="assist.requestedHosts">Requested hosts</span>
+        </strong>
         <ul id="originsList"></ul>
       </div>
       <div id="status" class="status" data-i18n="assist.checkingAccess">Checking required access...</div>
       <div class="actions">
-        <button id="grantBtn" class="primary" disabled data-i18n="assist.grantAndImportButton">Grant &amp; Import</button>
-        <button id="cancelBtn" class="secondary" type="button" data-i18n="assist.cancelButton">Cancel</button>
+        <button id="grantBtn" class="primary icon-text-btn" disabled>
+          <img class="btn-icon" src="../../assets/shared/icon-confirm.svg" alt="" aria-hidden="true">
+          <span data-i18n="assist.grantAndImportButton">Grant &amp; Import</span>
+        </button>
+        <button id="cancelBtn" class="secondary icon-text-btn" type="button">
+          <img class="btn-icon" src="../../assets/shared/icon-delete.svg" alt="" aria-hidden="true">
+          <span data-i18n="assist.cancelButton">Cancel</span>
+        </button>
       </div>
     </section>
   </main>

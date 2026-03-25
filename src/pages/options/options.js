@@ -16,7 +16,6 @@ import {
   applyDocumentTheme,
   getThemeMode,
   setThemeMode,
-  setThemeToggleGlyph,
   setToolbarIcon,
 } from "../../lib/theme.js";
 
@@ -24,6 +23,7 @@ const formEl = document.getElementById("optionsForm");
 const statusEl = document.getElementById("status");
 const resetBtn = document.getElementById("resetBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
+const themeToggleIcon = document.getElementById("themeToggleIcon");
 const localeInput = document.getElementById("locale");
 const hoverPreviewEnabledInput = document.getElementById(
   "popupHoverPreviewEnabled",
@@ -34,6 +34,7 @@ const hoverPreviewDelayInput = document.getElementById(
 const hoverPreviewDelayField = document.getElementById(
   "popupHoverPreviewDelayField",
 );
+const guideMascotEl = document.getElementById("guideMascot");
 
 let themeMode = "light";
 
@@ -125,8 +126,17 @@ function syncHoverPreviewDelayState() {
 // Theme handling for the options page.
 function applyTheme(mode) {
   const theme = applyDocumentTheme(mode);
-  setThemeToggleGlyph(themeToggleBtn, theme);
+  if (themeToggleIcon) {
+    const themeIcon =
+      theme === "dark" ? "icon-theme-light.svg" : "icon-theme-moon.svg";
+    themeToggleIcon.src = `../../assets/shared/${themeIcon}`;
+  }
   void setToolbarIcon(theme);
+  if (guideMascotEl) {
+    const mascotFile =
+      theme === "dark" ? "pesto-all-no-item.webp" : "otha-all-no-item.webp";
+    guideMascotEl.src = `../../assets/mascots/${mascotFile}`;
+  }
   themeMode = theme;
 }
 

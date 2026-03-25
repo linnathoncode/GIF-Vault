@@ -8,7 +8,6 @@ import {
   applyDocumentTheme,
   getThemeMode,
   setThemeMode,
-  setThemeToggleGlyph,
   setToolbarIcon
 } from "../../lib/theme.js";
 
@@ -18,7 +17,9 @@ const storageUsageEl = document.getElementById("storageUsage");
 const refreshBtn = document.getElementById("refreshBtn");
 const clearBtn = document.getElementById("clearBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
+const themeToggleIcon = document.getElementById("themeToggleIcon");
 const viewToggleBtn = document.getElementById("viewToggleBtn");
+const viewToggleIcon = document.getElementById("viewToggleIcon");
 const reportBugBtn = document.getElementById("reportBugBtn");
 const reportPanel = document.getElementById("reportPanel");
 const wrapEl =
@@ -66,7 +67,20 @@ function updateViewToggleButton() {
   const label = showUnbundledLogs
     ? UI_MESSAGES.logs.bundleAllButton
     : UI_MESSAGES.logs.expandAllButton;
-  viewToggleBtn.textContent = label;
+  const labelEl =
+    typeof viewToggleBtn.querySelector === "function"
+      ? viewToggleBtn.querySelector("span")
+      : null;
+  if (labelEl) {
+    labelEl.textContent = label;
+  } else {
+    viewToggleBtn.textContent = label;
+  }
+  if (viewToggleIcon) {
+    viewToggleIcon.src = showUnbundledLogs
+      ? "../../assets/shared/icon-view-bundle.svg"
+      : "../../assets/shared/icon-view-expand.svg";
+  }
   viewToggleBtn.title = label;
   viewToggleBtn.setAttribute("aria-label", label);
   viewToggleBtn.disabled = latestLoadedLogs.length === 0;
@@ -91,7 +105,15 @@ function setReportStatus(text, ok = false) {
 function setReportComposerOpen(open) {
   isReportComposerOpen = Boolean(open);
   if (reportBugBtn) {
-    reportBugBtn.textContent = UI_MESSAGES.logs.reportBugButtonCollapsed;
+    const labelEl =
+      typeof reportBugBtn.querySelector === "function"
+        ? reportBugBtn.querySelector("span")
+        : null;
+    if (labelEl) {
+      labelEl.textContent = UI_MESSAGES.logs.reportBugButtonCollapsed;
+    } else {
+      reportBugBtn.textContent = UI_MESSAGES.logs.reportBugButtonCollapsed;
+    }
   }
   if (reportPanel) {
     reportPanel.hidden = !isReportComposerOpen;
@@ -390,7 +412,11 @@ async function renderLogs() {
 function applyTheme(mode) {
   const theme = applyDocumentTheme(mode);
   void setToolbarIcon(theme);
-  setThemeToggleGlyph(themeToggleBtn, theme);
+  if (themeToggleIcon) {
+    const themeIcon =
+      theme === "dark" ? "icon-theme-light.svg" : "icon-theme-moon.svg";
+    themeToggleIcon.src = `../../assets/shared/${themeIcon}`;
+  }
   themeMode = theme;
   updateLogsEmptyStateMascot(theme);
 }

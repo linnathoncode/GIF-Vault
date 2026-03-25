@@ -96,6 +96,8 @@ body.boot-loading .input {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .title {
@@ -272,14 +274,18 @@ body.boot-loading .input {
 }
 
 .danger-btn {
-  border: 1px solid #8b2635;
-  background: #8b2635;
-  color: #e0e2db;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-line);
+  color: #ffffff;
   border-radius: 8px;
   padding: 6px 8px;
   font-size: 12px;
   cursor: pointer;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
   transition:
     transform 110ms ease,
     filter 110ms ease;
@@ -306,21 +312,52 @@ body.boot-loading .input {
 }
 
 .icon-btn.logs-btn {
-  background: #8b2635;
-  border-color: #8b2635;
-  color: #e0e2db;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+  background: var(--accent-bg);
+  border-color: var(--line);
+  color: var(--text);
+  text-shadow: none;
 }
 
-.logs-icon {
+.btn-icon {
+  width: 14px;
+  height: 14px;
+  display: block;
+  pointer-events: none;
+}
+
+.btn-icon-md {
   width: 19px;
   height: 19px;
-  display: block;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+}
+
+.icon-text-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.icon-btn-small {
+  padding: 6px 8px;
+}
+
+.search-wrap {
+  position: relative;
+}
+
+.search-wrap .input {
+  padding-left: 28px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  pointer-events: none;
 }
 
 .import-row {
@@ -451,9 +488,9 @@ body.boot-loading .input {
 }
 
 .meta {
-  padding: 6px 6px 8px;
+  padding: 6px 6px 6px;
   display: grid;
-  gap: 4px;
+  gap: 3px;
   grid-template-rows: auto auto auto 1fr;
   min-height: 0;
 }
@@ -496,9 +533,12 @@ body.boot-loading .input {
   background: var(--accent-bg);
   border-radius: 6px;
   font-size: 10px;
-  padding: 1px 5px;
+  padding: 4px;
   cursor: pointer;
   color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition:
     transform 110ms ease,
     filter 110ms ease;
@@ -523,20 +563,17 @@ body.boot-loading .input {
 .actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  gap: 3px;
   align-self: end;
 }
 
 .actions .btn {
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 5px 3px;
-  font-size: 15px;
-  font-weight: 900;
-  min-height: 30px;
-  line-height: 1;
+  padding: 4px 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
 }
 
 .btn.danger {
@@ -556,6 +593,16 @@ body.boot-loading .input {
   background: #f4b400;
   border-color: #f4b400;
   color: #2e3532;
+}
+
+.name-btn .btn-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.actions .btn .btn-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .empty {
@@ -620,4 +667,18 @@ body.boot-loading .input {
   height: 100%;
   object-fit: contain;
   background: transparent;
+}
+
+.danger-btn .btn-icon,
+.btn.danger .btn-icon {
+  filter: brightness(0) invert(1);
+}
+
+.btn.favorite-active .btn-icon {
+  filter: none;
+}
+
+:root[data-theme="dark"] .btn-icon,
+:root[data-theme="dark"] .search-icon {
+  filter: brightness(0) invert(0.9);
 }

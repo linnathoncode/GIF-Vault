@@ -12,6 +12,8 @@ import { formatBytes, hostFromUrl } from "../../lib/ui.js";
 import { safeLog } from "../../lib/log.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
 
+const SHARED_ICON_BASE = "../../assets/shared";
+
 export function selectionIdsChanged(previousIds, nextIds) {
   const before = [...previousIds].map((id) => String(id)).sort();
   const after = [...nextIds].map((id) => String(id)).sort();
@@ -75,6 +77,10 @@ function getEmptyMascotVariant({ query = "", currentTab = "all" } = {}) {
 function getEmptyMascotSrc(themeMode, variant) {
   const themePrefix = themeMode === "dark" ? "pesto" : "otha";
   return `../../assets/mascots/${themePrefix}-${variant}.webp`;
+}
+
+function buildSharedIconPath(fileName) {
+  return `${SHARED_ICON_BASE}/${fileName}`;
 }
 
 // Vault filtering, rendering, and item actions.
@@ -347,7 +353,7 @@ export function createPopupGridController({
       return;
     }
     button.classList.remove("delete-armed");
-    button.textContent = "\u2715";
+    setButtonIcon(button, "icon-delete.svg");
     button.title = UI_MESSAGES.grid.delete;
     button.setAttribute("aria-label", UI_MESSAGES.grid.delete);
   }
@@ -482,6 +488,7 @@ export function createPopupGridController({
         ? UI_MESSAGES.grid.confirmDeleteTitleMany(count)
         : UI_MESSAGES.grid.confirmDeleteTitleSingle;
     const armedGlyph = armedDeleteGlyph(count);
+    const armedIconFile = count > 1 ? "icon-warning.svg" : "icon-confirm.svg";
     const buttonsToArm = [];
 
     if (count > 1 && targetIds.length > 0) {
@@ -501,7 +508,7 @@ export function createPopupGridController({
     armedDeleteButtons = buttonsToArm;
     for (const armedButton of armedDeleteButtons) {
       armedButton.classList.add("delete-armed");
-      armedButton.textContent = armedGlyph;
+      setButtonIcon(armedButton, armedIconFile, armedGlyph);
       armedButton.title = armedLabel;
       armedButton.setAttribute("aria-label", armedLabel);
     }
@@ -1031,7 +1038,9 @@ export function createPopupGridController({
     const button = document.createElement("button");
     button.className = className;
     button.type = "button";
-    button.textContent = text;
+    if (text) {
+      button.textContent = text;
+    }
     if (actionKey) {
       button.dataset.action = actionKey;
     }
@@ -1045,6 +1054,25 @@ export function createPopupGridController({
       button.addEventListener("click", onClick);
     }
     return button;
+  }
+
+  function createButtonIcon(fileName, fallbackText = "") {
+    const icon = document.createElement("img");
+    icon.className = "btn-icon";
+    icon.src = buildSharedIconPath(fileName);
+    icon.alt = "";
+    icon.setAttribute("aria-hidden", "true");
+    if (fallbackText) {
+      icon.dataset.fallback = fallbackText;
+    }
+    return icon;
+  }
+
+  function setButtonIcon(button, fileName, fallbackText = "") {
+    if (!(button instanceof HTMLElement)) {
+      return;
+    }
+    button.replaceChildren(createButtonIcon(fileName, fallbackText));
   }
 
   function createInvalidCard(item) {
@@ -1133,12 +1161,12 @@ export function createPopupGridController({
 
     const renameBtn = createButton({
       className: "name-btn",
-      text: "\u270E",
       actionKey: "rename",
       title: UI_MESSAGES.grid.rename,
       label: UI_MESSAGES.grid.rename,
       onClick: () => renameItem(item),
     });
+    setButtonIcon(renameBtn, "icon-rename.svg");
 
     nameRow.append(nameText, renameBtn);
 
@@ -1157,24 +1185,25 @@ export function createPopupGridController({
 
     const copyBtn = createButton({
       className: "btn primary",
-      text: "\u29C9",
       actionKey: "copy",
       title: UI_MESSAGES.grid.copy,
       label: UI_MESSAGES.grid.copy,
     });
+    setButtonIcon(copyBtn, "icon-copy.svg");
     copyBtn.addEventListener("click", async () => {
       clearAllSelections();
       const result = await copyItemBlob(item);
-      copyBtn.textContent = result.ok ? "\u2713" : "!";
+      const feedbackIcon = result.ok ? "icon-copy-success.svg" : "icon-warning.svg";
+      const feedbackGlyph = result.ok ? "\u2713" : "!";
+      setButtonIcon(copyBtn, feedbackIcon, feedbackGlyph);
       setCopyStatus(item, result);
       setTimeout(() => {
-        copyBtn.textContent = "\u29C9";
+        setButtonIcon(copyBtn, "icon-copy.svg");
       }, getPopupMenuConfig().copyFeedbackResetDelayMs);
     });
 
     const favoriteBtn = createButton({
       className: "btn",
-      text: item.favorite ? "\u2605" : "\u2606",
       actionKey: "favorite",
       title: `${item.favorite ? UI_MESSAGES.grid.unfavorite : UI_MESSAGES.grid.favorite} ${UI_MESSAGES.grid.favoriteBatchHint}`,
       label: `${item.favorite ? UI_MESSAGES.grid.unfavorite : UI_MESSAGES.grid.favorite} ${UI_MESSAGES.grid.favoriteBatchHint}`,
@@ -1185,17 +1214,18 @@ export function createPopupGridController({
         void setFavoriteForItems(targetIds, nextFavorite);
       },
     });
+    setButtonIcon(favoriteBtn, "icon-star.svg");
     if (item.favorite) {
       favoriteBtn.classList.add("favorite-active");
     }
 
     const removeBtn = createButton({
       className: "btn danger",
-      text: "\u2715",
       actionKey: "delete",
       title: UI_MESSAGES.grid.delete,
       label: UI_MESSAGES.grid.delete,
     });
+    setButtonIcon(removeBtn, "icon-delete.svg");
     removeBtn.addEventListener("click", () => {
       const targetIds = resolveTargetIdsForAction(item.id);
       const actionKey = targetIds.length > 1

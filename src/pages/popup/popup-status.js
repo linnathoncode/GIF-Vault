@@ -14,6 +14,8 @@ export function createPopupStatusController({
     progressBarEl,
     progressLabelEl,
     importBtn,
+    importBtnIcon,
+    importBtnLabel,
   } = refs;
 
   let transientStatusTimer = 0;
@@ -248,9 +250,22 @@ export function createPopupStatusController({
 
   function syncImportActionButton() {
     const isActiveImport = Boolean(state.currentImportState?.active);
-    importBtn.textContent = isActiveImport
+    const nextLabel = isActiveImport
       ? UI_MESSAGES.popup.importButtonTerminate
       : UI_MESSAGES.popup.importButtonIdle;
+    const nextIcon = isActiveImport
+      ? "icon-stop-import.svg"
+      : "icon-import.svg";
+
+    if (importBtnLabel) {
+      importBtnLabel.textContent = nextLabel;
+    } else if (importBtn) {
+      importBtn.textContent = nextLabel;
+    }
+
+    if (importBtnIcon) {
+      importBtnIcon.src = `../../assets/shared/${nextIcon}`;
+    }
   }
 
   function setImportErrorState(text) {

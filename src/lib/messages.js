@@ -147,9 +147,9 @@ function createEnMessages() {
     options: {
       pageTitle: "GIF Vault Options",
       heading: "GIF Vault Options",
-      subtitle: "Tune popup behavior and GIF conversion.",
+      subtitle: "Predictable performance tuning and popup controls.",
       warningAriaLabel: "Options warning",
-      warningStrong: "Defaults are your friend.",
+      warningStrong: "Predictable Performance Tuning & Settings",
       warningBody:
         "Changing these values can increase CPU use, memory use, and storage size. Defaults are recommended for stable, predictable performance.",
       gifConversionHeading: "GIF Conversion",
@@ -175,6 +175,13 @@ function createEnMessages() {
       statusLanguageUpdated: "Language switched.",
       statusAdjustAndSave: "Tweak values and save.",
       languageLabel: "Language",
+      guideHeading: "My Vault & Otha's Guide",
+      guideBodyPrimary:
+        "Our gibbon guides are here. Find answers or submit feedback.",
+      guideBodySecondary: "Otha helps with settings and quick troubleshooting.",
+      helpDocsButton: "Help Docs",
+      submitFeedbackButton: "Submit Feedback",
+      guideMascotAlt: "Options guide mascot",
     },
     logs: {
       pageTitle: "GIF Vault Logs",
@@ -396,9 +403,9 @@ function createTrMessages() {
     options: {
       pageTitle: "GIF Vault Ayarları",
       heading: "GIF Vault Ayarları",
-      subtitle: "Açılır pencereyi ve GIF dönüşümünü ince ayarla.",
+      subtitle: "Öngörülebilir performans ayarı ve açılır pencere kontrolleri.",
       warningAriaLabel: "Ayar uyarısı",
-      warningStrong: "Varsayılan ayarlar çoğu zaman en iyisi.",
+      warningStrong: "Öngörülebilir Performans Ayarı ve Seçenekler",
       warningBody:
         "Bu değerleri değiştirmek CPU kullanımını, bellek kullanımını ve depolama boyutunu artırabilir. Daha stabil ve öngörülebilir performans için varsayılan ayarlar önerilir.",
       gifConversionHeading: "GIF Dönüşümü",
@@ -424,6 +431,14 @@ function createTrMessages() {
       statusLanguageUpdated: "Dil değiştirildi.",
       statusAdjustAndSave: "Değerleri düzenleyip kaydet.",
       languageLabel: "Dil",
+      guideHeading: "Vault'um ve Otha Rehberi",
+      guideBodyPrimary:
+        "Gibbon rehberleri burada. Cevap bulabilir veya geri bildirim gönderebilirsin.",
+      guideBodySecondary:
+        "Otha ayarlarla ve hızlı sorun gidermeyle yardımcı olur.",
+      helpDocsButton: "Yardım Belgeleri",
+      submitFeedbackButton: "Geri Bildirim Gönder",
+      guideMascotAlt: "Ayarlar rehberi maskotu",
     },
     logs: {
       pageTitle: "GIF Vault Kayıtları",

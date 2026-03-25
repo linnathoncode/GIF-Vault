@@ -185,6 +185,8 @@ Rules:
 - Background import pipeline now enforces a single active import globally, so context-menu, popup, and assist imports cannot run concurrently.
 - Import pipeline now enforces strict `http/https` URL validation, redirect URL re-validation, and hard download-size limits, with stricter media-type fallback checks.
 - Options now use a configurable max download-size limit (MB) instead of max video duration for import safety limits.
+- Options page UI was redesigned with balanced side-by-side settings cards, an expanded guide panel, and mirrored `all-no-item` mascot art for the settings experience.
+- Popup, logs, assist, and options pages now use shared SVG action/header icons from `src/assets/shared` with theme-aware toggle icons and reused alias mappings.
 
 ## Operational Notes
 

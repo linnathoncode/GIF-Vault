@@ -22,6 +22,17 @@ let resolvedMediaUrls = [];
 let isBusy = false;
 let usingDefaultReason = false;
 
+function setButtonLabel(button, text) {
+  const labelEl = button?.querySelector?.("span");
+  if (labelEl) {
+    labelEl.textContent = text;
+    return;
+  }
+  if (button) {
+    button.textContent = text;
+  }
+}
+
 async function applyLocale(localeHint = "") {
   await initializeI18n(
     localeHint
@@ -37,9 +48,9 @@ async function applyLocale(localeHint = "") {
     reasonEl.textContent = UI_MESSAGES.assist.defaultReason;
   }
   if (pendingOrigins.length === 0) {
-    grantBtn.textContent = UI_MESSAGES.assist.importButtonIdle;
+    setButtonLabel(grantBtn, UI_MESSAGES.assist.importButtonIdle);
   } else {
-    grantBtn.textContent = UI_MESSAGES.assist.grantAndImportButton;
+    setButtonLabel(grantBtn, UI_MESSAGES.assist.grantAndImportButton);
   }
 }
 
@@ -94,10 +105,10 @@ async function init() {
   renderOrigins(pendingOrigins);
 
   if (pendingOrigins.length === 0) {
-    grantBtn.textContent = UI_MESSAGES.assist.importButtonIdle;
+    setButtonLabel(grantBtn, UI_MESSAGES.assist.importButtonIdle);
     setStatus(UI_MESSAGES.assist.accessAlreadyGranted, "");
   } else {
-    grantBtn.textContent = UI_MESSAGES.assist.grantAndImportButton;
+    setButtonLabel(grantBtn, UI_MESSAGES.assist.grantAndImportButton);
     setStatus(UI_MESSAGES.assist.grantThenImport, "");
   }
 

@@ -11,11 +11,25 @@
     <section class="panel header">
       <h1 class="title" data-i18n="logs.heading">GIF Vault Debug Logs</h1>
       <div class="actions">
-        <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme" data-i18n-title="common.toggleTheme" data-i18n-aria-label="common.toggleTheme">&#9790;</button>
-        <button id="viewToggleBtn" class="btn" type="button" data-i18n="logs.expandAllButton">Expand all</button>
-        <button id="reportBugBtn" class="btn" type="button" data-i18n="logs.reportBugButtonCollapsed">Report bug</button>
-        <button id="refreshBtn" class="btn" type="button" data-i18n="logs.refreshButton">Refresh</button>
-        <button id="clearBtn" class="btn" type="button" data-i18n="logs.clearButton">Clear</button>
+        <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme" data-i18n-title="common.toggleTheme" data-i18n-aria-label="common.toggleTheme">
+          <img id="themeToggleIcon" class="btn-icon btn-icon-md" src="../../assets/shared/icon-theme-light.svg" alt="" aria-hidden="true" />
+        </button>
+        <button id="viewToggleBtn" class="btn icon-text-btn" type="button">
+          <img id="viewToggleIcon" class="btn-icon" src="../../assets/shared/icon-view-expand.svg" alt="" aria-hidden="true" />
+          <span data-i18n="logs.expandAllButton">Expand all</span>
+        </button>
+        <button id="reportBugBtn" class="btn icon-text-btn" type="button">
+          <img class="btn-icon" src="../../assets/shared/icon-report-bug.svg" alt="" aria-hidden="true" />
+          <span data-i18n="logs.reportBugButtonCollapsed">Report bug</span>
+        </button>
+        <button id="refreshBtn" class="btn icon-text-btn" type="button">
+          <img class="btn-icon" src="../../assets/shared/icon-refresh.svg" alt="" aria-hidden="true" />
+          <span data-i18n="logs.refreshButton">Refresh</span>
+        </button>
+        <button id="clearBtn" class="btn icon-text-btn" type="button">
+          <img class="btn-icon" src="../../assets/shared/icon-clear.svg" alt="" aria-hidden="true" />
+          <span data-i18n="logs.clearButton">Clear</span>
+        </button>
       </div>
     </section>
 
@@ -34,12 +48,15 @@
         placeholder="Describe what you encountered"
       ></textarea>
       <div id="reportAttachmentHint" class="report-warning">
-        <span class="report-warning-icon" aria-hidden="true">!</span>
+        <img class="report-warning-icon" src="../../assets/shared/icon-warning.svg" alt="" aria-hidden="true" />
         <p
           class="status report-hint"
           data-i18n="logs.reportAttachmentHint"
         >A log file will be downloaded automatically. Attach it to the email before sending.</p>
-        <button id="sendReportBtn" class="btn" type="button" data-i18n="logs.reportBugButtonExpanded">Send by email</button>
+        <button id="sendReportBtn" class="btn icon-text-btn" type="button">
+          <img class="btn-icon" src="../../assets/shared/icon-send-email.svg" alt="" aria-hidden="true" />
+          <span data-i18n="logs.reportBugButtonExpanded">Send by email</span>
+        </button>
       </div>
       <div id="reportStatus" class="status" hidden></div>
     </section>
@@ -49,7 +66,10 @@
     </section>
 
     <section class="panel">
-      <div id="storageUsage" class="status" data-i18n="logs.storageCalculating">Storage: calculating...</div>
+      <div class="status-line">
+        <img class="btn-icon" src="../../assets/shared/icon-storage.svg" alt="" aria-hidden="true" />
+        <div id="storageUsage" class="status" data-i18n="logs.storageCalculating">Storage: calculating...</div>
+      </div>
     </section>
 
     <section class="panel logs-panel">

@@ -17,7 +17,6 @@ import {
   applyDocumentTheme,
   getThemeMode,
   setThemeMode,
-  setThemeToggleGlyph,
   setToolbarIcon,
 } from "../../lib/theme.js";
 import {
@@ -35,6 +34,8 @@ const refs = {
   hoverPreviewEl: document.getElementById("hoverPreview"),
   hoverPreviewImgEl: document.getElementById("hoverPreviewImg"),
   importBtn: document.getElementById("importBtn"),
+  importBtnIcon: document.getElementById("importBtnIcon"),
+  importBtnLabel: document.getElementById("importBtnLabel"),
   importInput: document.getElementById("importInput"),
   nextPageBtn: document.getElementById("nextPageBtn"),
   openLogsBtn: document.getElementById("openLogsBtn"),
@@ -49,6 +50,7 @@ const refs = {
   statusEl: document.getElementById("status"),
   tabAllBtn: document.getElementById("tabAllBtn"),
   tabFavoritesBtn: document.getElementById("tabFavoritesBtn"),
+  themeToggleIcon: document.getElementById("themeToggleIcon"),
   themeToggleBtn: document.getElementById("themeToggleBtn"),
 };
 
@@ -370,7 +372,6 @@ async function importUrl(rawUrl) {
     }
 
     refs.importInput.value = "";
-    refs.importBtn.textContent = UI_MESSAGES.popup.importButtonIdle;
     const importedCount = Number(response.result?.importedCount) || 1;
     const convertedCount = Number(response.result?.convertedCount) || 0;
     const successMessage = buildImportSuccessMessage(
@@ -483,7 +484,11 @@ function applyImportAssistFromQuery() {
 
 function applyTheme(mode) {
   const theme = applyDocumentTheme(mode);
-  setThemeToggleGlyph(refs.themeToggleBtn, theme);
+  if (refs.themeToggleIcon) {
+    const themeIcon =
+      theme === "dark" ? "icon-theme-light.svg" : "icon-theme-moon.svg";
+    refs.themeToggleIcon.src = `../../assets/shared/${themeIcon}`;
+  }
   void setToolbarIcon(theme);
   if (refs.brandLogo) {
     const oppositeTheme = theme === "dark" ? "light" : "dark";
