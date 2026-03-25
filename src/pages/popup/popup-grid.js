@@ -38,6 +38,30 @@ export function armedDeleteGlyph(count) {
   return count > 1 ? "!" : "\u2713";
 }
 
+export function sanitizeCopyFallbackUrl(candidateUrl) {
+  const normalized = String(candidateUrl || "")
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .trim();
+  if (!normalized) {
+    return "";
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(normalized);
+  } catch {
+    return "";
+  }
+
+  const protocol = parsedUrl.protocol.toLowerCase();
+  if (protocol !== "http:" && protocol !== "https:") {
+    return "";
+  }
+
+  return parsedUrl.toString();
+}
+
 function getEmptyMascotVariant({ query = "", currentTab = "all" } = {}) {
   if (String(query || "").trim()) {
     return "search-no-item";
@@ -519,7 +543,15 @@ export function createPopupGridController({
     const canWriteText =
       navigator.clipboard && typeof navigator.clipboard.writeText === "function";
     if (canWriteText) {
-      const copiedUrl = item.mediaUrl || item.sourceUrl || "";
+      const copiedUrl = sanitizeCopyFallbackUrl(
+        item.mediaUrl || item.sourceUrl || "",
+      );
+      if (!copiedUrl) {
+        await safeLog("popup", "Copy url fallback blocked", {
+          id: item.id,
+        });
+        return { ok: false, method: "none" };
+      }
       try {
         await navigator.clipboard.writeText(copiedUrl);
         await safeLog("popup", "Copy fallback succeeded (url text)", {
