@@ -47,7 +47,7 @@ function fileExtensionFromMime(mimeType) {
   }
 }
 
-function isAnimatedWebpBytes(value) {
+function getWebpAnimationState(value) {
   const bytes = value instanceof Uint8Array
     ? value
     : value instanceof ArrayBuffer
@@ -55,7 +55,7 @@ function isAnimatedWebpBytes(value) {
       : new Uint8Array();
 
   if (bytes.length < 12) {
-    return false;
+    return "indeterminate";
   }
 
   const asciiAt = (offset, text) => {
@@ -78,7 +78,7 @@ function isAnimatedWebpBytes(value) {
   ) >>> 0;
 
   if (!asciiAt(0, "RIFF") || !asciiAt(8, "WEBP")) {
-    return false;
+    return "not-animated";
   }
 
   let offset = 12;
@@ -93,24 +93,33 @@ function isAnimatedWebpBytes(value) {
     const chunkDataStart = offset + 8;
     const chunkDataEnd = chunkDataStart + chunkSize;
     if (chunkDataEnd > bytes.length) {
-      return false;
+      return "indeterminate";
     }
 
     if (chunkId === "ANIM") {
-      return true;
+      return "animated";
     }
 
     if (chunkId === "VP8X" && chunkSize >= 1) {
       const featureFlags = bytes[chunkDataStart];
       if ((featureFlags & 0x02) !== 0) {
-        return true;
+        return "animated";
       }
     }
 
     offset = chunkDataEnd + (chunkSize % 2);
   }
 
-  return false;
+  return "not-animated";
 }
 
-export { extensionFromUrl, fileExtensionFromMime, isAnimatedWebpBytes };
+function isAnimatedWebpBytes(value) {
+  return getWebpAnimationState(value) === "animated";
+}
+
+export {
+  extensionFromUrl,
+  fileExtensionFromMime,
+  getWebpAnimationState,
+  isAnimatedWebpBytes,
+};

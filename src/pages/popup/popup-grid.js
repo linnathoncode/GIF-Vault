@@ -4,7 +4,10 @@ import {
   idbGetMediaBlobs,
   idbSave,
 } from "../../lib/db.js";
-import { fileExtensionFromMime, isAnimatedWebpBytes } from "../../lib/media.js";
+import {
+  fileExtensionFromMime,
+  getWebpAnimationState,
+} from "../../lib/media.js";
 import { formatBytes, hostFromUrl } from "../../lib/ui.js";
 import { safeLog } from "../../lib/log.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
@@ -113,7 +116,8 @@ export function createPopupGridController({
   let latestVisibleItemCount = 0;
   let latestSavedItemCount = 0;
   let latestFavoritesCount = 0;
-  const WEBP_ANIMATION_SNIFF_BYTES = 128;
+  const WEBP_ANIMATION_SNIFF_BYTES = 512;
+  const WEBP_ANIMATION_FALLBACK_SNIFF_BYTES = 16 * 1024;
 
   function getFilteredItems(items) {
     const normalized = items.map((item) => ({
@@ -656,15 +660,31 @@ export function createPopupGridController({
       item.blob.size > 0
     ) {
       try {
-        const bytes = new Uint8Array(
+        const primaryBytes = new Uint8Array(
           await item.blob.slice(0, WEBP_ANIMATION_SNIFF_BYTES).arrayBuffer(),
         );
-        if (isAnimatedWebpBytes(bytes)) {
+        let animationState = getWebpAnimationState(primaryBytes);
+        if (
+          animationState === "indeterminate" &&
+          item.blob.size > WEBP_ANIMATION_SNIFF_BYTES
+        ) {
+          const fallbackBytes = new Uint8Array(
+            await item.blob
+              .slice(0, WEBP_ANIMATION_FALLBACK_SNIFF_BYTES)
+              .arrayBuffer(),
+          );
+          animationState = getWebpAnimationState(fallbackBytes);
+        }
+
+        if (animationState === "animated") {
           mediaKindCacheById.set(itemId, {
             cacheKey,
             mediaKind: "animated-webp",
           });
           return "animated-webp";
+        }
+        if (animationState === "indeterminate") {
+          return "image";
         }
       } catch (error) {
         await safeLog("popup", "Animated WebP detection failed", {

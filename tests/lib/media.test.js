@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   extensionFromUrl,
   fileExtensionFromMime,
+  getWebpAnimationState,
   isAnimatedWebpBytes,
 } from "../../src/lib/media.js";
 
@@ -50,5 +51,17 @@ describe("media extension inference", () => {
 
   it("does not mark static webp as animated", () => {
     expect(isAnimatedWebpBytes(buildWebpVp8xBytes(0x00))).toBe(false);
+  });
+
+  it("returns indeterminate for truncated webp chunks", () => {
+    const truncated = new Uint8Array([
+      0x52, 0x49, 0x46, 0x46,
+      0x20, 0x00, 0x00, 0x00,
+      0x57, 0x45, 0x42, 0x50,
+      0x56, 0x50, 0x38, 0x58,
+      0x0a, 0x00, 0x00, 0x00,
+      0x02, 0x00, 0x00,
+    ]);
+    expect(getWebpAnimationState(truncated)).toBe("indeterminate");
   });
 });
