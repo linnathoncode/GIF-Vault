@@ -1,33 +1,4 @@
-:root {
-  color-scheme: light dark;
-  --bg: #e0e2db;
-  --panel: rgba(255, 255, 255, 0.88);
-  --text: #2e3532;
-  --muted: #55615d;
-  --accent: #8b2635;
-  --accent-strong: #8b2635;
-  --border: rgba(46, 53, 50, 0.14);
-  --shadow: 0 18px 40px rgba(46, 53, 50, 0.18);
-  --callout-bg: rgba(139, 38, 53, 0.08);
-  --callout-border: rgba(139, 38, 53, 0.16);
-  --ok: #0f766e;
-  --secondary-bg: rgba(255, 255, 255, 0.42);
-}
-
-[data-theme="dark"] {
-  --bg: #232b28;
-  --panel: rgba(56, 67, 63, 0.94);
-  --text: #e0e2db;
-  --muted: #c8d0cb;
-  --accent: #d9ab34;
-  --accent-strong: #f2bd3c;
-  --border: rgba(224, 226, 219, 0.16);
-  --shadow: 0 18px 40px rgba(0, 0, 0, 0.36);
-  --callout-bg: rgba(224, 226, 219, 0.06);
-  --callout-border: rgba(224, 226, 219, 0.14);
-  --ok: #6dd3b6;
-  --secondary-bg: rgba(224, 226, 219, 0.08);
-}
+@import "../shared/theme.css";
 
 * {
   box-sizing: border-box;
@@ -37,20 +8,20 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  font: 14px/1.45 Georgia, "Times New Roman", serif;
-  color: var(--text);
-  background:
-    radial-gradient(circle at top left, rgba(139, 38, 53, 0.10), transparent 42%),
-    linear-gradient(180deg, rgba(46, 53, 50, 0.10), transparent 28%),
-    var(--bg);
 }
 
 body {
   padding: 20px;
+  font-family: "Bahnschrift", "Trebuchet MS", "Franklin Gothic Medium", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 10% -10%, color-mix(in srgb, var(--bg-top) 78%, #ffffff 22%), transparent 35%),
+    radial-gradient(circle at 98% 18%, color-mix(in srgb, var(--bg-top) 68%, var(--card) 32%), transparent 40%),
+    linear-gradient(180deg, var(--bg-top), var(--bg) 44%);
 }
 
 .wrap {
-  width: min(560px, 100%);
+  width: min(620px, 100%);
   margin: 0 auto;
 }
 
@@ -58,16 +29,17 @@ body {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: var(--shadow);
-  padding: 22px;
+  background: var(--card);
+  border: 2px solid color-mix(in srgb, var(--line) 82%, var(--text) 18%);
+  border-radius: 14px;
+  padding: 20px;
   min-height: 420px;
   display: grid;
   align-content: start;
   gap: 2px;
-  backdrop-filter: blur(8px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--card) 86%, #ffffff 14%),
+    0 1px 0 color-mix(in srgb, var(--line) 60%, transparent 40%);
 }
 
 .panel::before {
@@ -92,6 +64,9 @@ h1 {
   margin: 0 0 8px;
   font-size: 22px;
   line-height: 1.1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 p {
@@ -103,15 +78,21 @@ p {
 .origins {
   margin: 0 0 12px;
   padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--callout-bg);
-  border: 1px solid var(--callout-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--card) 92%, var(--accent-bg) 8%);
+  border: 2px solid color-mix(in srgb, var(--line) 85%, var(--text) 15%);
   overflow-wrap: anywhere;
 }
 
 .origins ul {
   margin: 8px 0 0;
   padding-left: 18px;
+}
+
+.origins strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .status {
@@ -125,21 +106,38 @@ p {
 }
 
 .status.error {
-  color: var(--accent);
+  color: var(--danger);
 }
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+}
+
+.icon-text-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-icon {
+  width: 14px;
+  height: 14px;
+  display: block;
+  pointer-events: none;
 }
 
 button {
   appearance: none;
-  border: 1px solid transparent;
-  border-radius: 12px;
+  border: 2px solid color-mix(in srgb, var(--line) 85%, var(--text) 15%);
+  border-radius: 10px;
   padding: 10px 14px;
   font: inherit;
   cursor: pointer;
+  color: var(--text);
+  background: var(--accent-bg);
   transition:
     transform 120ms ease,
     opacity 120ms ease,
@@ -163,13 +161,22 @@ button:active:not(:disabled) {
 }
 
 .primary {
-  background: var(--accent-strong);
-  color: #fffdf6;
+  background: color-mix(in srgb, var(--accent-line) 86%, var(--accent-bg) 14%);
+  border-color: color-mix(in srgb, var(--accent-line) 88%, var(--line) 12%);
+  color: #ffffff;
   font-weight: 700;
 }
 
 .secondary {
-  background: var(--secondary-bg);
-  border-color: var(--border);
+  background: var(--accent-bg);
+  border-color: color-mix(in srgb, var(--line) 85%, var(--text) 15%);
   color: var(--text);
+}
+
+:root[data-theme="dark"] .btn-icon {
+  filter: brightness(0) invert(0.9);
+}
+
+[data-theme="dark"] .primary .btn-icon {
+  filter: none;
 }
