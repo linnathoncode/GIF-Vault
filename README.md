@@ -12,6 +12,7 @@
 - Shift-click range selection and safer multi-select delete workflow in the popup grid
 - Import progress states with termination support and cleaner restore behavior (no ghost replay)
 - Runtime host-permission assist flow for unknown hosts
+- Hardened import pipeline guards (HTTP/HTTPS URL validation, redirect re-validation, and strict download size enforcement)
 - Logs page with storage usage, repeated-entry bundling toggle, and up to 500 retained entries
 - Cross-page i18n support with Turkish (`tr`) locale and settings language selector
 - Light/dark themes with theme-aware placeholder mascots in popup, logs, and permission-assist pages
@@ -76,6 +77,6 @@ The table below highlights releases with significant changes. It may not list ev
 ## Notes
 
 - Data is stored locally in extension IndexedDB (current browser profile).
-- Log retention is capped at 250 entries.
+- Log retention is capped at 500 entries.
 - Private/protected X/Twitter media may fail to resolve.
 - FFmpeg conversion can be CPU and memory intensive on lower-end devices.
