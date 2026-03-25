@@ -825,6 +825,49 @@ export function createPopupGridController({
     };
   }
 
+  function queueActionFocusRestore(itemId, actionKey) {
+    const cards = Array.from(grid.querySelectorAll(".item"));
+    const currentCard = document.activeElement?.closest(".item");
+    const fallbackIndex = cards.findIndex(
+      (card) => card.dataset.itemId === String(itemId),
+    );
+    const cardIndex = cards.indexOf(currentCard);
+    const sourceIndex = cardIndex >= 0 ? cardIndex : fallbackIndex;
+
+    state.pendingFocusRestore = {
+      type: "action",
+      actionKey: String(actionKey || ""),
+      itemId: String(itemId || ""),
+      index: sourceIndex >= 0 ? sourceIndex : 0,
+    };
+  }
+
+  function captureGridFocusSnapshot() {
+    const focused = document.activeElement;
+    if (!(focused instanceof Element) || !grid.contains(focused)) {
+      return null;
+    }
+
+    const cards = Array.from(grid.querySelectorAll(".item"));
+    const card = focused.closest(".item");
+    if (!card) {
+      return null;
+    }
+
+    const actionNode = focused.closest("[data-action]");
+    const actionKey =
+      actionNode instanceof HTMLElement
+        ? String(actionNode.dataset.action || "")
+        : "";
+    const index = Math.max(0, cards.indexOf(card));
+    return {
+      type: "action",
+      itemId: String(card.dataset.itemId || ""),
+      actionKey,
+      index,
+    };
+  }
+
   function focusFirstAvailableAction(card) {
     if (!card) {
       return false;
@@ -835,7 +878,7 @@ export function createPopupGridController({
       return false;
     }
 
-    nextTarget.focus();
+    nextTarget.focus({ preventScroll: true });
     return true;
   }
 
@@ -856,13 +899,31 @@ export function createPopupGridController({
     const focusState = state.pendingFocusRestore;
     state.pendingFocusRestore = null;
 
-    if (focusState.type !== "removal") {
+    const cards = Array.from(grid.querySelectorAll(".item"));
+    if (cards.length === 0) {
+      importInput.focus({ preventScroll: true });
       return;
     }
 
-    const cards = Array.from(grid.querySelectorAll(".item"));
-    if (cards.length === 0) {
-      importInput.focus();
+    if (focusState.type === "action") {
+      const targetCard = cards.find(
+        (card) => card.dataset.itemId === String(focusState.itemId || ""),
+      );
+      if (targetCard) {
+        const actionTarget = targetCard.querySelector(
+          `[data-action="${String(focusState.actionKey || "")}"]`,
+        );
+        if (actionTarget instanceof HTMLElement) {
+          actionTarget.focus({ preventScroll: true });
+          return;
+        }
+        if (focusFirstAvailableAction(targetCard)) {
+          return;
+        }
+      }
+    }
+
+    if (focusState.type !== "removal" && focusState.type !== "action") {
       return;
     }
 
@@ -874,12 +935,64 @@ export function createPopupGridController({
     focusFirstAvailableAction(cards[targetIndex - 1] || cards[0]);
   }
 
+  function restoreFocusSnapshot(snapshot) {
+    if (!snapshot) {
+      return;
+    }
+
+    const cards = Array.from(grid.querySelectorAll(".item"));
+    if (cards.length === 0) {
+      return;
+    }
+
+    const targetCard = cards.find(
+      (card) => card.dataset.itemId === String(snapshot.itemId || ""),
+    );
+    if (targetCard) {
+      if (snapshot.actionKey) {
+        const actionTarget = targetCard.querySelector(
+          `[data-action="${String(snapshot.actionKey)}"]`,
+        );
+        if (actionTarget instanceof HTMLElement) {
+          actionTarget.focus({ preventScroll: true });
+          return;
+        }
+      }
+      if (focusFirstAvailableAction(targetCard)) {
+        return;
+      }
+    }
+
+    const targetIndex = Math.min(
+      Math.max(0, Number(snapshot.index) || 0),
+      cards.length - 1,
+    );
+    focusFirstAvailableAction(cards[targetIndex] || cards[0]);
+  }
+
+  function restoreGridScrollPosition(scrollTop, scrollLeft) {
+    const top = Math.max(0, Number(scrollTop) || 0);
+    const left = Math.max(0, Number(scrollLeft) || 0);
+    const apply = () => {
+      grid.scrollTop = top;
+      grid.scrollLeft = left;
+    };
+    apply();
+    requestAnimationFrame(() => {
+      apply();
+    });
+    setTimeout(apply, 0);
+  }
+
   // Card and media element construction for the grid.
-  function createButton({ className, text, title, label, onClick }) {
+  function createButton({ className, text, title, label, onClick, actionKey }) {
     const button = document.createElement("button");
     button.className = className;
     button.type = "button";
     button.textContent = text;
+    if (actionKey) {
+      button.dataset.action = actionKey;
+    }
     if (title) {
       button.title = title;
     }
@@ -912,6 +1025,7 @@ export function createPopupGridController({
       createButton({
         className: "btn",
         text: UI_MESSAGES.grid.remove,
+        actionKey: "delete",
         title: UI_MESSAGES.grid.delete,
         onClick: () => removeItems([item.id], item.id),
       }),
@@ -978,6 +1092,7 @@ export function createPopupGridController({
     const renameBtn = createButton({
       className: "name-btn",
       text: "\u270E",
+      actionKey: "rename",
       title: UI_MESSAGES.grid.rename,
       label: UI_MESSAGES.grid.rename,
       onClick: () => renameItem(item),
@@ -1001,6 +1116,7 @@ export function createPopupGridController({
     const copyBtn = createButton({
       className: "btn primary",
       text: "\u29C9",
+      actionKey: "copy",
       title: UI_MESSAGES.grid.copy,
       label: UI_MESSAGES.grid.copy,
     });
@@ -1017,11 +1133,13 @@ export function createPopupGridController({
     const favoriteBtn = createButton({
       className: "btn",
       text: item.favorite ? "\u2605" : "\u2606",
+      actionKey: "favorite",
       title: `${item.favorite ? UI_MESSAGES.grid.unfavorite : UI_MESSAGES.grid.favorite} ${UI_MESSAGES.grid.favoriteBatchHint}`,
       label: `${item.favorite ? UI_MESSAGES.grid.unfavorite : UI_MESSAGES.grid.favorite} ${UI_MESSAGES.grid.favoriteBatchHint}`,
       onClick: () => {
         const targetIds = resolveTargetIdsForAction(item.id);
         const nextFavorite = !Boolean(item.favorite);
+        queueActionFocusRestore(item.id, "favorite");
         void setFavoriteForItems(targetIds, nextFavorite);
       },
     });
@@ -1032,6 +1150,7 @@ export function createPopupGridController({
     const removeBtn = createButton({
       className: "btn danger",
       text: "\u2715",
+      actionKey: "delete",
       title: UI_MESSAGES.grid.delete,
       label: UI_MESSAGES.grid.delete,
     });
@@ -1102,6 +1221,10 @@ export function createPopupGridController({
   async function render() {
     hideHoverPreview();
     clearArmedDelete();
+    const gridFocusSnapshot =
+      state.pendingFocusRestore ? null : captureGridFocusSnapshot();
+    const previousScrollTop = grid.scrollTop;
+    const previousScrollLeft = grid.scrollLeft;
     const renderId = ++state.renderSequence;
     const items = await idbGetAllMedia();
     if (renderId !== state.renderSequence) {
@@ -1161,7 +1284,13 @@ export function createPopupGridController({
       }
     }
 
-    restorePendingFocus();
+    restoreGridScrollPosition(previousScrollTop, previousScrollLeft);
+
+    if (state.pendingFocusRestore) {
+      restorePendingFocus();
+      return;
+    }
+    restoreFocusSnapshot(gridFocusSnapshot);
   }
 
   function cleanupObjectUrls() {
