@@ -79,7 +79,7 @@ function fillForm(config) {
   assignValue("gifFps", config.gifConversion.fps);
   assignValue("gifWidth", config.gifConversion.width);
   assignValue("gifMaxColors", config.gifConversion.maxColors);
-  assignValue("gifMaxDurationSeconds", config.gifConversion.maxDurationSeconds);
+  assignValue("gifMaxDownloadSizeMb", config.gifConversion.maxDownloadSizeMb);
 
   assignValue("popupDefaultTab", config.popupMenu.defaultTab);
   assignChecked(
@@ -101,7 +101,7 @@ function readFormConfig() {
       fps: toInt("gifFps"),
       width: toInt("gifWidth"),
       maxColors: toInt("gifMaxColors"),
-      maxDurationSeconds: toInt("gifMaxDurationSeconds"),
+      maxDownloadSizeMb: toInt("gifMaxDownloadSizeMb"),
     },
     popupMenu: {
       defaultTab: textValue("popupDefaultTab"),

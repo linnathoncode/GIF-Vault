@@ -34,12 +34,25 @@ describe("media resolver", () => {
     // Host detection should include Twitter/X and twimg delivery domains.
     expect(isTwitterUrl("https://x.com/user/status/123")).toBe(true);
     expect(isTwitterUrl("https://video.twimg.com/ext_tw_video/abc.mp4")).toBe(true);
+    expect(isTwitterUrl("https://eviltwitter.com/user/status/123")).toBe(false);
+    expect(isTwitterUrl("https://x.com.evil.com/user/status/123")).toBe(false);
     expect(isTwitterUrl("https://example.com")).toBe(false);
 
-    // Content-type gate should only allow image/video and octet-stream.
+    // Content-type gate should allow image/video directly.
     expect(isSupportedMediaType("image/gif")).toBe(true);
     expect(isSupportedMediaType("video/mp4")).toBe(true);
-    expect(isSupportedMediaType("application/octet-stream")).toBe(true);
+    expect(isSupportedMediaType("application/octet-stream")).toBe(false);
+    expect(
+      isSupportedMediaType("application/octet-stream", {
+        url: "https://cdn.example.com/file.gif",
+      }),
+    ).toBe(true);
+    expect(
+      isSupportedMediaType("", {
+        url: "https://cdn.example.com/download",
+        sniffBytes: new Uint8Array([0x47, 0x49, 0x46, 0x38]),
+      }),
+    ).toBe(true);
     expect(isSupportedMediaType("text/html")).toBe(false);
   });
 

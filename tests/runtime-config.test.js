@@ -18,7 +18,7 @@ describe("runtime config normalization", () => {
         fps: "0",
         width: 999999,
         maxColors: "bad",
-        maxDurationSeconds: -10,
+        maxDownloadSizeMb: -10,
       },
       popupMenu: {
         pageSize: 0,
@@ -43,7 +43,7 @@ describe("runtime config normalization", () => {
       fps: 1,
       width: 1920,
       maxColors: DEFAULT_RUNTIME_CONFIG.gifConversion.maxColors,
-      maxDurationSeconds: 1,
+      maxDownloadSizeMb: 5,
     });
 
     // Assert: booleans/tabs/progress fields normalize to safe runtime values.

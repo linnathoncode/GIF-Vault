@@ -152,7 +152,7 @@ function createEnMessages() {
       fpsLabel: "FPS (1-30)",
       widthLabel: "Width (120-1920)",
       maxColorsLabel: "Max Colors (2-256)",
-      maxDurationLabel: "Max Duration Seconds (1-60)",
+      maxDownloadSizeLabel: "Max Download Size MB (5-200)",
       popupUiHeading: "Popup UI",
       defaultTabLabel: "Default Tab",
       defaultTabAll: "All",
@@ -221,9 +221,11 @@ function createEnMessages() {
       importedSingle: "Import complete.",
       importTerminated: "Import stopped by user.",
       concurrentImportInProgress: "Another import is already in progress.",
+      mediaTooLarge: (maxMb) =>
+        `Media is too large (max ${maxMb} MB). Adjust the limit in Options.`,
       importFailed: "Import failed",
       failedToFetchMedia: "Couldn't fetch media",
-      checkingVideoLength: "Checking video duration...",
+      checkingMediaSize: "Checking media size...",
       convertingVideoToGif: "Converting video to GIF...",
       savingToVault: "Saving to vault...",
       hostAccessRequired: "This site needs extra access first.",
@@ -232,8 +234,6 @@ function createEnMessages() {
       couldNotDetermineVideoDuration: "Couldn't determine video duration.",
       resolvedUrlNotMedia: (contentType = "") =>
         `That URL does not point to media (${contentType || "unknown"})`,
-      videoTooLong: (maxSeconds, actualSeconds) =>
-        `Video is too long (${maxSeconds}s/${actualSeconds.toFixed(1)}s). Change the limit in Options.`,
       importTerminatedError: "IMPORT_TERMINATED",
       missingRequestId: "Missing request ID.",
       phaseResolving: "resolving",
@@ -396,7 +396,7 @@ function createTrMessages() {
       fpsLabel: "FPS (1-30)",
       widthLabel: "Genişlik (120-1920)",
       maxColorsLabel: "Maks Renk (2-256)",
-      maxDurationLabel: "Maks Süre Saniye (1-60)",
+      maxDownloadSizeLabel: "Maks İndirme Boyutu MB (5-200)",
       popupUiHeading: "Açılır Pencere",
       defaultTabLabel: "Varsayılan Sekme",
       defaultTabAll: "Tümü",
@@ -465,9 +465,11 @@ function createTrMessages() {
       importedSingle: "Aktarma tamamlandı.",
       importTerminated: "Aktarma kullanıcı tarafından durduruldu.",
       concurrentImportInProgress: "Başka bir aktarma zaten devam ediyor.",
+      mediaTooLarge: (maxMb) =>
+        `Medya çok büyük (maks ${maxMb} MB). Sınırı Ayarlar'dan değiştirebilirsin.`,
       importFailed: "Aktarma başarısız",
       failedToFetchMedia: "Medya alınamadı",
-      checkingVideoLength: "Video süresi kontrol ediliyor...",
+      checkingMediaSize: "Medya boyutu kontrol ediliyor...",
       convertingVideoToGif: "Video GIF'e dönüştürülüyor...",
       savingToVault: "Vault'a aktarılıyor...",
       hostAccessRequired: "Önce bu site için ek erişim izni gerekiyor.",
@@ -476,8 +478,6 @@ function createTrMessages() {
       couldNotDetermineVideoDuration: "Video süresi belirlenemedi.",
       resolvedUrlNotMedia: (contentType = "") =>
         `Bu URL doğrudan medya içermiyor (${contentType || "bilinmiyor"})`,
-      videoTooLong: (maxSeconds, actualSeconds) =>
-        `Video çok uzun (${maxSeconds}s/${actualSeconds.toFixed(1)}s). Uzunluk sınırını Ayarlar'dan değiştir.`,
       importTerminatedError: "IMPORT_TERMINATED",
       missingRequestId: "İstek kimliği eksik.",
       phaseResolving: "resolving",

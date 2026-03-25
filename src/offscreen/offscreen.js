@@ -91,7 +91,7 @@ async function convertMp4ToGif(message) {
     fps: gifConversion.fps,
     width: gifConversion.width,
     maxColors: gifConversion.maxColors,
-    maxDurationSeconds: gifConversion.maxDurationSeconds
+    maxDownloadSizeMb: gifConversion.maxDownloadSizeMb
   });
 
   await ffmpeg.writeFile(inputName, inputData);

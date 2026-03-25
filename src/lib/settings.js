@@ -14,6 +14,11 @@ const OFFSCREEN = {
   url: "offscreen/offscreen.html",
 };
 
+const IMPORT_PIPELINE = {
+  minDownloadSizeMb: 5,
+  maxDownloadSizeMb: 200,
+};
+
 const DB = {
   name: "gifVaultDB",
   version: 3,
@@ -27,7 +32,7 @@ const GIF_CONVERSION = {
   fps: 10,
   width: 360,
   maxColors: 96,
-  maxDurationSeconds: 15,
+  maxDownloadSizeMb: 50,
 };
 
 const BADGE = {
@@ -81,6 +86,7 @@ export {
   STORAGE_KEYS,
   CONTEXT_MENU,
   OFFSCREEN,
+  IMPORT_PIPELINE,
   DB,
   GIF_CONVERSION,
   BADGE,

@@ -183,6 +183,8 @@ Rules:
 - Popup now shows an explicit startup loading state on browser launch and temporarily disables popup interactions until initialization completes.
 - Popup now blocks concurrent imports by preventing new import starts while an import is active.
 - Background import pipeline now enforces a single active import globally, so context-menu, popup, and assist imports cannot run concurrently.
+- Import pipeline now enforces strict `http/https` URL validation, redirect URL re-validation, and hard download-size limits, with stricter media-type fallback checks.
+- Options now use a configurable max download-size limit (MB) instead of max video duration for import safety limits.
 
 ## Operational Notes
 

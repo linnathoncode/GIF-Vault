@@ -2,13 +2,19 @@ import { safeLog } from "../lib/log.js";
 import { UI_MESSAGES } from "../lib/messages.js";
 
 // URL resolution and media detection.
+function hostMatches(rawHost, expectedHost) {
+  const host = String(rawHost || "").toLowerCase();
+  const expected = String(expectedHost || "").toLowerCase();
+  return host === expected || host.endsWith(`.${expected}`);
+}
+
 function isTwitterUrl(url) {
   try {
     const host = new URL(url).host.toLowerCase();
     return (
-      host.includes("twitter.com") ||
-      host.includes("x.com") ||
-      host.includes("twimg.com")
+      hostMatches(host, "twitter.com") ||
+      hostMatches(host, "x.com") ||
+      hostMatches(host, "twimg.com")
     );
   } catch {
     return false;
@@ -56,7 +62,7 @@ function looksDirectMedia(rawUrl) {
   try {
     const url = new URL(rawUrl);
     const host = url.host.toLowerCase();
-    if (host.includes("video.twimg.com") || host.includes("pbs.twimg.com")) {
+    if (hostMatches(host, "video.twimg.com") || hostMatches(host, "pbs.twimg.com")) {
       return true;
     }
 
@@ -131,7 +137,7 @@ function isLikelyTweetVideoUrl(rawUrl) {
   try {
     const url = new URL(rawUrl);
     const host = url.host.toLowerCase();
-    if (!host.includes("video.twimg.com")) {
+    if (!hostMatches(host, "video.twimg.com")) {
       return false;
     }
     return url.pathname.toLowerCase().includes(".mp4");
@@ -144,7 +150,7 @@ function isLikelyTweetImageUrl(rawUrl) {
   try {
     const url = new URL(rawUrl);
     const host = url.host.toLowerCase();
-    if (!host.includes("pbs.twimg.com")) {
+    if (!hostMatches(host, "pbs.twimg.com")) {
       return false;
     }
 
@@ -393,15 +399,81 @@ async function expandUrl(rawUrl) {
   }
 }
 
-function isSupportedMediaType(contentType) {
-  if (!contentType) {
+function hasLikelyMediaUrlHint(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const path = url.pathname.toLowerCase();
+    if (/\.(gif|png|jpe?g|webp|bmp|avif|mp4|webm|mov|m4v)$/i.test(path)) {
+      return true;
+    }
+    const format = (url.searchParams.get("format") || "").toLowerCase();
+    return ["gif", "png", "jpg", "jpeg", "webp", "bmp", "avif"].includes(format);
+  } catch {
+    return false;
+  }
+}
+
+function inferMediaTypeFromMagicBytes(sniffBytes) {
+  const bytes = sniffBytes instanceof Uint8Array ? sniffBytes : new Uint8Array();
+  if (bytes.length < 4) {
+    return "";
+  }
+
+  const asciiAt = (offset, text) => {
+    if (offset + text.length > bytes.length) {
+      return false;
+    }
+    for (let i = 0; i < text.length; i += 1) {
+      if (bytes[offset + i] !== text.charCodeAt(i)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  if (asciiAt(0, "GIF8")) {
+    return "image/gif";
+  }
+  if (bytes[0] === 0x89 && asciiAt(1, "PNG")) {
+    return "image/png";
+  }
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (asciiAt(0, "RIFF") && asciiAt(8, "WEBP")) {
+    return "image/webp";
+  }
+  if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) {
+    return "video/webm";
+  }
+  if (asciiAt(4, "ftyp")) {
+    return "video/mp4";
+  }
+
+  return "";
+}
+
+function isSupportedMediaType(contentType, options = {}) {
+  const normalizedType = String(contentType || "").trim().toLowerCase();
+  if (
+    normalizedType.startsWith("image/") ||
+    normalizedType.startsWith("video/")
+  ) {
     return true;
   }
-  return (
-    contentType.startsWith("image/") ||
-    contentType.startsWith("video/") ||
-    contentType.includes("octet-stream")
-  );
+
+  const isBinaryFallback =
+    !normalizedType || normalizedType.includes("octet-stream");
+  if (!isBinaryFallback) {
+    return false;
+  }
+
+  if (hasLikelyMediaUrlHint(options.url || "")) {
+    return true;
+  }
+
+  const inferredType = inferMediaTypeFromMagicBytes(options.sniffBytes);
+  return inferredType.startsWith("image/") || inferredType.startsWith("video/");
 }
 
 function getReadableImportError(url, contentType) {

@@ -98,7 +98,7 @@ describe("import service long-video gate", () => {
         fps: 10,
         width: 360,
         maxColors: 96,
-        maxDurationSeconds: 15,
+        maxDownloadSizeMb: 50,
       },
     });
     mocks.resolveMediaUrls.mockResolvedValue(["https://video.example.com/clip.mp4"]);
@@ -116,22 +116,8 @@ describe("import service long-video gate", () => {
     vi.restoreAllMocks();
   });
 
-  it("rejects videos over max duration before conversion call", async () => {
-    await expect(importFromUrl("https://x.com/i/status/1", "")).rejects.toThrow(
-      UI_MESSAGES.import.videoTooLong(15, 18.2),
-    );
-
-    const messageTypes = sendMessageMock.mock.calls.map(([msg]) => msg?.type);
-    expect(messageTypes).toContain("OFFSCREEN_PROBE_VIDEO_DURATION");
-    expect(messageTypes).not.toContain("OFFSCREEN_CONVERT_MP4");
-    expect(mocks.idbSave).not.toHaveBeenCalled();
-  });
-
-  it("continues to conversion when video duration is within limit", async () => {
+  it("converts supported video imports and saves result", async () => {
     sendMessageMock.mockImplementation(async (message) => {
-      if (message?.type === "OFFSCREEN_PROBE_VIDEO_DURATION") {
-        return { ok: true, durationSeconds: 9.4 };
-      }
       if (message?.type === "OFFSCREEN_CONVERT_MP4") {
         return {
           ok: true,
@@ -150,7 +136,6 @@ describe("import service long-video gate", () => {
     ).resolves.toMatchObject({ kind: "image", converted: true });
 
     const messageTypes = sendMessageMock.mock.calls.map(([msg]) => msg?.type);
-    expect(messageTypes).toContain("OFFSCREEN_PROBE_VIDEO_DURATION");
     expect(messageTypes).toContain("OFFSCREEN_CONVERT_MP4");
     expect(mocks.idbSave).toHaveBeenCalledTimes(1);
 
@@ -428,5 +413,82 @@ describe("import service long-video gate", () => {
     ).resolves.toMatchObject({
       importedCount: 1,
     });
+  });
+
+  it("rejects non-http import entry URLs early", async () => {
+    await expect(importFromUrl("file:///C:/temp/test.gif", "")).rejects.toThrow(
+      UI_MESSAGES.popup.enterValidUrl,
+    );
+    expect(mocks.resolveMediaUrls).not.toHaveBeenCalled();
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-http resolved hint URLs early", async () => {
+    await expect(
+      importFromUrl("https://x.com/i/status/12", "", "request-12", [
+        "javascript:alert(1)",
+      ]),
+    ).rejects.toThrow(UI_MESSAGES.popup.enterValidUrl);
+    expect(mocks.resolveMediaUrls).not.toHaveBeenCalled();
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-http resolved URLs returned by resolver", async () => {
+    mocks.resolveMediaUrls.mockResolvedValueOnce(["data:text/plain;base64,SGVsbG8="]);
+    await expect(
+      importFromUrl("https://x.com/i/status/13", "", "request-13"),
+    ).rejects.toThrow(UI_MESSAGES.popup.enterValidUrl);
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("enforces max media size limit during download", async () => {
+    const MB = 1024 * 1024;
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      url: "https://video.example.com/clip.mp4",
+      headers: {
+        get: () => "video/mp4",
+      },
+      blob: async () => ({ size: 60 * MB }),
+    }));
+
+    await expect(
+      importFromUrl("https://x.com/i/status/14", "", "request-14"),
+    ).rejects.toThrow(UI_MESSAGES.import.mediaTooLarge(50));
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("re-validates redirected response URL access before reading blob", async () => {
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      url: "https://unauthorized.example.com/file.gif",
+      headers: {
+        get: () => "image/gif",
+      },
+      blob: async () =>
+        new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/gif" }),
+    }));
+    mocks.resolveMediaUrls.mockResolvedValueOnce([
+      "https://video.example.com/clip.gif",
+    ]);
+    mocks.originPatternFromUrl.mockImplementation((url) => {
+      if (String(url).includes("unauthorized.example.com")) {
+        return "https://unauthorized.example.com/*";
+      }
+      if (String(url).includes("video.example.com")) {
+        return "https://video.example.com/*";
+      }
+      return "https://x.com/*";
+    });
+    globalThis.chrome.permissions.contains.mockImplementation(async ({ origins }) =>
+      !origins.includes("https://unauthorized.example.com/*"),
+    );
+
+    await expect(
+      importFromUrl("https://x.com/i/status/15", "", "request-15"),
+    ).rejects.toThrow(UI_MESSAGES.import.hostAccessRequired);
+    expect(mocks.idbSave).not.toHaveBeenCalled();
   });
 });
