@@ -121,6 +121,7 @@ function normalizeRuntimeConfig(raw) {
         5000,
       ),
       importProgressPercent: {
+        boot: normalizeProgressValue(progressInput.boot, defaultProgress.boot),
         resolving: normalizeProgressValue(
           progressInput.resolving,
           defaultProgress.resolving,

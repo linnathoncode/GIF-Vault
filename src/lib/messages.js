@@ -243,6 +243,7 @@ function createEnMessages() {
       phaseSaving: "saving",
       phaseComplete: "complete",
       phaseIdle: "idle",
+      phaseBoot: "boot",
     },
     serviceWorker: {
       contextMenuAddToVault: "Add to GIF Vault",
@@ -486,6 +487,7 @@ function createTrMessages() {
       phaseSaving: "saving",
       phaseComplete: "complete",
       phaseIdle: "idle",
+      phaseBoot: "boot",
     },
     serviceWorker: {
       contextMenuAddToVault: "GIF Vault'a Aktar",

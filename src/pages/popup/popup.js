@@ -214,7 +214,7 @@ function showBootLoadingState() {
   statusController.setProgressState({
     text: UI_MESSAGES.popup.initializing,
     kind: "info",
-    phase: UI_MESSAGES.import.phaseIdle,
+    phase: UI_MESSAGES.import.phaseBoot,
     active: true,
   });
   refs.countEl.textContent = UI_MESSAGES.popup.initializing;

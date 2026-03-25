@@ -54,6 +54,7 @@ describe("runtime config normalization", () => {
       hoverPreviewDelayMs: 500,
       copyFeedbackResetDelayMs: 5000,
       importProgressPercent: {
+        boot: DEFAULT_RUNTIME_CONFIG.popupMenu.importProgressPercent.boot,
         resolving: 0,
         fetching: 100,
         checking: 58,

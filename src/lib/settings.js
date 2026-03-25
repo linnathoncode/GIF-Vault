@@ -60,6 +60,7 @@ const POPUP_MENU = {
   hoverPreviewDelayMs: 500,
   copyFeedbackResetDelayMs: 900,
   importProgressPercent: {
+    boot: 0,
     resolving: 16,
     fetching: 40,
     checking: 58,
