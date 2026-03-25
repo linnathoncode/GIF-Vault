@@ -12,16 +12,16 @@ const mocks = vi.hoisted(() => ({
   renderTabs: [],
 }));
 
-vi.mock("../src/lib/i18n.js", () => ({
+vi.mock("../../src/lib/i18n.js", () => ({
   applyStaticI18n: mocks.applyStaticI18n,
   initializeI18n: mocks.initializeI18n,
 }));
 
-vi.mock("../src/lib/log.js", () => ({
+vi.mock("../../src/lib/log.js", () => ({
   safeLog: mocks.safeLog,
 }));
 
-vi.mock("../src/lib/theme.js", () => ({
+vi.mock("../../src/lib/theme.js", () => ({
   applyDocumentTheme: mocks.applyDocumentTheme,
   getThemeMode: mocks.getThemeMode,
   setThemeMode: mocks.setThemeMode,
@@ -29,7 +29,7 @@ vi.mock("../src/lib/theme.js", () => ({
   setToolbarIcon: mocks.setToolbarIcon,
 }));
 
-vi.mock("../src/pages/popup/popup-grid.js", () => ({
+vi.mock("../../src/pages/popup/popup-grid.js", () => ({
   createPopupGridController: ({ state }) => ({
     clearSelections: vi.fn(),
     cleanupObjectUrls: vi.fn(),
@@ -41,7 +41,7 @@ vi.mock("../src/pages/popup/popup-grid.js", () => ({
   }),
 }));
 
-vi.mock("../src/pages/popup/popup-status.js", () => ({
+vi.mock("../../src/pages/popup/popup-status.js", () => ({
   createPopupStatusController: () => ({
     applyImportState: vi.fn(),
     clearTransientStatus: vi.fn(),
@@ -255,7 +255,7 @@ describe("popup latest-tab persistence", () => {
       },
     };
 
-    await import("../src/pages/popup/popup.js");
+    await import("../../src/pages/popup/popup.js");
     await waitForRender();
 
     expect(mocks.renderTabs.length).toBeGreaterThan(0);
@@ -322,7 +322,7 @@ describe("popup latest-tab persistence", () => {
       },
     };
 
-    await import("../src/pages/popup/popup.js");
+    await import("../../src/pages/popup/popup.js");
     await waitForRender();
 
     expect(mocks.renderTabs.length).toBeGreaterThan(0);

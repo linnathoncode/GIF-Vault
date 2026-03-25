@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { UI_MESSAGES } from "../src/lib/messages.js";
+import { UI_MESSAGES } from "../../src/lib/messages.js";
 
 const mocks = vi.hoisted(() => ({
   idbSave: vi.fn(),
@@ -13,27 +13,27 @@ const mocks = vi.hoisted(() => ({
   originPatternFromUrl: vi.fn(),
 }));
 
-vi.mock("../src/lib/db.js", () => ({
+vi.mock("../../src/lib/db.js", () => ({
   idbSave: mocks.idbSave,
   idbDelete: mocks.idbDelete,
 }));
 
-vi.mock("../src/lib/runtime-config.js", () => ({
+vi.mock("../../src/lib/runtime-config.js", () => ({
   getRuntimeConfig: mocks.getRuntimeConfig,
 }));
 
-vi.mock("../src/lib/log.js", () => ({
+vi.mock("../../src/lib/log.js", () => ({
   safeLog: mocks.safeLog,
 }));
 
-vi.mock("../src/background/media-resolver.js", () => ({
+vi.mock("../../src/background/media-resolver.js", () => ({
   resolveMediaUrls: mocks.resolveMediaUrls,
   isSupportedMediaType: mocks.isSupportedMediaType,
   getReadableImportError: mocks.getReadableImportError,
   isTwitterUrl: mocks.isTwitterUrl,
 }));
 
-vi.mock("../src/lib/ui.js", () => ({
+vi.mock("../../src/lib/ui.js", () => ({
   originPatternFromUrl: mocks.originPatternFromUrl,
 }));
 
@@ -108,7 +108,7 @@ describe("import service long-video gate", () => {
     mocks.originPatternFromUrl.mockReturnValue("https://video.example.com/*");
     mocks.idbDelete.mockResolvedValue(undefined);
 
-    ({ importFromUrl, terminateImport } = await import("../src/background/import-service.js"));
+    ({ importFromUrl, terminateImport } = await import("../../src/background/import-service.js"));
   });
 
   afterEach(() => {
@@ -459,6 +459,44 @@ describe("import service long-video gate", () => {
     expect(mocks.idbSave).not.toHaveBeenCalled();
   });
 
+  it("enforces max media size while streaming response chunks", async () => {
+    const MB = 1024 * 1024;
+    const chunk = new Uint8Array(30 * MB);
+    const blobSpy = vi.fn(async () =>
+      new Blob([new Uint8Array([1, 2, 3])], { type: "video/mp4" }),
+    );
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      url: "https://video.example.com/clip.mp4",
+      headers: {
+        get: () => "video/mp4",
+      },
+      body: {
+        getReader: () => {
+          let readCount = 0;
+          return {
+            read: async () => {
+              readCount += 1;
+              if (readCount <= 2) {
+                return { done: false, value: chunk };
+              }
+              return { done: true, value: undefined };
+            },
+            cancel: async () => {},
+          };
+        },
+      },
+      blob: blobSpy,
+    }));
+
+    await expect(
+      importFromUrl("https://x.com/i/status/14b", "", "request-14b"),
+    ).rejects.toThrow(UI_MESSAGES.import.mediaTooLarge(50));
+    expect(blobSpy).not.toHaveBeenCalled();
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
   it("re-validates redirected response URL access before reading blob", async () => {
     globalThis.fetch = vi.fn(async () => ({
       ok: true,
@@ -489,6 +527,30 @@ describe("import service long-video gate", () => {
     await expect(
       importFromUrl("https://x.com/i/status/15", "", "request-15"),
     ).rejects.toThrow(UI_MESSAGES.import.hostAccessRequired);
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("rejects redirected non-http response URLs before reading blob", async () => {
+    const blobSpy = vi.fn(async () =>
+      new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/gif" }),
+    );
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      url: "chrome-extension://other-extension/file.gif",
+      headers: {
+        get: () => "image/gif",
+      },
+      blob: blobSpy,
+    }));
+    mocks.resolveMediaUrls.mockResolvedValueOnce([
+      "https://video.example.com/clip.gif",
+    ]);
+
+    await expect(
+      importFromUrl("https://x.com/i/status/16", "", "request-16"),
+    ).rejects.toThrow(UI_MESSAGES.popup.enterValidUrl);
+    expect(blobSpy).not.toHaveBeenCalled();
     expect(mocks.idbSave).not.toHaveBeenCalled();
   });
 });

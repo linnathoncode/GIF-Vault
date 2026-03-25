@@ -46,7 +46,7 @@ describe("i18n helpers", () => {
     globalThis.chrome.storage.local.get = vi.fn((_keys, callback) =>
       callback({ locale: "tr" }),
     );
-    const i18n = await import("../src/lib/i18n.js");
+    const i18n = await import("../../src/lib/i18n.js");
 
     const result = await i18n.initializeI18n();
 
@@ -59,7 +59,7 @@ describe("i18n helpers", () => {
 
   it("falls back to detected locale and persists when storage is empty", async () => {
     globalThis.chrome.i18n.getUILanguage = vi.fn(() => "tr-TR");
-    const i18n = await import("../src/lib/i18n.js");
+    const i18n = await import("../../src/lib/i18n.js");
 
     const result = await i18n.initializeI18n();
 
@@ -71,7 +71,7 @@ describe("i18n helpers", () => {
   });
 
   it("applies static i18n for text, placeholder, title, aria-label and alt", async () => {
-    const i18n = await import("../src/lib/i18n.js");
+    const i18n = await import("../../src/lib/i18n.js");
     await i18n.initializeI18n({
       localeHint: "tr",
       useStoredLocale: false,
@@ -118,7 +118,7 @@ describe("i18n helpers", () => {
   });
 
   it("normalizes and stores locale via setStoredLocale", async () => {
-    const i18n = await import("../src/lib/i18n.js");
+    const i18n = await import("../../src/lib/i18n.js");
 
     const normalized = await i18n.setStoredLocale("tr-TR");
 

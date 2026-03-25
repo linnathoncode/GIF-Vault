@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_RUNTIME_CONFIG,
   normalizeRuntimeConfig,
-} from "../src/lib/runtime-config.js";
+} from "../../src/lib/runtime-config.js";
 
 describe("runtime config normalization", () => {
   it("returns defaults for null input", () => {

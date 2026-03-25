@@ -3,7 +3,7 @@ import {
   extensionFromUrl,
   fileExtensionFromMime,
   isAnimatedWebpBytes,
-} from "../src/lib/media.js";
+} from "../../src/lib/media.js";
 
 function buildWebpVp8xBytes(featureFlags) {
   const chunkSize = 10;

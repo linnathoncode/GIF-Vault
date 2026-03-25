@@ -3,7 +3,7 @@ import {
   armedDeleteGlyph,
   selectionIdsChanged,
   shouldCancelArmedDeleteOnSelectionChange,
-} from "../src/pages/popup/popup-grid.js";
+} from "../../src/pages/popup/popup-grid.js";
 
 describe("popup-grid multi-select delete helpers", () => {
   it("uses the danger ! glyph for multi-select delete arming", () => {

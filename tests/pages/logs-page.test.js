@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { UI_MESSAGES } from "../src/lib/messages.js";
+import { UI_MESSAGES } from "../../src/lib/messages.js";
 
 const mocks = vi.hoisted(() => ({
   idbGetLogs: vi.fn(),
@@ -15,18 +15,18 @@ const mocks = vi.hoisted(() => ({
   formatBytes: vi.fn(() => "0 B"),
 }));
 
-vi.mock("../src/lib/db.js", () => ({
+vi.mock("../../src/lib/db.js", () => ({
   idbGetLogs: mocks.idbGetLogs,
   idbClearLogs: mocks.idbClearLogs,
   idbLog: mocks.idbLog,
 }));
 
-vi.mock("../src/lib/i18n.js", () => ({
+vi.mock("../../src/lib/i18n.js", () => ({
   initializeI18n: mocks.initializeI18n,
   applyStaticI18n: mocks.applyStaticI18n,
 }));
 
-vi.mock("../src/lib/theme.js", () => ({
+vi.mock("../../src/lib/theme.js", () => ({
   applyDocumentTheme: mocks.applyDocumentTheme,
   getThemeMode: mocks.getThemeMode,
   setThemeMode: mocks.setThemeMode,
@@ -34,7 +34,7 @@ vi.mock("../src/lib/theme.js", () => ({
   setToolbarIcon: mocks.setToolbarIcon,
 }));
 
-vi.mock("../src/lib/ui.js", () => ({
+vi.mock("../../src/lib/ui.js", () => ({
   formatBytes: mocks.formatBytes,
 }));
 
@@ -207,7 +207,7 @@ describe("logs page bootstrap", () => {
 
   it("does not remain in loading state when idbGetLogs throws", async () => {
     vi.useFakeTimers();
-    await import("../src/pages/logs/logs.js");
+    await import("../../src/pages/logs/logs.js");
     await vi.advanceTimersByTimeAsync(100);
     await flushMicrotasks();
 
@@ -225,7 +225,7 @@ describe("logs page bootstrap", () => {
     vi.useFakeTimers();
     mocks.idbGetLogs.mockImplementation(() => new Promise(() => {}));
 
-    await import("../src/pages/logs/logs.js");
+    await import("../../src/pages/logs/logs.js");
     await vi.advanceTimersByTimeAsync(4500);
     await flushMicrotasks();
 
@@ -251,7 +251,7 @@ describe("logs page bootstrap", () => {
       },
     });
 
-    await import("../src/pages/logs/logs.js");
+    await import("../../src/pages/logs/logs.js");
     await vi.advanceTimersByTimeAsync(3000);
     await flushMicrotasks();
 
@@ -272,7 +272,7 @@ describe("logs page bootstrap", () => {
     mocks.initializeI18n.mockImplementationOnce(() => new Promise(() => {}));
     mocks.idbGetLogs.mockResolvedValue([]);
 
-    await import("../src/pages/logs/logs.js");
+    await import("../../src/pages/logs/logs.js");
     await vi.advanceTimersByTimeAsync(3500);
     await flushMicrotasks();
 
@@ -301,7 +301,7 @@ describe("logs page bootstrap", () => {
       logsEl.textContent = UI_MESSAGES.logs.loading;
     });
 
-    await import("../src/pages/logs/logs.js");
+    await import("../../src/pages/logs/logs.js");
     await vi.advanceTimersByTimeAsync(3500);
     await flushMicrotasks();
 
@@ -327,7 +327,7 @@ describe("logs page bootstrap", () => {
     globalThis.chrome = undefined;
     mocks.idbGetLogs.mockResolvedValue([]);
 
-    await import("../src/pages/logs/logs.js");
+    await import("../../src/pages/logs/logs.js");
     await vi.advanceTimersByTimeAsync(7000);
     await flushMicrotasks();
 
@@ -367,7 +367,7 @@ describe("logs page bootstrap", () => {
       },
     ]);
 
-    await import("../src/pages/logs/logs.js");
+    await import("../../src/pages/logs/logs.js");
     await vi.advanceTimersByTimeAsync(100);
     await flushMicrotasks();
 
@@ -409,7 +409,7 @@ describe("logs page bootstrap", () => {
       },
     ]);
 
-    await import("../src/pages/logs/logs.js");
+    await import("../../src/pages/logs/logs.js");
     await vi.advanceTimersByTimeAsync(100);
     await flushMicrotasks();
 
@@ -451,7 +451,7 @@ describe("logs page bootstrap", () => {
       },
     ]);
 
-    await import("../src/pages/logs/logs.js");
+    await import("../../src/pages/logs/logs.js");
     await vi.advanceTimersByTimeAsync(100);
     await flushMicrotasks();
 
@@ -472,7 +472,7 @@ describe("logs page bootstrap", () => {
       logsEl.textContent = UI_MESSAGES.logs.loading;
     });
 
-    await import("../src/pages/logs/logs.js");
+    await import("../../src/pages/logs/logs.js");
     await vi.advanceTimersByTimeAsync(100);
     await flushMicrotasks();
 
@@ -501,7 +501,7 @@ describe("logs page bootstrap", () => {
       },
     ]);
 
-    await import("../src/pages/logs/logs.js");
+    await import("../../src/pages/logs/logs.js");
     await vi.advanceTimersByTimeAsync(100);
     await flushMicrotasks();
 

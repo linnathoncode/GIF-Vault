@@ -14,19 +14,19 @@ const mocks = vi.hoisted(() => ({
   ffmpegDeleteFile: vi.fn(async () => {}),
 }));
 
-vi.mock("../src/lib/log.js", () => ({
+vi.mock("../../src/lib/log.js", () => ({
   safeLog: mocks.safeLog,
 }));
 
-vi.mock("../src/lib/i18n.js", () => ({
+vi.mock("../../src/lib/i18n.js", () => ({
   initializeI18n: mocks.initializeI18n,
 }));
 
-vi.mock("../src/vendor/@ffmpeg/util/esm/index.js", () => ({
+vi.mock("../../src/vendor/@ffmpeg/util/esm/index.js", () => ({
   fetchFile: mocks.fetchFile,
 }));
 
-vi.mock("../src/vendor/@ffmpeg/ffmpeg/esm/index.js", () => ({
+vi.mock("../../src/vendor/@ffmpeg/ffmpeg/esm/index.js", () => ({
   FFmpeg: class {
     constructor() {
       this.loaded = true;
@@ -59,7 +59,7 @@ describe("offscreen runtime message validation", () => {
       },
     };
 
-    await import("../src/offscreen/offscreen.js");
+    await import("../../src/offscreen/offscreen.js");
     expect(typeof mocks.listener).toBe("function");
   });
 
@@ -88,6 +88,27 @@ describe("offscreen runtime message validation", () => {
       {
         type: "OFFSCREEN_CONVERT_MP4",
         url: { invalid: true },
+      },
+      { id: "ext-id" },
+      sendResponse,
+    );
+
+    await Promise.resolve();
+
+    expect(handled).toBeUndefined();
+    expect(sendResponse).not.toHaveBeenCalled();
+    expect(mocks.fetchFile).not.toHaveBeenCalled();
+    expect(mocks.ffmpegProbe).not.toHaveBeenCalled();
+    expect(mocks.ffmpegExec).not.toHaveBeenCalled();
+  });
+
+  it("ignores trusted sender messages with unknown type", async () => {
+    const sendResponse = vi.fn();
+
+    const handled = mocks.listener(
+      {
+        type: "OFFSCREEN_UNKNOWN",
+        url: "https://example.com/a.mp4",
       },
       { id: "ext-id" },
       sendResponse,

@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
   idbLog: vi.fn(),
 }));
 
-vi.mock("../src/lib/db.js", () => ({
+vi.mock("../../src/lib/db.js", () => ({
   idbLog: mocks.idbLog,
 }));
 
@@ -16,7 +16,7 @@ describe("log sanitization", () => {
   });
 
   it("safeStringifyLogValue redacts query and hash in URL strings", async () => {
-    const { safeStringifyLogValue } = await import("../src/lib/log.js");
+    const { safeStringifyLogValue } = await import("../../src/lib/log.js");
     const value = safeStringifyLogValue({
       url: "https://example.com/media.gif?token=abc123#keep-out",
     });
@@ -27,7 +27,7 @@ describe("log sanitization", () => {
   });
 
   it("safeStringifyLogValue handles circular values", async () => {
-    const { safeStringifyLogValue } = await import("../src/lib/log.js");
+    const { safeStringifyLogValue } = await import("../../src/lib/log.js");
     const details = { nested: {} };
     details.nested.self = details;
 
@@ -36,7 +36,7 @@ describe("log sanitization", () => {
   });
 
   it("safeLog stores sanitized details", async () => {
-    const { safeLog } = await import("../src/lib/log.js");
+    const { safeLog } = await import("../../src/lib/log.js");
 
     await safeLog("import", "fetching", {
       sourceUrl: "https://example.com/post?auth=secret#hash",
