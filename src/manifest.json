@@ -18,8 +18,7 @@
     "https://*.vxtwitter.com/*",
     "https://*.fixupx.com/*",
     "https://*.giphy.com/*",
-    "https://*.tenor.com/*",
-    "https://*.google.com/*"
+    "https://*.tenor.com/*"
   ],
   "optional_host_permissions": [
     "https://*/*",
