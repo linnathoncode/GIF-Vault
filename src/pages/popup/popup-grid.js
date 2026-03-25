@@ -99,6 +99,7 @@ export function createPopupGridController({
   } = refs;
 
   const objectUrlById = new Map();
+  const mediaKindCacheById = new Map();
   const selectedItemIds = new Set();
   let latestItemById = new Map();
   let latestVisiblePageIds = new Set();
@@ -112,6 +113,7 @@ export function createPopupGridController({
   let latestVisibleItemCount = 0;
   let latestSavedItemCount = 0;
   let latestFavoritesCount = 0;
+  const WEBP_ANIMATION_SNIFF_BYTES = 128;
 
   function getFilteredItems(items) {
     const normalized = items.map((item) => ({
@@ -253,6 +255,7 @@ export function createPopupGridController({
       }
       URL.revokeObjectURL(url);
       objectUrlById.delete(id);
+      mediaKindCacheById.delete(String(id));
     }
   }
 
@@ -626,15 +629,24 @@ export function createPopupGridController({
   }
 
   async function detectStoredMediaKind(item) {
+    const itemId = String(item?.id || "");
     const mime = String(item?.mimeType || item?.blob?.type || "")
       .trim()
       .toLowerCase();
     const candidateUrl = String(item?.mediaUrl || item?.sourceUrl || "");
+    const blobSize = item?.blob instanceof Blob ? item.blob.size : 0;
+    const cacheKey = `${mime}|${blobSize}|${candidateUrl}`;
+    const cached = mediaKindCacheById.get(itemId);
+    if (cached?.cacheKey === cacheKey && cached?.mediaKind) {
+      return cached.mediaKind;
+    }
 
     if (mime.startsWith("video/") || isVideoLikeUrl(candidateUrl)) {
+      mediaKindCacheById.set(itemId, { cacheKey, mediaKind: "video" });
       return "video";
     }
     if (mime.includes("image/gif") || isGifLikeUrl(candidateUrl)) {
+      mediaKindCacheById.set(itemId, { cacheKey, mediaKind: "gif" });
       return "gif";
     }
 
@@ -644,8 +656,14 @@ export function createPopupGridController({
       item.blob.size > 0
     ) {
       try {
-        const bytes = new Uint8Array(await item.blob.arrayBuffer());
+        const bytes = new Uint8Array(
+          await item.blob.slice(0, WEBP_ANIMATION_SNIFF_BYTES).arrayBuffer(),
+        );
         if (isAnimatedWebpBytes(bytes)) {
+          mediaKindCacheById.set(itemId, {
+            cacheKey,
+            mediaKind: "animated-webp",
+          });
           return "animated-webp";
         }
       } catch (error) {
@@ -657,9 +675,11 @@ export function createPopupGridController({
     }
 
     if (mime.startsWith("image/") || isImageLikeUrl(candidateUrl)) {
+      mediaKindCacheById.set(itemId, { cacheKey, mediaKind: "image" });
       return "image";
     }
 
+    mediaKindCacheById.set(itemId, { cacheKey, mediaKind: "unknown" });
     return "unknown";
   }
 
@@ -759,6 +779,7 @@ export function createPopupGridController({
         URL.revokeObjectURL(objectUrl);
         objectUrlById.delete(id);
       }
+      mediaKindCacheById.delete(String(id));
       selectedItemIds.delete(id);
     }
     await render();
@@ -1272,6 +1293,9 @@ export function createPopupGridController({
         mediaKind: await detectStoredMediaKind(item),
       })),
     );
+    if (renderId !== state.renderSequence) {
+      return;
+    }
 
     for (const item of pagedItems) {
       try {
@@ -1300,6 +1324,7 @@ export function createPopupGridController({
       URL.revokeObjectURL(url);
     }
     objectUrlById.clear();
+    mediaKindCacheById.clear();
   }
 
   return {
