@@ -684,6 +684,7 @@ export function createPopupGridController({
           return "animated-webp";
         }
         if (animationState === "indeterminate") {
+          mediaKindCacheById.set(itemId, { cacheKey, mediaKind: "image" });
           return "image";
         }
       } catch (error) {

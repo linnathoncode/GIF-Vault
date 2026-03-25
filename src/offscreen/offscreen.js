@@ -41,10 +41,44 @@ function isRuntimeMessage(message) {
   return Boolean(message) && typeof message === "object" && !Array.isArray(message);
 }
 
+function isSerializedByteObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || value instanceof Blob) {
+    return false;
+  }
+
+  const length = Number(value.length);
+  if (!Number.isInteger(length) || length < 0) {
+    return false;
+  }
+  if (length === 0) {
+    return true;
+  }
+
+  let byteEntryCount = 0;
+  for (const [key, byteValue] of Object.entries(value)) {
+    if (key === "length") {
+      continue;
+    }
+    if (!/^(0|[1-9]\d*)$/.test(key)) {
+      return false;
+    }
+    const index = Number(key);
+    if (!Number.isInteger(index) || index < 0 || index >= length) {
+      return false;
+    }
+    if (!Number.isInteger(byteValue) || byteValue < 0 || byteValue > 255) {
+      return false;
+    }
+    byteEntryCount += 1;
+  }
+
+  return byteEntryCount > 0;
+}
+
 function isBinaryInput(value) {
   return (
     value == null ||
-    (typeof value === "object" && !(value instanceof Blob)) ||
+    isSerializedByteObject(value) ||
     value instanceof Uint8Array ||
     value instanceof ArrayBuffer ||
     ArrayBuffer.isView(value)
@@ -254,6 +288,14 @@ async function getInputData(message) {
       inputBytes.byteOffset,
       inputBytes.byteLength,
     );
+  }
+  if (isSerializedByteObject(inputBytes)) {
+    const length = Number(inputBytes.length);
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i += 1) {
+      bytes[i] = Number(inputBytes[i] || 0);
+    }
+    return bytes;
   }
   if (message?.url) {
     return fetchFile(message.url);

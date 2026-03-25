@@ -158,4 +158,26 @@ describe("offscreen runtime message validation", () => {
 
     expect(handled).toBe(true);
   });
+
+  it("rejects malformed inputBytes objects before ffmpeg/fetch paths", async () => {
+    const sendResponse = vi.fn();
+
+    const handled = mocks.listener(
+      {
+        type: "OFFSCREEN_CONVERT_MP4",
+        inputExtension: "mp4",
+        inputBytes: { foo: 1 },
+      },
+      { id: "ext-id" },
+      sendResponse,
+    );
+
+    await Promise.resolve();
+
+    expect(handled).toBeUndefined();
+    expect(sendResponse).not.toHaveBeenCalled();
+    expect(mocks.fetchFile).not.toHaveBeenCalled();
+    expect(mocks.ffmpegProbe).not.toHaveBeenCalled();
+    expect(mocks.ffmpegExec).not.toHaveBeenCalled();
+  });
 });
