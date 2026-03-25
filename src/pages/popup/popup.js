@@ -253,6 +253,12 @@ const gridController = createPopupGridController({
   showTransientStatus: statusController.showTransientStatus,
 });
 
+function syncImportUiState() {
+  const hasActiveImport = Boolean(state.currentImportState?.active);
+  statusController.syncImportActionButton();
+  refs.importInput.disabled = isBootLoading() || hasActiveImport;
+}
+
 // Import flow and permission handoff.
 async function terminateImport() {
   const requestId =
@@ -287,6 +293,15 @@ async function terminateImport() {
 }
 
 async function importUrl(rawUrl) {
+  if (state.currentImportState?.active || state.activeImportRequestId) {
+    statusController.showTransientStatus(
+      UI_MESSAGES.popup.importAlreadyRunning,
+      "error",
+    );
+    syncImportUiState();
+    return;
+  }
+
   statusController.clearTransientStatus();
   const url = String(rawUrl || "").trim();
   if (!url) {
@@ -306,7 +321,7 @@ async function importUrl(rawUrl) {
     kind: "info",
     active: true,
   };
-  statusController.syncImportActionButton();
+  syncImportUiState();
   statusController.setStatus(UI_MESSAGES.popup.startingImport);
   statusController.setProgressState({
     text: UI_MESSAGES.popup.startingImport,
@@ -324,7 +339,7 @@ async function importUrl(rawUrl) {
       statusController.setProgressState(null);
       state.activeImportRequestId = "";
       state.currentImportState = null;
-      statusController.syncImportActionButton();
+      syncImportUiState();
       await clearStoredImportStatePreservingUi();
       return;
     }
@@ -376,7 +391,7 @@ async function importUrl(rawUrl) {
       statusController.setProgressState(null);
       state.activeImportRequestId = "";
       state.currentImportState = null;
-      statusController.syncImportActionButton();
+      syncImportUiState();
       await clearStoredImportStatePreservingUi();
       return;
     }
@@ -685,7 +700,7 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     return;
   }
   statusController.applyImportState(message);
-  statusController.syncImportActionButton();
+  syncImportUiState();
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -736,7 +751,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     } else {
       state.currentImportState = null;
       if (isBootLoading()) {
-        statusController.syncImportActionButton();
+        syncImportUiState();
         return;
       }
       const shouldClearProgress = shouldClearProgressVisualsOnStorageClear({
@@ -748,7 +763,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         statusController.setProgressState(null);
       }
     }
-    statusController.syncImportActionButton();
+    syncImportUiState();
     if (
       (prevState?.active || false) &&
       !nextState?.active &&
@@ -772,7 +787,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         showBootLoadingState();
         return;
       }
-      statusController.syncImportActionButton();
+      syncImportUiState();
       await gridController.render();
     })();
   }
@@ -846,12 +861,13 @@ async function init() {
     }
 
     // First full render, then unlock interactions.
-    statusController.syncImportActionButton();
+    syncImportUiState();
     await gridController.render();
     if (!state.currentImportState?.text) {
       clearBootLoadingUiIfPresent();
     }
     setInteractiveEnabled(true);
+    syncImportUiState();
   } catch (error) {
     // Fail-safe path keeps interactions locked and surfaces a clear status.
     setInteractiveEnabled(false);

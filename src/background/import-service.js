@@ -14,6 +14,7 @@ import {
 
 const importAbortControllerById = new Map();
 const terminatedImportIds = new Set();
+let activeImportRequestId = "";
 
 function isUserTerminatedImport(requestId, abortController, error) {
   if (error?.message === UI_MESSAGES.import.importTerminatedError) {
@@ -36,28 +37,33 @@ async function importFromUrl(
   resolvedMediaUrlHint = "",
 ) {
   const progressId = requestId || crypto.randomUUID();
-  const abortController = new AbortController();
-  const ensureImportActive = () => throwIfTerminated(progressId, abortController);
-  importAbortControllerById.set(progressId, abortController);
-
-  const runtimeConfig = await getRuntimeConfig();
-  const gifConversionConfig = runtimeConfig.gifConversion;
   const url = String(rawUrl || "").trim();
-  const resolvedHints = normalizeResolvedHints(resolvedMediaUrlHint);
-  const savedItems = [];
   if (!url) {
     await safeLog("import", "Rejected empty URL");
     throw new Error(UI_MESSAGES.import.emptyUrl);
   }
+  if (activeImportRequestId) {
+    throw new Error(UI_MESSAGES.import.concurrentImportInProgress);
+  }
+  activeImportRequestId = progressId;
 
-  await reportProgress(
-    progressId,
-    UI_MESSAGES.import.resolvingMediaUrl,
-    true,
-    "info",
-    UI_MESSAGES.import.phaseResolving,
-  );
+  const abortController = new AbortController();
+  const ensureImportActive = () => throwIfTerminated(progressId, abortController);
+  importAbortControllerById.set(progressId, abortController);
+  const resolvedHints = normalizeResolvedHints(resolvedMediaUrlHint);
+  const savedItems = [];
   try {
+    const runtimeConfig = await getRuntimeConfig();
+    const gifConversionConfig = runtimeConfig.gifConversion;
+
+    await reportProgress(
+      progressId,
+      UI_MESSAGES.import.resolvingMediaUrl,
+      true,
+      "info",
+      UI_MESSAGES.import.phaseResolving,
+    );
+
     ensureImportActive();
     await safeLog("import", "Import started", { url, pageUrl: pageUrl || "" });
     await ensureOriginAccess(url);
@@ -153,6 +159,9 @@ async function importFromUrl(
   } finally {
     importAbortControllerById.delete(progressId);
     terminatedImportIds.delete(progressId);
+    if (activeImportRequestId === progressId) {
+      activeImportRequestId = "";
+    }
   }
 }
 

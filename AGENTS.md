@@ -181,6 +181,8 @@ Rules:
 - Logs page now includes an email bug-report form that collects user notes, prepares a support email draft to `gifvault-support@gmail.com`, and downloads a log attachment file for sending.
 - Options page default tab now supports `Latest`, which reopens the popup on the most recently used tab (`All` or `Favorites`).
 - Popup now shows an explicit startup loading state on browser launch and temporarily disables popup interactions until initialization completes.
+- Popup now blocks concurrent imports by preventing new import starts while an import is active.
+- Background import pipeline now enforces a single active import globally, so context-menu, popup, and assist imports cannot run concurrently.
 
 ## Operational Notes
 

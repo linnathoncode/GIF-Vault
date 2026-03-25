@@ -230,5 +230,8 @@ function inferImportErrorCode(rawMessage) {
   if (message === UI_MESSAGES.import.importTerminated) {
     return "IMPORT_TERMINATED";
   }
+  if (message === UI_MESSAGES.import.concurrentImportInProgress) {
+    return "IMPORT_ALREADY_RUNNING";
+  }
   return "";
 }

@@ -39,6 +39,7 @@ vi.mock("../src/lib/ui.js", () => ({
 
 describe("import service long-video gate", () => {
   let importFromUrl;
+  let terminateImport;
   let originalFetch;
   let sendMessageMock;
 
@@ -107,7 +108,7 @@ describe("import service long-video gate", () => {
     mocks.originPatternFromUrl.mockReturnValue("https://video.example.com/*");
     mocks.idbDelete.mockResolvedValue(undefined);
 
-    ({ importFromUrl } = await import("../src/background/import-service.js"));
+    ({ importFromUrl, terminateImport } = await import("../src/background/import-service.js"));
   });
 
   afterEach(() => {
@@ -363,5 +364,69 @@ describe("import service long-video gate", () => {
 
     expect(mocks.idbSave).toHaveBeenCalledTimes(2);
     expect(mocks.idbDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects concurrent import attempts while one import is in progress", async () => {
+    globalThis.fetch = vi.fn((_, init = {}) => {
+      const signal = init?.signal;
+      return new Promise((_, reject) => {
+        const abortNow = () => {
+          const abortError = new Error("aborted");
+          abortError.name = "AbortError";
+          reject(abortError);
+        };
+        if (signal?.aborted) {
+          abortNow();
+          return;
+        }
+        signal?.addEventListener("abort", abortNow, { once: true });
+      });
+    });
+
+    const firstImportPromise = importFromUrl(
+      "https://x.com/i/status/8",
+      "",
+      "request-8",
+    );
+    await Promise.resolve();
+
+    await expect(
+      importFromUrl("https://x.com/i/status/9", "", "request-9"),
+    ).rejects.toThrow(UI_MESSAGES.import.concurrentImportInProgress);
+
+    await expect(terminateImport("request-8")).resolves.toBe(true);
+    await expect(firstImportPromise).rejects.toThrow(
+      UI_MESSAGES.import.importTerminated,
+    );
+  });
+
+  it("releases import lock when setup fails before progress loop", async () => {
+    mocks.getRuntimeConfig.mockRejectedValueOnce(new Error("Runtime unavailable"));
+
+    await expect(
+      importFromUrl("https://x.com/i/status/10", "", "request-10"),
+    ).rejects.toThrow("Runtime unavailable");
+
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: {
+        get: () => "image/jpeg",
+      },
+      blob: async () => new Blob([new Uint8Array([9, 8, 7, 6])], { type: "image/jpeg" }),
+    }));
+    mocks.resolveMediaUrls.mockResolvedValue(["https://image.example.com/pic.jpg"]);
+    mocks.originPatternFromUrl.mockImplementation((url) => {
+      if (String(url).includes("image.example.com")) {
+        return "https://image.example.com/*";
+      }
+      return "https://x.com/*";
+    });
+
+    await expect(
+      importFromUrl("https://x.com/i/status/11", "", "request-11"),
+    ).resolves.toMatchObject({
+      importedCount: 1,
+    });
   });
 });
