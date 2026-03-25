@@ -108,9 +108,12 @@ function createEnMessages() {
       confirmDeleteHintSingle: "Click delete again to confirm.",
       copyFailed: "Copy didn't work. Try again.",
       copiedGif: "GIF copied.",
+      copiedAnimatedWebp: "Animated WebP copied.",
       copiedImage: "Image copied.",
       copiedVideoLink: "Video link copied.",
+      copiedVideoLinkTip: "Tip: drag the preview to drop the GIF directly.",
       copiedGifLink: "GIF link copied.",
+      copiedAnimatedWebpLink: "Animated WebP link copied.",
       copiedImageLink: "Image link copied.",
       copiedLinkTip: "Tip: drag the preview to drop it directly.",
       copiedGifLinkTip: "Tip: drag the preview to drop the GIF directly.",
@@ -130,6 +133,7 @@ function createEnMessages() {
       deletedMany: (count) => `${count} items deleted.`,
       deletedSingle: "Item deleted.",
       deletedGifSingle: "GIF deleted.",
+      deletedAnimatedWebpSingle: "Animated WebP deleted.",
       deletedImageSingle: "Image deleted.",
       deletedVideoSingle: "Video deleted.",
       pageLabel: (currentPage, totalPages) =>
@@ -350,9 +354,13 @@ function createTrMessages() {
       confirmDeleteHintSingle: "Onaylamak için Sil'e tekrar tıkla.",
       copyFailed: "Kopyalama olmadı, tekrar deneyelim.",
       copiedGif: "GIF kopyalandı.",
+      copiedAnimatedWebp: "Animasyonlu WebP kopyalandı.",
       copiedImage: "Görsel kopyalandı.",
       copiedVideoLink: "Video bağlantısı kopyalandı.",
+      copiedVideoLinkTip:
+        "İpucu: GIF'i doğrudan kullanmak için önizlemeyi sürükleyip bırak.",
       copiedGifLink: "GIF bağlantısı kopyalandı.",
+      copiedAnimatedWebpLink: "Animasyonlu WebP bağlantısı kopyalandı.",
       copiedImageLink: "Görsel bağlantısı kopyalandı.",
       copiedLinkTip: "İpucu: önizlemeyi sürükleyip doğrudan kullan.",
       copiedGifLinkTip:
@@ -374,6 +382,7 @@ function createTrMessages() {
       deletedMany: (count) => `${count} öğe silindi.`,
       deletedSingle: "Öğe silindi.",
       deletedGifSingle: "GIF silindi.",
+      deletedAnimatedWebpSingle: "Animasyonlu WebP silindi.",
       deletedImageSingle: "Görsel silindi.",
       deletedVideoSingle: "Video silindi.",
       pageLabel: (currentPage, totalPages) =>

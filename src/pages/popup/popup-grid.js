@@ -4,7 +4,7 @@ import {
   idbGetMediaBlobs,
   idbSave,
 } from "../../lib/db.js";
-import { fileExtensionFromMime } from "../../lib/media.js";
+import { fileExtensionFromMime, isAnimatedWebpBytes } from "../../lib/media.js";
 import { formatBytes, hostFromUrl } from "../../lib/ui.js";
 import { safeLog } from "../../lib/log.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
@@ -590,6 +590,15 @@ export function createPopupGridController({
   }
 
   function resolveMediaCopyKind(item, copiedUrl = "") {
+    if (
+      item?.mediaKind === "gif" ||
+      item?.mediaKind === "image" ||
+      item?.mediaKind === "video" ||
+      item?.mediaKind === "animated-webp"
+    ) {
+      return item.mediaKind;
+    }
+
     const mime = String(item?.mimeType || item?.blob?.type || "")
       .trim()
       .toLowerCase();
@@ -616,6 +625,44 @@ export function createPopupGridController({
     return "unknown";
   }
 
+  async function detectStoredMediaKind(item) {
+    const mime = String(item?.mimeType || item?.blob?.type || "")
+      .trim()
+      .toLowerCase();
+    const candidateUrl = String(item?.mediaUrl || item?.sourceUrl || "");
+
+    if (mime.startsWith("video/") || isVideoLikeUrl(candidateUrl)) {
+      return "video";
+    }
+    if (mime.includes("image/gif") || isGifLikeUrl(candidateUrl)) {
+      return "gif";
+    }
+
+    if (
+      mime.includes("image/webp") &&
+      item?.blob instanceof Blob &&
+      item.blob.size > 0
+    ) {
+      try {
+        const bytes = new Uint8Array(await item.blob.arrayBuffer());
+        if (isAnimatedWebpBytes(bytes)) {
+          return "animated-webp";
+        }
+      } catch (error) {
+        await safeLog("popup", "Animated WebP detection failed", {
+          id: item.id,
+          error: error?.message || "unknown",
+        });
+      }
+    }
+
+    if (mime.startsWith("image/") || isImageLikeUrl(candidateUrl)) {
+      return "image";
+    }
+
+    return "unknown";
+  }
+
   function deletedStatusTextForIds(ids) {
     const targetIds = [...new Set((ids || []).map((id) => String(id)).filter(Boolean))];
     if (targetIds.length > 1) {
@@ -636,6 +683,9 @@ export function createPopupGridController({
     if (mediaKind === "gif") {
       return UI_MESSAGES.grid.deletedGifSingle || UI_MESSAGES.grid.deletedSingle;
     }
+    if (mediaKind === "animated-webp") {
+      return UI_MESSAGES.grid.deletedAnimatedWebpSingle || UI_MESSAGES.grid.deletedSingle;
+    }
     return UI_MESSAGES.grid.deletedSingle;
   }
 
@@ -652,10 +702,14 @@ export function createPopupGridController({
       const label =
         mediaKind === "image"
           ? UI_MESSAGES.grid.copiedImage
+          : mediaKind === "animated-webp"
+            ? UI_MESSAGES.grid.copiedAnimatedWebp
           : UI_MESSAGES.grid.copiedGif;
       const hint =
         mediaKind === "image"
           ? UI_MESSAGES.grid.copiedImageLinkTip
+          : mediaKind === "animated-webp"
+            ? UI_MESSAGES.grid.copiedLinkTip
           : UI_MESSAGES.grid.copiedGifLinkTip;
       showTransientStatus(`${label}\n${hint}`, "ok", COPY_HINT_DURATION_MS, {
         forceTemporary: true,
@@ -666,11 +720,15 @@ export function createPopupGridController({
 
     const label = mediaKind === "video"
       ? UI_MESSAGES.grid.copiedVideoLink
+      : mediaKind === "animated-webp"
+        ? UI_MESSAGES.grid.copiedAnimatedWebpLink
       : mediaKind === "image"
         ? UI_MESSAGES.grid.copiedImageLink
         : UI_MESSAGES.grid.copiedGifLink;
     const hint = mediaKind === "video"
-      ? ""
+      ? UI_MESSAGES.grid.copiedVideoLinkTip
+      : mediaKind === "animated-webp"
+        ? UI_MESSAGES.grid.copiedLinkTip
       : mediaKind === "image"
         ? UI_MESSAGES.grid.copiedImageLinkTip
         : UI_MESSAGES.grid.copiedGifLinkTip;
@@ -1081,10 +1139,16 @@ export function createPopupGridController({
       return;
     }
 
-    const pagedItems = pagedItemsMeta.map((item) => ({
+    const pagedItemsWithBlobs = pagedItemsMeta.map((item) => ({
       ...item,
       blob: blobById.get(item.id) || null,
     }));
+    const pagedItems = await Promise.all(
+      pagedItemsWithBlobs.map(async (item) => ({
+        ...item,
+        mediaKind: await detectStoredMediaKind(item),
+      })),
+    );
 
     for (const item of pagedItems) {
       try {

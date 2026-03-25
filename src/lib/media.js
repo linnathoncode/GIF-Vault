@@ -47,4 +47,70 @@ function fileExtensionFromMime(mimeType) {
   }
 }
 
-export { extensionFromUrl, fileExtensionFromMime };
+function isAnimatedWebpBytes(value) {
+  const bytes = value instanceof Uint8Array
+    ? value
+    : value instanceof ArrayBuffer
+      ? new Uint8Array(value)
+      : new Uint8Array();
+
+  if (bytes.length < 12) {
+    return false;
+  }
+
+  const asciiAt = (offset, text) => {
+    if (offset + text.length > bytes.length) {
+      return false;
+    }
+    for (let i = 0; i < text.length; i += 1) {
+      if (bytes[offset + i] !== text.charCodeAt(i)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const readUint32LE = (offset) => (
+    bytes[offset] |
+    (bytes[offset + 1] << 8) |
+    (bytes[offset + 2] << 16) |
+    (bytes[offset + 3] << 24)
+  ) >>> 0;
+
+  if (!asciiAt(0, "RIFF") || !asciiAt(8, "WEBP")) {
+    return false;
+  }
+
+  let offset = 12;
+  while (offset + 8 <= bytes.length) {
+    const chunkId = String.fromCharCode(
+      bytes[offset],
+      bytes[offset + 1],
+      bytes[offset + 2],
+      bytes[offset + 3],
+    );
+    const chunkSize = readUint32LE(offset + 4);
+    const chunkDataStart = offset + 8;
+    const chunkDataEnd = chunkDataStart + chunkSize;
+    if (chunkDataEnd > bytes.length) {
+      return false;
+    }
+
+    if (chunkId === "ANIM") {
+      return true;
+    }
+
+    if (chunkId === "VP8X" && chunkSize >= 1) {
+      const featureFlags = bytes[chunkDataStart];
+      if ((featureFlags & 0x02) !== 0) {
+        return true;
+      }
+    }
+
+    offset = chunkDataEnd + (chunkSize % 2);
+  }
+
+  return false;
+}
+
+export { extensionFromUrl, fileExtensionFromMime, isAnimatedWebpBytes };
