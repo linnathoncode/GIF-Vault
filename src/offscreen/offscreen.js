@@ -41,38 +41,76 @@ function isRuntimeMessage(message) {
   return Boolean(message) && typeof message === "object" && !Array.isArray(message);
 }
 
-function isSerializedByteObject(value) {
+function parseSerializedByteObjectMeta(value) {
   if (!value || typeof value !== "object" || Array.isArray(value) || value instanceof Blob) {
-    return false;
+    return null;
   }
 
-  const length = Number(value.length);
-  if (!Number.isInteger(length) || length < 0) {
-    return false;
-  }
-  if (length === 0) {
-    return true;
+  const hasExplicitLength = Object.prototype.hasOwnProperty.call(value, "length");
+  const explicitLength = hasExplicitLength ? Number(value.length) : -1;
+  if (hasExplicitLength && (!Number.isInteger(explicitLength) || explicitLength < 0)) {
+    return null;
   }
 
+  const allowedMetaKeys = new Set([
+    "length",
+    "byteLength",
+    "byteOffset",
+    "BYTES_PER_ELEMENT",
+    "buffer",
+  ]);
   let byteEntryCount = 0;
+  let maxIndex = -1;
   for (const [key, byteValue] of Object.entries(value)) {
-    if (key === "length") {
+    if (allowedMetaKeys.has(key)) {
       continue;
     }
     if (!/^(0|[1-9]\d*)$/.test(key)) {
-      return false;
+      return null;
     }
     const index = Number(key);
-    if (!Number.isInteger(index) || index < 0 || index >= length) {
-      return false;
-    }
     if (!Number.isInteger(byteValue) || byteValue < 0 || byteValue > 255) {
-      return false;
+      return null;
     }
     byteEntryCount += 1;
+    maxIndex = Math.max(maxIndex, index);
   }
 
-  return byteEntryCount > 0;
+  if (hasExplicitLength) {
+    if (explicitLength === 0) {
+      return byteEntryCount === 0 ? { length: 0 } : null;
+    }
+    if (byteEntryCount !== explicitLength || maxIndex !== explicitLength - 1) {
+      return null;
+    }
+    return { length: explicitLength };
+  }
+
+  if (byteEntryCount === 0) {
+    return null;
+  }
+  const inferredLength = maxIndex + 1;
+  if (byteEntryCount !== inferredLength) {
+    return null;
+  }
+  return { length: inferredLength };
+}
+
+function isSerializedByteObject(value) {
+  return Boolean(parseSerializedByteObjectMeta(value));
+}
+
+function deserializeSerializedByteObject(value) {
+  const meta = parseSerializedByteObjectMeta(value);
+  if (!meta) {
+    return null;
+  }
+
+  const bytes = new Uint8Array(meta.length);
+  for (let i = 0; i < meta.length; i += 1) {
+    bytes[i] = Number(value[i] || 0);
+  }
+  return bytes;
 }
 
 function isBinaryInput(value) {
@@ -289,13 +327,9 @@ async function getInputData(message) {
       inputBytes.byteLength,
     );
   }
-  if (isSerializedByteObject(inputBytes)) {
-    const length = Number(inputBytes.length);
-    const bytes = new Uint8Array(length);
-    for (let i = 0; i < length; i += 1) {
-      bytes[i] = Number(inputBytes[i] || 0);
-    }
-    return bytes;
+  const deserializedBytes = deserializeSerializedByteObject(inputBytes);
+  if (deserializedBytes) {
+    return deserializedBytes;
   }
   if (message?.url) {
     return fetchFile(message.url);

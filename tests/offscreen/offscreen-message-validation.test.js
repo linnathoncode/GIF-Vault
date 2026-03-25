@@ -159,6 +159,22 @@ describe("offscreen runtime message validation", () => {
     expect(handled).toBe(true);
   });
 
+  it("accepts serialized inputBytes objects without explicit length", async () => {
+    const sendResponse = vi.fn();
+
+    const handled = mocks.listener(
+      {
+        type: "OFFSCREEN_CONVERT_MP4",
+        inputExtension: "mp4",
+        inputBytes: { 0: 1, 1: 2, 2: 3 },
+      },
+      { id: "ext-id" },
+      sendResponse,
+    );
+
+    expect(handled).toBe(true);
+  });
+
   it("rejects malformed inputBytes objects before ffmpeg/fetch paths", async () => {
     const sendResponse = vi.fn();
 
