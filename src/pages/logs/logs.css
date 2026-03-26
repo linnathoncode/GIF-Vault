@@ -245,6 +245,43 @@ body {
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
+.logs.has-logs .logs-content {
+  background: transparent;
+}
+
+.logs-content.entries-view {
+  padding: 10px;
+}
+
+.logs-content.entries-view .log-row {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  border-radius: 0;
+  padding: 4px 6px;
+  margin: 0;
+}
+
+.logs-content.entries-view .log-row:nth-child(odd) {
+  background: color-mix(in srgb, var(--line) 24%, transparent);
+}
+
+.logs-content.entries-view .log-row:nth-child(even) {
+  background: color-mix(in srgb, var(--line) 10%, transparent);
+}
+
+:root[data-theme="dark"] .logs-content.entries-view .log-row:nth-child(odd) {
+  background: color-mix(in srgb, var(--line) 40%, transparent);
+}
+
+:root[data-theme="dark"] .logs-content.entries-view .log-row:nth-child(even) {
+  background: color-mix(in srgb, var(--line) 22%, transparent);
+}
+
+.logs.has-logs .logs-content {
+  border-radius: 8px;
+}
+
 .logs.empty-state .logs-content {
   display: block;
   flex: 0 0 auto;

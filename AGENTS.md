@@ -164,6 +164,8 @@ Rules:
 
 - Options guide now focuses on feedback flow: the Help Docs action was removed, a compact feedback field opens inline to the right when requested, and the same button switches from "Provide Feedback" to "Send by email".
 - Options feedback input now has a 500-character cap with a live counter to keep email-draft payload size safe.
+- Logs list now uses alternating row stripes in the has-logs view for easier scanning.
+- Logs striping now aligns per entry (not per text line), so wrapped long entries keep a single consistent stripe block.
 - Options page header copy was reverted to the original messaging, warning copy now emphasizes defaults, and dropdown styling was refined to match field corner curvature.
 - Logs page now includes an Expand/Bundle toggle button to switch between bundled and unbundled log views.
 - Increased log retention cap from 250 to 500 entries.

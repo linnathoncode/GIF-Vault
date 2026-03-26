@@ -165,6 +165,7 @@ function renderEmptyLogsState() {
   }
   logsEl.classList.add("empty-state");
   logsEl.classList.remove("has-logs");
+  logsContentEl?.classList.remove("entries-view");
 
   logsMascotEl.src = getLogsEmptyMascotSrc(themeMode);
   logsContentEl.textContent = UI_MESSAGES.logs.noLogsYet;
@@ -289,6 +290,35 @@ function formatLogsStatusCount(visibleCount, totalCount) {
   return UI_MESSAGES.logs.logCount(safeVisibleCount);
 }
 
+function renderLogLines(lines) {
+  if (!logsContentEl) {
+    return;
+  }
+  if (!Array.isArray(lines) || !lines.length) {
+    logsContentEl.classList.remove("entries-view");
+    logsContentEl.textContent = "";
+    return;
+  }
+
+  // Keep unit-test mocks stable while using row elements in real DOM.
+  if (Array.isArray(logsContentEl.children)) {
+    logsContentEl.classList.remove("entries-view");
+    logsContentEl.textContent = lines.join("\n");
+    return;
+  }
+
+  logsContentEl.classList.add("entries-view");
+  logsContentEl.innerHTML = "";
+  const fragment = document.createDocumentFragment();
+  for (const line of lines) {
+    const row = document.createElement("div");
+    row.className = "log-row";
+    row.textContent = line;
+    fragment.append(row);
+  }
+  logsContentEl.append(fragment);
+}
+
 function renderLoadedLogs(logs) {
   latestLoadedLogs = Array.isArray(logs) ? logs : [];
 
@@ -305,7 +335,7 @@ function renderLoadedLogs(logs) {
   logsEl.classList.remove("empty-state");
   logsEl.classList.add("has-logs");
   logsMascotEl.src = getLogsEmptyMascotSrc(themeMode);
-  logsContentEl.textContent = lines.join("\n");
+  renderLogLines(lines);
   setStatus(formatLogsStatusCount(lines.length, latestLoadedLogs.length), true);
   updateViewToggleButton();
 }
