@@ -87,6 +87,10 @@ const POPUP_BOOT = {
   fallbackTab: "all",
 };
 
+const OPTIONS_FEEDBACK = {
+  maxChars: 500,
+};
+
 export {
   STORAGE_KEYS,
   CONTEXT_MENU,
@@ -99,4 +103,5 @@ export {
   BRAND_LOGOS,
   POPUP_MENU,
   POPUP_BOOT,
+  OPTIONS_FEEDBACK,
 };

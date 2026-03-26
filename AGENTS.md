@@ -162,6 +162,8 @@ Rules:
 
 ## Recently Added
 
+- Options guide now focuses on feedback flow: the Help Docs action was removed, a compact feedback field opens inline to the right when requested, and the same button switches from "Provide Feedback" to "Send by email".
+- Options feedback input now has a 500-character cap with a live counter to keep email-draft payload size safe.
 - Options page header copy was reverted to the original messaging, warning copy now emphasizes defaults, and dropdown styling was refined to match field corner curvature.
 - Logs page now includes an Expand/Bundle toggle button to switch between bundled and unbundled log views.
 - Increased log retention cap from 250 to 500 entries.

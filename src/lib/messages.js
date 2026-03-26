@@ -177,12 +177,24 @@ function createEnMessages() {
       statusLanguageUpdated: "Language switched.",
       statusAdjustAndSave: "Tweak values and save.",
       languageLabel: "Language",
-      guideHeading: "My Vault & Otha's Guide",
+      guideHeading: "Feedback",
       guideBodyPrimary:
-        "Our gibbon guides are here. Find answers or submit feedback.",
-      guideBodySecondary: "Otha helps with settings and quick troubleshooting.",
-      helpDocsButton: "Help Docs",
-      submitFeedbackButton: "Submit Feedback",
+        "Share feedback or suggestions to improve GIF Vault.",
+      guideBodySecondary:
+        "Click Provide Feedback to open a quick field, then send your note by email.",
+      provideFeedbackButton: "Provide Feedback",
+      feedbackDescriptionPlaceholder:
+        "Share your feedback or suggestions for improvement.",
+      feedbackCharCount: (count, max) => `${count}/${max}`,
+      sendFeedbackButton: "Send by email",
+      feedbackDescriptionRequired:
+        "Please enter feedback before sending.",
+      feedbackPreparing: "Preparing feedback email...",
+      feedbackFailed: "Couldn't prepare the feedback email.",
+      feedbackEmailSubject: "GIF Vault Feedback",
+      feedbackEmailBody: (description) =>
+        `Feedback from GIF Vault user\n\nFeedback:\n${description}`,
+      feedbackEmailOpened: "Feedback email draft opened.",
       guideMascotAlt: "Options guide mascot",
     },
     logs: {
@@ -435,13 +447,24 @@ function createTrMessages() {
       statusLanguageUpdated: "Dil değiştirildi.",
       statusAdjustAndSave: "Değerleri düzenleyip kaydet.",
       languageLabel: "Dil",
-      guideHeading: "Vault'um ve Otha Rehberi",
+      guideHeading: "Geri Bildirim",
       guideBodyPrimary:
-        "Gibbon rehberleri burada. Cevap bulabilir veya geri bildirim gönderebilirsin.",
+        "GIF Vault'u geliştirmek için geri bildirim veya öneri paylaş.",
       guideBodySecondary:
-        "Otha ayarlarla ve hızlı sorun gidermeyle yardımcı olur.",
-      helpDocsButton: "Yardım Belgeleri",
-      submitFeedbackButton: "Geri Bildirim Gönder",
+        "Hızlı alanı açmak için Geri Bildirim Ver'e tıkla, sonra notunu e-posta ile gönder.",
+      provideFeedbackButton: "Geri Bildirim Ver",
+      feedbackDescriptionPlaceholder:
+        "Geri bildiriminizi veya geliştirme önerilerinizi yazın.",
+      feedbackCharCount: (count, max) => `${count}/${max}`,
+      sendFeedbackButton: "E-posta ile gönder",
+      feedbackDescriptionRequired:
+        "Göndermeden önce bir geri bildirim yaz.",
+      feedbackPreparing: "Geri bildirim e-postası hazırlanıyor...",
+      feedbackFailed: "Geri bildirim e-postası hazırlanamadı.",
+      feedbackEmailSubject: "GIF Vault Geri Bildirim",
+      feedbackEmailBody: (description) =>
+        `GIF Vault kullanıcı geri bildirimi\n\nGeri bildirim:\n${description}`,
+      feedbackEmailOpened: "Geri bildirim e-posta taslağı açıldı.",
       guideMascotAlt: "Ayarlar rehberi maskotu",
     },
     logs: {

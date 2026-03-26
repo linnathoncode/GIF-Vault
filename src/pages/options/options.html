@@ -98,20 +98,27 @@
         <div class="guide-copy">
           <h2>
             <img class="section-icon" src="../../assets/shared/icon-report-bug.svg" alt="" aria-hidden="true">
-            <span data-i18n="options.guideHeading">My Vault &amp; Otha's Guide</span>
+            <span data-i18n="options.guideHeading">Feedback</span>
           </h2>
-          <p data-i18n="options.guideBodyPrimary">Our Gibbon guides are here. Find answers or submit feedback.</p>
-          <p data-i18n="options.guideBodySecondary">Otha helps you with settings. Submit feedback below.</p>
+          <p data-i18n="options.guideBodyPrimary">Share feedback or suggestions to improve GIF Vault.</p>
+          <p data-i18n="options.guideBodySecondary">Click Provide Feedback to open a quick field, then send your note by email.</p>
           <div class="guide-actions">
-            <button id="helpDocsBtn" class="btn icon-text-btn" type="button">
-              <img class="icon-img" src="../../assets/shared/icon-open-options.svg" alt="" aria-hidden="true">
-              <span data-i18n="options.helpDocsButton">Help Docs</span>
-            </button>
             <button id="submitFeedbackBtn" class="btn icon-text-btn" type="button">
               <img class="icon-img" src="../../assets/shared/icon-send-email.svg" alt="" aria-hidden="true">
-              <span data-i18n="options.submitFeedbackButton">Submit Feedback</span>
+              <span id="submitFeedbackBtnLabel" data-i18n="options.provideFeedbackButton">Provide Feedback</span>
             </button>
           </div>
+          <div id="feedbackPanel" class="feedback-inline" hidden>
+            <textarea
+            id="feedbackDescriptionInput"
+            class="feedback-input"
+            rows="2"
+            data-i18n-placeholder="options.feedbackDescriptionPlaceholder"
+            placeholder="Share your feedback or suggestion"
+          ></textarea>
+            <div id="feedbackCharCount" class="feedback-count" aria-live="polite"></div>
+          </div>
+          <div id="feedbackStatus" class="status" hidden></div>
         </div>
         <div class="guide-mascot-wrap" aria-hidden="true">
           <img id="guideMascot" class="guide-mascot mirrored" src="../../assets/mascots/otha-all-no-item.webp" alt="Options mascot" data-i18n-alt="options.guideMascotAlt">

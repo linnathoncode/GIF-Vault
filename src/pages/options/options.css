@@ -210,8 +210,40 @@ input:disabled {
 .guide-actions {
   margin-top: 12px;
   display: flex;
-  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 8px;
+}
+
+.feedback-inline {
+  margin-top: 8px;
+  max-width: 50ch;
+}
+
+.feedback-input {
+  width: 100%;
+  border: 2px solid color-mix(in srgb, var(--line) 85%, var(--text) 15%);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.35;
+  resize: vertical;
+  min-height: 40px;
+  max-height: 220px;
+  font-family: "Bahnschrift", "Trebuchet MS", "Franklin Gothic Medium", sans-serif;
+}
+
+.feedback-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--line) 75%, var(--text) 25%);
+  outline-offset: 1px;
+}
+
+.feedback-count {
+  margin-top: 4px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .guide-mascot-wrap {
@@ -374,5 +406,17 @@ input:disabled {
   .guide-mascot-wrap {
     max-width: 180px;
     justify-self: center;
+  }
+
+  .guide-actions {
+    flex-wrap: wrap;
+  }
+
+  .feedback-inline {
+    max-width: 100%;
+  }
+
+  .feedback-input {
+    width: 100%;
   }
 }
