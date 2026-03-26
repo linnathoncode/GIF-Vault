@@ -41,7 +41,8 @@ function createEnMessages() {
       importFailed: "Import failed.",
       importButtonIdle: "Import",
       importButtonTerminate: "Stop",
-      importAlreadyRunning: "An import is already running. Wait or stop it first.",
+      importAlreadyRunning:
+        "An import is already running. Wait or stop it first.",
       initializing: "Loading vault...",
       initializingDetail: "Please wait while GIF Vault finishes startup.",
       initializationFailed: "Vault is still starting. Reopen the popup.",
@@ -64,6 +65,7 @@ function createEnMessages() {
       nextPageAriaLabel: "Next page",
       openOptions: "Open Options",
       openLogs: "Open Logs",
+      paginationHint: "Use the arrows to move between pages.",
       themeToggleAriaLabel: "Toggle theme",
       brandLogoAlt: "GIF Vault logo",
       pageTitle: "GIF Vault",
@@ -295,7 +297,8 @@ function createTrMessages() {
       importFailed: "Aktarmada bir pürüz çıktı",
       importButtonIdle: "Vault'a Aktar",
       importButtonTerminate: "Durdur",
-      importAlreadyRunning: "Zaten bir aktarma sürüyor. Önce bekle ya da durdur.",
+      importAlreadyRunning:
+        "Zaten bir aktarma sürüyor. Önce bekle ya da durdur.",
       initializing: "Vault yükleniyor...",
       initializingDetail: "GIF Vault başlatılırken lütfen bekle.",
       initializationFailed: "Vault hala başlıyor. Açılır pencereyi yeniden aç.",
@@ -319,6 +322,7 @@ function createTrMessages() {
       nextPageAriaLabel: "Sonraki sayfa",
       openOptions: "Ayarları Aç",
       openLogs: "Kayıtları Aç",
+      paginationHint: "Sayfalar arasında gezinmek için okları kullan.",
       themeToggleAriaLabel: "Temayı değiştir",
       brandLogoAlt: "GIF Vault logosu",
       pageTitle: "GIF Vault",
@@ -466,8 +470,7 @@ function createTrMessages() {
         "Karşılaştığın durumu ve nasıl yeniden oluşturabileceğimizi yaz.",
       reportBugButtonCollapsed: "Hata bildir",
       reportBugButtonExpanded: "E-posta ile gönder",
-      reportDescriptionRequired:
-        "Göndermeden önce karşılaştığın durumu yaz.",
+      reportDescriptionRequired: "Göndermeden önce karşılaştığın durumu yaz.",
       reportAttachmentHint:
         "Kayıt dosyası otomatik indirilecek. Göndermeden önce e-postaya ekle.",
       reportPreparing: "Hata raporu e-postası hazırlanıyor...",

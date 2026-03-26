@@ -173,6 +173,13 @@ export function createPopupGridController({
     );
   }
 
+  function createPaginationHint() {
+    const hint = document.createElement("div");
+    hint.className = "pagination-hint";
+    hint.textContent = UI_MESSAGES.popup.paginationHint;
+    return hint;
+  }
+
   function refreshCountTextFromCache() {
     const selectedCount = selectedItemIds.size;
     const baseText =
@@ -1357,6 +1364,10 @@ export function createPopupGridController({
           error: error?.message || "unknown",
         });
       }
+    }
+
+    if (totalPages > 1) {
+      grid.appendChild(createPaginationHint());
     }
 
     restoreGridScrollPosition(previousScrollTop, previousScrollLeft);

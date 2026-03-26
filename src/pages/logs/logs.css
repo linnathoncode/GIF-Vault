@@ -8,10 +8,7 @@ body {
   margin: 0;
   font-family: "Bahnschrift", "Trebuchet MS", "Franklin Gothic Medium", sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(circle at 10% -10%, color-mix(in srgb, var(--bg-top) 78%, #ffffff 22%), transparent 35%),
-    radial-gradient(circle at 98% 18%, color-mix(in srgb, var(--bg-top) 68%, var(--card) 32%), transparent 40%),
-    linear-gradient(180deg, var(--bg-top), var(--bg) 44%);
+  background: var(--page-bg);
   height: 100vh;
   overflow: hidden;
   display: flex;
