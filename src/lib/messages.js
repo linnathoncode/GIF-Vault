@@ -149,9 +149,9 @@ function createEnMessages() {
     options: {
       pageTitle: "GIF Vault Options",
       heading: "GIF Vault Options",
-      subtitle: "Predictable performance tuning and popup controls.",
+      subtitle: "Tune popup behavior and GIF conversion.",
       warningAriaLabel: "Options warning",
-      warningStrong: "Predictable Performance Tuning & Settings",
+      warningStrong: "Defaults are your friend.",
       warningBody:
         "Changing these values can increase CPU use, memory use, and storage size. Defaults are recommended for stable, predictable performance.",
       gifConversionHeading: "GIF Conversion",
@@ -407,9 +407,9 @@ function createTrMessages() {
     options: {
       pageTitle: "GIF Vault Ayarları",
       heading: "GIF Vault Ayarları",
-      subtitle: "Öngörülebilir performans ayarı ve açılır pencere kontrolleri.",
+      subtitle: "Açılır pencere davranışını ve GIF dönüştürmeyi ayarla.",
       warningAriaLabel: "Ayar uyarısı",
-      warningStrong: "Öngörülebilir Performans Ayarı ve Seçenekler",
+      warningStrong: "Varsayılanlar senin dostundur.",
       warningBody:
         "Bu değerleri değiştirmek CPU kullanımını, bellek kullanımını ve depolama boyutunu artırabilir. Daha stabil ve öngörülebilir performans için varsayılan ayarlar önerilir.",
       gifConversionHeading: "GIF Dönüşümü",

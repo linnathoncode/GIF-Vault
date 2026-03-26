@@ -162,6 +162,7 @@ Rules:
 
 ## Recently Added
 
+- Options page header copy was reverted to the original messaging, warning copy now emphasizes defaults, and dropdown styling was refined to match field corner curvature.
 - Logs page now includes an Expand/Bundle toggle button to switch between bundled and unbundled log views.
 - Increased log retention cap from 250 to 500 entries.
 - Logs page now bundles repeated successful action entries (for example preview creation) into `xN` summary lines while leaving error entries unbundled.

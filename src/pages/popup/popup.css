@@ -23,7 +23,8 @@ body {
 body {
   margin: 0;
   overflow: hidden;
-  font-family: "Bahnschrift", "Trebuchet MS", "Franklin Gothic Medium", sans-serif;
+  font-family:
+    "Bahnschrift", "Trebuchet MS", "Franklin Gothic Medium", sans-serif;
   font-size: 13px;
   background: var(--page-bg);
   color: var(--text);
@@ -88,8 +89,8 @@ body.boot-loading .input {
 }
 
 .brand-logo {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
   flex: 0 0 auto;
 }
@@ -460,7 +461,7 @@ body.boot-loading .input {
 .pagination-hint {
   grid-column: 1 / -1;
   align-self: start;
-  margin: -2px 0 0;
+  margin: 2px 0;
   padding: 0 2px;
   font-size: 11px;
   line-height: 1.2;
