@@ -1,8 +1,7 @@
 import { idbClear } from "../../lib/db.js";
 import {
   STORAGE_KEYS,
-  ICONS,
-  POPUP_MENU,
+  BRAND_LOGOS,
   POPUP_BOOT,
 } from "../../lib/settings.js";
 import {
@@ -12,6 +11,11 @@ import {
 import { safeLog } from "../../lib/log.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
 import { applyStaticI18n, initializeI18n } from "../../lib/i18n.js";
+import {
+  MESSAGE_TYPES,
+  IMPORT_ERROR_CODES,
+  isRuntimeMessage,
+} from "../../lib/protocol.js";
 import { isValidUrl, originPatternFromUrl } from "../../lib/ui.js";
 import {
   applyDocumentTheme,
@@ -23,6 +27,7 @@ import {
   restoreInactiveImportState,
   shouldClearProgressVisualsOnStorageClear,
 } from "./popup-import-state.js";
+import { createPopupState } from "./popup-state.js";
 import { createPopupGridController } from "./popup-grid.js";
 import { createPopupStatusController } from "./popup-status.js";
 
@@ -54,19 +59,8 @@ const refs = {
   themeToggleBtn: document.getElementById("themeToggleBtn"),
 };
 
-const state = {
-  activeImportRequestId: "",
-  currentImportState: null,
-  currentPage: 1,
-  currentTab: POPUP_MENU.defaultTab,
-  isBootLoading: true,
-  pendingFocusRestore: null,
-  popupMenuConfig: defaultPopupMenuConfig(),
-  renderSequence: 0,
-  searchTerm: "",
-  suppressNextImportStateClearUiReset: false,
-  themeMode: "light",
-};
+const stateStore = createPopupState();
+const { state } = stateStore;
 let localeApplyVersion = 0;
 const INIT_STEP_TIMEOUT_MS = POPUP_BOOT.initStepTimeoutMs;
 const QUERY_STATUS_MAX_LENGTH = POPUP_BOOT.statusQueryMaxLength;
@@ -89,21 +83,15 @@ function isTrustedRuntimeSender(sender) {
   return sender?.id === chrome.runtime.id;
 }
 
-function isRuntimeMessage(message) {
-  return (
-    Boolean(message) && typeof message === "object" && !Array.isArray(message)
-  );
-}
-
 function isVaultUpdatedMessage(message) {
-  if (!isRuntimeMessage(message) || message.type !== "VAULT_UPDATED") {
+  if (!isRuntimeMessage(message) || message.type !== MESSAGE_TYPES.vaultUpdated) {
     return false;
   }
   return !("itemId" in message) || typeof message.itemId === "string";
 }
 
 function isImportProgressMessage(message) {
-  if (!isRuntimeMessage(message) || message.type !== "IMPORT_PROGRESS") {
+  if (!isRuntimeMessage(message) || message.type !== MESSAGE_TYPES.importProgress) {
     return false;
   }
 
@@ -161,8 +149,8 @@ function storeLastPopupTab(tab) {
 }
 
 async function applyCurrentTab(nextTab) {
-  state.currentTab = normalizePopupTab(nextTab);
-  state.currentPage = 1;
+  stateStore.setCurrentTab(normalizePopupTab(nextTab));
+  stateStore.setCurrentPage(1);
   await storeLastPopupTab(state.currentTab);
 }
 
@@ -173,26 +161,13 @@ async function resolveInitialTab(defaultTabSetting) {
   return normalizePopupTab(defaultTabSetting);
 }
 
-function defaultPopupMenuConfig() {
-  return {
-    pageSize: POPUP_MENU.pageSize,
-    defaultTab: POPUP_MENU.defaultTab,
-    hoverPreviewEnabled: POPUP_MENU.hoverPreviewEnabled,
-    hoverPreviewDelayMs: POPUP_MENU.hoverPreviewDelayMs,
-    copyFeedbackResetDelayMs: POPUP_MENU.copyFeedbackResetDelayMs,
-    importProgressPercent: {
-      ...POPUP_MENU.importProgressPercent,
-    },
-  };
-}
-
 function getPopupMenuConfig() {
   return state.popupMenuConfig;
 }
 
 function setInteractiveEnabled(enabled) {
   const isEnabled = Boolean(enabled);
-  state.isBootLoading = !isEnabled;
+  stateStore.setBootLoading(!isEnabled);
   document.body.classList.toggle("boot-loading", !isEnabled);
   refs.grid.setAttribute("aria-busy", isEnabled ? "false" : "true");
 
@@ -209,8 +184,7 @@ function setInteractiveEnabled(enabled) {
 
 function showBootLoadingState() {
   setInteractiveEnabled(false);
-  state.activeImportRequestId = "";
-  state.currentImportState = null;
+  stateStore.resetActiveImportSession();
   statusController.clearTransientStatus();
   statusController.setStatus(UI_MESSAGES.popup.initializingDetail);
   statusController.setProgressState({
@@ -244,7 +218,9 @@ function runWhenInteractive(handler) {
 
 const statusController = createPopupStatusController({
   refs,
-  state,
+  getState: () => state,
+  applyImportStateToStore: stateStore.applyImportState,
+  setImportState: stateStore.setImportState,
   getPopupMenuConfig,
 });
 
@@ -275,7 +251,7 @@ async function terminateImport() {
 
   try {
     const response = await chrome.runtime.sendMessage({
-      type: "TERMINATE_IMPORT",
+      type: MESSAGE_TYPES.terminateImport,
       requestId,
     });
     if (!response?.ok) {
@@ -316,13 +292,13 @@ async function importUrl(rawUrl) {
   }
 
   const requestId = crypto.randomUUID();
-  state.activeImportRequestId = requestId;
-  state.currentImportState = {
+  stateStore.setActiveImportRequestId(requestId);
+  stateStore.setImportState({
     requestId,
     text: UI_MESSAGES.popup.startingImport,
     kind: "info",
     active: true,
-  };
+  });
   syncImportUiState();
   statusController.setStatus(UI_MESSAGES.popup.startingImport);
   statusController.setProgressState({
@@ -339,8 +315,7 @@ async function importUrl(rawUrl) {
     if (missingOrigins.length > 0) {
       await openPermissionAssist(url, "", missingOrigins);
       statusController.setProgressState(null);
-      state.activeImportRequestId = "";
-      state.currentImportState = null;
+      stateStore.resetActiveImportSession();
       syncImportUiState();
       await clearStoredImportStatePreservingUi();
       return;
@@ -349,7 +324,7 @@ async function importUrl(rawUrl) {
     statusController.setImportErrorState(
       error?.message || UI_MESSAGES.popup.importFailed,
     );
-    state.activeImportRequestId = "";
+    stateStore.setActiveImportRequestId("");
     await clearStoredImportStatePreservingUi();
     await safeLog("popup", "Import failed in popup", {
       error: error?.message || "unknown",
@@ -359,7 +334,7 @@ async function importUrl(rawUrl) {
 
   try {
     const response = await chrome.runtime.sendMessage({
-      type: "IMPORT_URL",
+      type: MESSAGE_TYPES.importUrl,
       url,
       requestId,
     });
@@ -380,18 +355,17 @@ async function importUrl(rawUrl) {
       convertedCount,
     );
     statusController.setImportSuccessState(successMessage);
-    state.activeImportRequestId = "";
+    stateStore.setActiveImportRequestId("");
     await clearStoredImportStatePreservingUi();
     await gridController.render();
   } catch (error) {
     if (
-      String(error?.code || "") === "HOST_ACCESS_REQUIRED" ||
+      String(error?.code || "") === IMPORT_ERROR_CODES.hostAccessRequired ||
       String(error?.message || "") === UI_MESSAGES.import.hostAccessRequired
     ) {
       await openPermissionAssist(url, "", []);
       statusController.setProgressState(null);
-      state.activeImportRequestId = "";
-      state.currentImportState = null;
+      stateStore.resetActiveImportSession();
       syncImportUiState();
       await clearStoredImportStatePreservingUi();
       return;
@@ -399,7 +373,7 @@ async function importUrl(rawUrl) {
     statusController.setImportErrorState(
       error?.message || UI_MESSAGES.popup.importFailed,
     );
-    state.activeImportRequestId = "";
+    stateStore.setActiveImportRequestId("");
     await clearStoredImportStatePreservingUi();
     await safeLog("popup", "Import failed in popup", {
       error: error?.message || "unknown",
@@ -492,9 +466,9 @@ function applyTheme(mode) {
   void setToolbarIcon(theme);
   if (refs.brandLogo) {
     const oppositeTheme = theme === "dark" ? "light" : "dark";
-    refs.brandLogo.src = `../../${ICONS[oppositeTheme]["128"]}`;
+    refs.brandLogo.src = `../../${BRAND_LOGOS[oppositeTheme]}`;
   }
-  state.themeMode = theme;
+  stateStore.setThemeMode(theme);
   gridController.updateEmptyStateMascotForTheme(theme);
 }
 
@@ -550,7 +524,7 @@ function clearStoredImportState() {
 }
 
 async function clearStoredImportStatePreservingUi() {
-  state.suppressNextImportStateClearUiReset = true;
+  stateStore.setSuppressImportStateUiReset(true);
   await clearStoredImportState();
 }
 
@@ -626,7 +600,7 @@ refs.openLogsBtn.addEventListener(
 refs.themeToggleBtn.addEventListener(
   "click",
   runWhenInteractive(async () => {
-    state.themeMode = state.themeMode === "dark" ? "light" : "dark";
+    stateStore.setThemeMode(state.themeMode === "dark" ? "light" : "dark");
     applyTheme(state.themeMode);
     await setThemeMode(state.themeMode);
   }),
@@ -663,22 +637,22 @@ refs.searchInput.addEventListener(
   "input",
   runWhenInteractive(async () => {
     gridController.clearSelections();
-    state.searchTerm = refs.searchInput.value || "";
-    state.currentPage = 1;
+    stateStore.setSearchTerm(refs.searchInput.value || "");
+    stateStore.setCurrentPage(1);
     await gridController.render();
   }),
 );
 refs.prevPageBtn.addEventListener(
   "click",
   runWhenInteractive(async () => {
-    state.currentPage = Math.max(1, state.currentPage - 1);
+    stateStore.setCurrentPage(Math.max(1, state.currentPage - 1));
     await gridController.render();
   }),
 );
 refs.nextPageBtn.addEventListener(
   "click",
   runWhenInteractive(async () => {
-    state.currentPage += 1;
+    stateStore.setCurrentPage(state.currentPage + 1);
     await gridController.render();
   }),
 );
@@ -718,18 +692,18 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     const normalized = normalizeRuntimeConfig(
       changes[STORAGE_KEYS.runtimeConfig].newValue,
     );
-    state.popupMenuConfig = {
+    stateStore.setPopupMenuConfig({
       ...normalized.popupMenu,
       importProgressPercent: {
         ...normalized.popupMenu.importProgressPercent,
       },
-    };
+    });
     if (previousDefaultTab !== state.popupMenuConfig.defaultTab) {
       void (async () => {
-        state.currentTab = await resolveInitialTab(
+        stateStore.setCurrentTab(await resolveInitialTab(
           state.popupMenuConfig.defaultTab,
-        );
-        state.currentPage = 1;
+        ));
+        stateStore.setCurrentPage(1);
         if (!isBootLoading()) {
           await gridController.render();
         }
@@ -754,7 +728,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     if (nextState) {
       statusController.applyImportState(nextState);
     } else {
-      state.currentImportState = null;
+      stateStore.setImportState(null);
       if (isBootLoading()) {
         syncImportUiState();
         return;
@@ -763,7 +737,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         hasTransientStatus: statusController.hasTransientStatus(),
         suppressUiReset: state.suppressNextImportStateClearUiReset,
       });
-      state.suppressNextImportStateClearUiReset = false;
+      stateStore.setSuppressImportStateUiReset(false);
       if (shouldClearProgress) {
         statusController.setProgressState(null);
       }
@@ -822,20 +796,20 @@ async function init() {
       INIT_STEP_TIMEOUT_MS,
       "RUNTIME_CONFIG_TIMEOUT",
     ).catch(() => normalizeRuntimeConfig({}));
-    state.popupMenuConfig = {
+    stateStore.setPopupMenuConfig({
       ...runtimeConfig.popupMenu,
       importProgressPercent: {
         ...runtimeConfig.popupMenu.importProgressPercent,
       },
-    };
+    });
     if (!state.popupMenuConfig.hoverPreviewEnabled) {
       gridController.hideHoverPreview();
     }
 
     // Resolve persisted UI state (tab + theme) and query-based assist hints.
-    state.currentTab = await resolveInitialTab(
+    stateStore.setCurrentTab(await resolveInitialTab(
       state.popupMenuConfig.defaultTab,
-    );
+    ));
     const initialTheme = await withTimeout(
       getThemeMode(),
       INIT_STEP_TIMEOUT_MS,
@@ -854,7 +828,7 @@ async function init() {
       if (importState.active) {
         statusController.applyImportState(importState);
       } else {
-        state.currentImportState = null;
+        stateStore.setImportState(null);
         await restoreInactiveImportState({
           importState,
           statusController,
@@ -862,7 +836,7 @@ async function init() {
         });
       }
     } else {
-      state.currentImportState = importState || null;
+      stateStore.setImportState(importState || null);
     }
 
     // First full render, then unlock interactions.

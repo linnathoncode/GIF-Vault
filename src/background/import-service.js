@@ -4,6 +4,12 @@ import { STORAGE_KEYS, OFFSCREEN } from "../lib/settings.js";
 import { getRuntimeConfig } from "../lib/runtime-config.js";
 import { safeLog } from "../lib/log.js";
 import { UI_MESSAGES } from "../lib/messages.js";
+import {
+  MESSAGE_TYPES,
+  IMPORT_ERROR_CODES,
+  createImportError,
+  getImportErrorCode,
+} from "../lib/protocol.js";
 import { originPatternFromUrl } from "../lib/ui.js";
 import {
   getReadableImportError,
@@ -29,7 +35,7 @@ function isHttpUrl(rawUrl) {
 function normalizeHttpUrl(rawUrl, fallbackError = UI_MESSAGES.popup.enterValidUrl) {
   const value = String(rawUrl || "").trim();
   if (!isHttpUrl(value)) {
-    throw new Error(fallbackError);
+    throw createImportError(IMPORT_ERROR_CODES.invalidUrl, fallbackError);
   }
   return new URL(value).toString();
 }
@@ -48,7 +54,10 @@ function mediaTooLargeMessage(maxBytes) {
 }
 
 function isUserTerminatedImport(requestId, abortController, error) {
-  if (error?.message === UI_MESSAGES.import.importTerminatedError) {
+  if (
+    getImportErrorCode(error) === IMPORT_ERROR_CODES.importTerminated ||
+    error?.message === UI_MESSAGES.import.importTerminatedError
+  ) {
     return true;
   }
   // AbortError should count as user termination only when this import was
@@ -71,11 +80,14 @@ async function importFromUrl(
   const url = String(rawUrl || "").trim();
   if (!url) {
     await safeLog("import", "Rejected empty URL");
-    throw new Error(UI_MESSAGES.import.emptyUrl);
+    throw createImportError(IMPORT_ERROR_CODES.invalidUrl, UI_MESSAGES.import.emptyUrl);
   }
   const normalizedUrl = normalizeHttpUrl(url);
   if (activeImportRequestId) {
-    throw new Error(UI_MESSAGES.import.concurrentImportInProgress);
+    throw createImportError(
+      IMPORT_ERROR_CODES.concurrentImportInProgress,
+      UI_MESSAGES.import.concurrentImportInProgress,
+    );
   }
   activeImportRequestId = progressId;
 
@@ -191,7 +203,7 @@ async function importFromUrl(
         UI_MESSAGES.import.phaseComplete,
       );
     }
-    throw new Error(message);
+    throw createImportError(getImportErrorCode(error), message);
   } finally {
     importAbortControllerById.delete(progressId);
     terminatedImportIds.delete(progressId);
@@ -435,7 +447,7 @@ async function readBlobWithMaxSize(response, maxBytes, ensureImportActive) {
 async function terminateImport(requestId) {
   const id = String(requestId || "").trim();
   if (!id) {
-    throw new Error(UI_MESSAGES.import.missingRequestId);
+    throw createImportError(IMPORT_ERROR_CODES.invalidUrl, UI_MESSAGES.import.missingRequestId);
   }
 
   terminatedImportIds.add(id);
@@ -460,7 +472,10 @@ function throwIfTerminated(requestId, abortController = null) {
     terminatedImportIds.has(requestId) ||
     Boolean(abortController?.signal?.aborted)
   ) {
-    throw new Error(UI_MESSAGES.import.importTerminatedError);
+    throw createImportError(
+      IMPORT_ERROR_CODES.importTerminated,
+      UI_MESSAGES.import.importTerminatedError,
+    );
   }
 }
 
@@ -583,7 +598,10 @@ async function ensureOriginAccess(rawUrl) {
   await safeLog("permissions", "Missing host access for origin", {
     origin: originPattern,
   });
-  throw new Error(UI_MESSAGES.import.hostAccessRequired);
+  throw createImportError(
+    IMPORT_ERROR_CODES.hostAccessRequired,
+    UI_MESSAGES.import.hostAccessRequired,
+  );
 }
 
 async function reportProgress(
@@ -606,7 +624,7 @@ async function reportProgress(
       },
     });
     await chrome.runtime.sendMessage({
-      type: "IMPORT_PROGRESS",
+      type: MESSAGE_TYPES.importProgress,
       requestId,
       text,
       kind,
@@ -621,7 +639,7 @@ async function reportProgress(
 async function notifyVaultUpdated(itemId) {
   try {
     await chrome.runtime.sendMessage({
-      type: "VAULT_UPDATED",
+      type: MESSAGE_TYPES.vaultUpdated,
       itemId,
     });
   } catch {

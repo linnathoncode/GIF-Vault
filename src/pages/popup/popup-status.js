@@ -3,7 +3,10 @@ import { UI_MESSAGES } from "../../lib/messages.js";
 
 export function createPopupStatusController({
   refs,
-  state,
+  state = null,
+  getState,
+  applyImportStateToStore,
+  setImportState,
   getPopupMenuConfig,
 }) {
   const TRANSIENT_STATUS_DURATION_MS = 5000;
@@ -22,6 +25,37 @@ export function createPopupStatusController({
   let transientStatusActive = false;
   let transientProgressSnapshot = null;
   let transientDisplayMode = "below";
+  const readState =
+    typeof getState === "function"
+      ? getState
+      : () => state || { currentImportState: null, activeImportRequestId: "" };
+  const writeImportState =
+    typeof setImportState === "function"
+      ? setImportState
+      : (importState) => {
+          if (!state) {
+            return;
+          }
+          state.currentImportState = importState?.text ? importState : null;
+        };
+  const applyImportStateMutation =
+    typeof applyImportStateToStore === "function"
+      ? applyImportStateToStore
+      : (importState) => {
+          if (!state) {
+            return;
+          }
+          state.currentImportState = importState?.text ? importState : null;
+          if (importState?.active) {
+            state.activeImportRequestId =
+              importState.requestId || state.activeImportRequestId;
+          } else if (
+            importState?.requestId &&
+            importState.requestId === state.activeImportRequestId
+          ) {
+            state.activeImportRequestId = "";
+          }
+        };
 
   function getImportProgressPercent(importState) {
     if (!importState?.text && !importState?.phase) {
@@ -179,6 +213,7 @@ export function createPopupStatusController({
     durationMs = TRANSIENT_STATUS_DURATION_MS,
     options = {},
   ) {
+    const state = readState();
     const hasImportStateToRestore = Boolean(state.currentImportState?.text);
     const hasActiveImport = Boolean(state.currentImportState?.active);
     transientDisplayMode = hasActiveImport ? "below" : "inline";
@@ -202,6 +237,7 @@ export function createPopupStatusController({
     transientStatusTimer = setTimeout(() => {
       transientStatusTimer = 0;
       transientStatusActive = false;
+      const state = readState();
       if (state.currentImportState?.text) {
         transientProgressSnapshot = null;
         applyImportState(state.currentImportState, { force: true });
@@ -221,16 +257,7 @@ export function createPopupStatusController({
   }
 
   function applyImportState(importState, options = {}) {
-    state.currentImportState = importState?.text ? importState : null;
-    if (importState?.active) {
-      state.activeImportRequestId =
-        importState.requestId || state.activeImportRequestId;
-    } else if (
-      importState?.requestId &&
-      importState.requestId === state.activeImportRequestId
-    ) {
-      state.activeImportRequestId = "";
-    }
+    applyImportStateMutation(importState);
 
     if (transientStatusActive && !options.force) {
       if (importState?.text) {
@@ -249,6 +276,7 @@ export function createPopupStatusController({
   }
 
   function syncImportActionButton() {
+    const state = readState();
     const isActiveImport = Boolean(state.currentImportState?.active);
     const nextLabel = isActiveImport
       ? UI_MESSAGES.popup.importButtonTerminate
@@ -270,7 +298,7 @@ export function createPopupStatusController({
 
   function setImportErrorState(text) {
     clearTransientStatus();
-    state.currentImportState = null;
+    writeImportState(null);
     syncImportActionButton();
     setStatus("");
     setProgressState({
@@ -282,7 +310,7 @@ export function createPopupStatusController({
 
   function setImportSuccessState(text) {
     clearTransientStatus();
-    state.currentImportState = null;
+    writeImportState(null);
     syncImportActionButton();
     setStatus("");
     setProgressState({

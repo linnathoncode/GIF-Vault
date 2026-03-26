@@ -4,10 +4,10 @@
   "version": "1.6.0",
   "description": "Save GIFs from X/Twitter and web links, convert videos to GIFs, and organize everything in your own private vault.",
   "icons": {
-    "16": "assets/icons/icon-light-16.png",
-    "32": "assets/icons/icon-light-32.png",
-    "48": "assets/icons/icon-light-48.png",
-    "128": "assets/icons/icon-light-128.png"
+    "16": "assets/icons/app/icon-light-16.png",
+    "32": "assets/icons/app/icon-light-32.png",
+    "48": "assets/icons/app/icon-light-48.png",
+    "128": "assets/icons/app/icon-light-128.png"
   },
   "permissions": ["contextMenus", "storage", "offscreen"],
   "host_permissions": [
@@ -32,9 +32,9 @@
     "default_popup": "pages/popup/popup.html",
     "default_title": "GIF Vault",
     "default_icon": {
-      "16": "assets/icons/icon-light-16.png",
-      "32": "assets/icons/icon-light-32.png",
-      "48": "assets/icons/icon-light-48.png"
+      "16": "assets/icons/app/icon-light-16.png",
+      "32": "assets/icons/app/icon-light-32.png",
+      "48": "assets/icons/app/icon-light-48.png"
     }
   },
   "options_page": "pages/options/options.html",

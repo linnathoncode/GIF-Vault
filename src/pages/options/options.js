@@ -18,6 +18,7 @@ import {
   setThemeMode,
   setToolbarIcon,
 } from "../../lib/theme.js";
+import { addThemeLocaleStorageListener } from "../../lib/page-lifecycle.js";
 
 const formEl = document.getElementById("optionsForm");
 const statusEl = document.getElementById("status");
@@ -200,29 +201,28 @@ themeToggleBtn.addEventListener("click", async () => {
   await setThemeMode(themeMode);
 });
 
+addThemeLocaleStorageListener({
+  onThemeChange(nextTheme) {
+    applyTheme(nextTheme);
+  },
+  onLocaleChange(nextLocale) {
+    void (async () => {
+      await applyLocale(nextLocale);
+      setLocaleValue(nextLocale);
+      setStatus(UI_MESSAGES.options.statusLanguageUpdated, "ok");
+    })();
+  },
+});
+
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") {
     return;
-  }
-
-  if (changes[STORAGE_KEYS.themeMode]) {
-    const nextTheme = changes[STORAGE_KEYS.themeMode].newValue;
-    applyTheme(nextTheme);
   }
 
   if (changes[STORAGE_KEYS.runtimeConfig]?.newValue) {
     fillForm(
       normalizeRuntimeConfig(changes[STORAGE_KEYS.runtimeConfig].newValue),
     );
-  }
-
-  if (changes[STORAGE_KEYS.locale]?.newValue) {
-    const nextLocale = String(changes[STORAGE_KEYS.locale].newValue || "").trim();
-    void (async () => {
-      await applyLocale(nextLocale);
-      setLocaleValue(nextLocale);
-      setStatus(UI_MESSAGES.options.statusLanguageUpdated, "ok");
-    })();
   }
 });
 

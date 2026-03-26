@@ -3,6 +3,12 @@ import { safeLog } from "../lib/log.js";
 import { UI_MESSAGES } from "../lib/messages.js";
 import { initializeI18n } from "../lib/i18n.js";
 import {
+  MESSAGE_TYPES,
+  IMPORT_ERROR_CODES,
+  isRuntimeMessage,
+  getImportErrorCode,
+} from "../lib/protocol.js";
+import {
   setActionIcon,
   showBadgeFallback,
   syncActionIconToTheme,
@@ -43,10 +49,6 @@ void ensureLocaleReady();
 
 function isTrustedRuntimeSender(sender) {
   return sender?.id === chrome.runtime.id;
-}
-
-function isRuntimeMessage(message) {
-  return Boolean(message) && typeof message === "object" && !Array.isArray(message);
 }
 
 // Service worker lifecycle and browser event wiring.
@@ -101,7 +103,10 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
     await importFromUrl(info.srcUrl, info.pageUrl || "");
     await showBadgeFallback(true);
   } catch (error) {
-    if (String(error?.message || "") === UI_MESSAGES.import.hostAccessRequired) {
+    if (
+      getImportErrorCode(error) === IMPORT_ERROR_CODES.hostAccessRequired ||
+      String(error?.message || "") === UI_MESSAGES.import.hostAccessRequired
+    ) {
       await openPermissionAssist(info.srcUrl, info.pageUrl || "");
     }
     await showBadgeFallback(false);
@@ -118,12 +123,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   const localeSyncPromise = ensureLocaleReady();
 
-  if (message.type === "SET_THEME_ICON") {
+  if (message.type === MESSAGE_TYPES.setThemeIcon) {
     handleThemeIconMessage(message, sendResponse);
     return true;
   }
 
-  if (message.type === "RESOLVE_MEDIA_URL") {
+  if (message.type === MESSAGE_TYPES.resolveMediaUrl) {
     localeSyncPromise
       .then(() => resolveMediaUrls(message.url || ""))
       .then((resolvedMediaUrls) =>
@@ -142,7 +147,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.type === "TERMINATE_IMPORT") {
+  if (message.type === MESSAGE_TYPES.terminateImport) {
     localeSyncPromise
       .then(() => terminateImport(message.requestId || ""))
       .then((terminated) => sendResponse({ ok: true, terminated }))
@@ -155,7 +160,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.type !== "IMPORT_URL") {
+  if (message.type !== MESSAGE_TYPES.importUrl) {
     return;
   }
 
@@ -173,7 +178,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({
         ok: false,
         error: error?.message || UI_MESSAGES.popup.importFailed,
-        errorCode: inferImportErrorCode(error?.message || ""),
+        errorCode: getImportErrorCode(error) || inferImportErrorCode(error?.message || ""),
       }),
     );
   return true;
@@ -225,13 +230,13 @@ async function openPermissionAssist(url, pageUrl, reason = "") {
 function inferImportErrorCode(rawMessage) {
   const message = String(rawMessage || "");
   if (message === UI_MESSAGES.import.hostAccessRequired) {
-    return "HOST_ACCESS_REQUIRED";
+    return IMPORT_ERROR_CODES.hostAccessRequired;
   }
   if (message === UI_MESSAGES.import.importTerminated) {
-    return "IMPORT_TERMINATED";
+    return IMPORT_ERROR_CODES.importTerminated;
   }
   if (message === UI_MESSAGES.import.concurrentImportInProgress) {
-    return "IMPORT_ALREADY_RUNNING";
+    return IMPORT_ERROR_CODES.concurrentImportInProgress;
   }
   return "";
 }

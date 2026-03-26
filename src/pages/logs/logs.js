@@ -1,5 +1,5 @@
 import { idbGetLogs, idbClearLogs } from "../../lib/db.js";
-import { DB, STORAGE_KEYS } from "../../lib/settings.js";
+import { DB } from "../../lib/settings.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
 import { applyStaticI18n, initializeI18n } from "../../lib/i18n.js";
 import { formatBytes } from "../../lib/ui.js";
@@ -10,6 +10,7 @@ import {
   setThemeMode,
   setToolbarIcon
 } from "../../lib/theme.js";
+import { addThemeLocaleStorageListener } from "../../lib/page-lifecycle.js";
 
 const logsEl = document.getElementById("logs");
 const statusEl = document.getElementById("status");
@@ -502,26 +503,18 @@ themeToggleBtn?.addEventListener("click", async () => {
   await setThemeMode(themeMode);
 });
 
-if (globalThis.chrome?.storage?.onChanged?.addListener) {
-  globalThis.chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== "local") {
-      return;
-    }
-
-    if (changes[STORAGE_KEYS.themeMode]) {
-      const next = changes[STORAGE_KEYS.themeMode].newValue === "dark" ? "dark" : "light";
-      applyTheme(next);
-    }
-
-    if (changes[STORAGE_KEYS.locale]?.newValue) {
-      const nextLocale = String(changes[STORAGE_KEYS.locale].newValue || "").trim();
-      void (async () => {
-        await applyLocale(nextLocale);
-        await renderLogs();
-      })();
-    }
-  });
-}
+addThemeLocaleStorageListener({
+  onThemeChange(nextTheme) {
+    const next = nextTheme === "dark" ? "dark" : "light";
+    applyTheme(next);
+  },
+  onLocaleChange(nextLocale) {
+    void (async () => {
+      await applyLocale(nextLocale);
+      await renderLogs();
+    })();
+  },
+});
 
 async function init() {
   ensureLogsStructure();

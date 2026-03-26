@@ -1,4 +1,5 @@
 import { STORAGE_KEYS, ICONS } from "./settings.js";
+import { MESSAGE_TYPES } from "./protocol.js";
 
 let lastToolbarIconTheme = "";
 
@@ -27,7 +28,7 @@ async function setToolbarIcon(theme) {
 
   try {
     const response = await chrome.runtime.sendMessage({
-      type: "SET_THEME_ICON",
+      type: MESSAGE_TYPES.setThemeIcon,
       theme: normalizedTheme
     });
     if (response?.ok) {
