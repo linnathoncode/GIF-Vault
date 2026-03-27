@@ -85,6 +85,8 @@ export function createPopupGridController({
     searchInput,
     state,
   });
+  const deleteButtonLabelWithBatchHint = () =>
+    `${UI_MESSAGES.grid.delete} ${UI_MESSAGES.grid.deleteBatchHint}`;
 
   function resetDeleteButton(button) {
     if (!(button instanceof HTMLElement)) {
@@ -92,8 +94,9 @@ export function createPopupGridController({
     }
     button.classList.remove("delete-armed");
     setButtonIcon(button, "icon-delete.svg");
-    button.title = UI_MESSAGES.grid.delete;
-    button.setAttribute("aria-label", UI_MESSAGES.grid.delete);
+    const deleteLabel = deleteButtonLabelWithBatchHint();
+    button.title = deleteLabel;
+    button.setAttribute("aria-label", deleteLabel);
   }
 
   function clearArmedDelete() {
@@ -433,7 +436,7 @@ export function createPopupGridController({
         className: "btn",
         text: UI_MESSAGES.grid.remove,
         actionKey: "delete",
-        title: UI_MESSAGES.grid.delete,
+        title: deleteButtonLabelWithBatchHint(),
         onClick: () => removeItems([item.id], item.id),
       }),
     );
@@ -571,8 +574,8 @@ export function createPopupGridController({
     const removeBtn = createButton({
       className: "btn danger",
       actionKey: "delete",
-      title: UI_MESSAGES.grid.delete,
-      label: UI_MESSAGES.grid.delete,
+      title: deleteButtonLabelWithBatchHint(),
+      label: deleteButtonLabelWithBatchHint(),
     });
     setButtonIcon(removeBtn, "icon-delete.svg");
     removeBtn.addEventListener("click", () => {

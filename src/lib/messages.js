@@ -132,6 +132,7 @@ function createEnMessages() {
       favorite: "Favorite",
       unfavorite: "Unfavorite",
       favoriteBatchHint: "(batch applies to selected cards)",
+      deleteBatchHint: "(batch applies to selected cards)",
       deletedMany: (count) => `${count} items deleted.`,
       deletedSingle: "Item deleted.",
       deletedGifSingle: "GIF deleted.",
@@ -180,9 +181,6 @@ function createEnMessages() {
       guideHeading: "Feedback",
       guideBodyPrimary:
         "Share feedback or suggestions to improve GIF Vault.",
-      guideBodySecondary:
-        "Click Provide Feedback to open a quick field, then send your note by email.",
-      provideFeedbackButton: "Provide Feedback",
       feedbackDescriptionPlaceholder:
         "Share your feedback or suggestions for improvement.",
       feedbackCharCount: (count, max) => `${count}/${max}`,
@@ -402,6 +400,7 @@ function createTrMessages() {
       favorite: "Favori",
       unfavorite: "Favoriden çıkar",
       favoriteBatchHint: "(toplu işlem seçili kartlara uygulanır)",
+      deleteBatchHint: "(toplu işlem seçili kartlara uygulanır)",
       deletedMany: (count) => `${count} öğe silindi.`,
       deletedSingle: "Öğe silindi.",
       deletedGifSingle: "GIF silindi.",
@@ -450,9 +449,6 @@ function createTrMessages() {
       guideHeading: "Geri Bildirim",
       guideBodyPrimary:
         "GIF Vault'u geliştirmek için geri bildirim veya öneri paylaş.",
-      guideBodySecondary:
-        "Hızlı alanı açmak için Geri Bildirim Ver'e tıkla, sonra notunu e-posta ile gönder.",
-      provideFeedbackButton: "Geri Bildirim Ver",
       feedbackDescriptionPlaceholder:
         "Geri bildiriminizi veya geliştirme önerilerinizi yazın.",
       feedbackCharCount: (count, max) => `${count}/${max}`,

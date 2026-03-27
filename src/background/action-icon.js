@@ -20,19 +20,16 @@ async function showBadgeFallback(ok) {
 }
 
 async function syncActionIconToTheme() {
-  try {
-    const current = await chrome.storage.local.get([STORAGE_KEYS.themeMode]);
-    const theme = current[STORAGE_KEYS.themeMode] === "dark" ? "dark" : "light";
-    await setActionIcon(theme);
-  } catch {
-    // no-op
-  }
+  await setActionIcon("dark");
 }
 
 async function setActionIcon(theme) {
-  const iconPaths = theme === "dark" ? ICONS.dark : ICONS.light;
+  const iconPaths = ICONS.dark;
   await setIconWithImageData(iconPaths);
-  await safeLog("theme", "Action icon updated (imageData)", { theme });
+  await safeLog("theme", "Action icon updated (imageData)", {
+    requestedTheme: theme,
+    appliedTheme: "dark",
+  });
 }
 
 async function setIconWithImageData(iconPaths) {

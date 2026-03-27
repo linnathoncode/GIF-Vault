@@ -38,7 +38,6 @@ const hoverPreviewDelayField = document.getElementById(
 const guideMascotEl = document.getElementById("guideMascot");
 const submitFeedbackBtn = document.getElementById("submitFeedbackBtn");
 const submitFeedbackBtnLabel = document.getElementById("submitFeedbackBtnLabel");
-const feedbackPanel = document.getElementById("feedbackPanel");
 const feedbackDescriptionInput = document.getElementById(
   "feedbackDescriptionInput",
 );
@@ -47,7 +46,6 @@ const feedbackStatusEl = document.getElementById("feedbackStatus");
 const FEEDBACK_SUPPORT_EMAIL = "gifvault.support@gmail.com";
 
 let themeMode = "light";
-let isFeedbackComposerOpen = false;
 
 // Small DOM helpers for form I/O.
 function setStatus(text, kind = "") {
@@ -167,22 +165,6 @@ function setFeedbackStatus(text, ok = false) {
   feedbackStatusEl.hidden = false;
 }
 
-function setFeedbackComposerOpen(open) {
-  isFeedbackComposerOpen = Boolean(open);
-  if (feedbackPanel) {
-    feedbackPanel.hidden = !isFeedbackComposerOpen;
-  }
-  if (submitFeedbackBtnLabel) {
-    submitFeedbackBtnLabel.textContent = isFeedbackComposerOpen
-      ? UI_MESSAGES.options.sendFeedbackButton
-      : UI_MESSAGES.options.provideFeedbackButton;
-  }
-  if (!isFeedbackComposerOpen) {
-    setFeedbackStatus("");
-  }
-  syncFeedbackCharCount();
-}
-
 function syncFeedbackCharCount() {
   if (!feedbackDescriptionInput || !feedbackCharCountEl) {
     return;
@@ -219,9 +201,7 @@ async function applyLocale(localeHint = "") {
   );
   applyStaticI18n();
   if (submitFeedbackBtnLabel) {
-    submitFeedbackBtnLabel.textContent = isFeedbackComposerOpen
-      ? UI_MESSAGES.options.sendFeedbackButton
-      : UI_MESSAGES.options.provideFeedbackButton;
+    submitFeedbackBtnLabel.textContent = UI_MESSAGES.options.sendFeedbackButton;
   }
   syncFeedbackCharCount();
 }
@@ -272,33 +252,28 @@ feedbackDescriptionInput?.addEventListener("input", () => {
 });
 
 submitFeedbackBtn?.addEventListener("click", async () => {
-  if (isFeedbackComposerOpen) {
-    const feedback = String(feedbackDescriptionInput?.value || "").trim();
-    if (!feedback) {
-      setFeedbackStatus(UI_MESSAGES.options.feedbackDescriptionRequired);
-      feedbackDescriptionInput?.focus();
-      return;
-    }
-
-    if (submitFeedbackBtn) {
-      submitFeedbackBtn.disabled = true;
-    }
-    setFeedbackStatus(UI_MESSAGES.options.feedbackPreparing);
-
-    try {
-      openFeedbackDraft(feedback);
-      setFeedbackStatus(UI_MESSAGES.options.feedbackEmailOpened, true);
-    } catch {
-      setFeedbackStatus(UI_MESSAGES.options.feedbackFailed);
-    } finally {
-      if (submitFeedbackBtn) {
-        submitFeedbackBtn.disabled = false;
-      }
-    }
+  const feedback = String(feedbackDescriptionInput?.value || "").trim();
+  if (!feedback) {
+    setFeedbackStatus(UI_MESSAGES.options.feedbackDescriptionRequired);
+    feedbackDescriptionInput?.focus();
     return;
   }
-  setFeedbackComposerOpen(true);
-  feedbackDescriptionInput?.focus();
+
+  if (submitFeedbackBtn) {
+    submitFeedbackBtn.disabled = true;
+  }
+  setFeedbackStatus(UI_MESSAGES.options.feedbackPreparing);
+
+  try {
+    openFeedbackDraft(feedback);
+    setFeedbackStatus(UI_MESSAGES.options.feedbackEmailOpened, true);
+  } catch {
+    setFeedbackStatus(UI_MESSAGES.options.feedbackFailed);
+  } finally {
+    if (submitFeedbackBtn) {
+      submitFeedbackBtn.disabled = false;
+    }
+  }
 });
 
 themeToggleBtn.addEventListener("click", async () => {
@@ -339,7 +314,8 @@ async function init() {
   }
   await applyLocale();
   applyTheme(await getThemeMode());
-  setFeedbackComposerOpen(false);
+  setFeedbackStatus("");
+  syncFeedbackCharCount();
   fillForm(await getRuntimeConfig());
   setLocaleValue(await getStoredLocale());
   setStatus(UI_MESSAGES.options.statusAdjustAndSave);

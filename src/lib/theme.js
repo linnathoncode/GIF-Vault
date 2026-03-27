@@ -21,7 +21,7 @@ function setThemeToggleGlyph(button, mode) {
 }
 
 async function setToolbarIcon(theme) {
-  const normalizedTheme = normalizeThemeMode(theme);
+  const normalizedTheme = "dark";
   if (lastToolbarIconTheme === normalizedTheme) {
     return;
   }

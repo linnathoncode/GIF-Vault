@@ -171,6 +171,7 @@ Rules:
 
 ## Recently Added
 
+- Options feedback composer is now always visible, the "open feedback field" helper sentence was removed, and the action button now consistently works as "Send by email".
 - Popup card actions were redesigned to icon-only controls with even bottom-row spacing, and rename was moved from the title row into the action row.
 - Favorited popup items now use a dedicated filled star icon (`icon-star-filled.svg`) for clearer state feedback.
 - Popup card source/size metadata now appears as a full-width hover row in the non-preview area and no longer sticks after click focus.
