@@ -45,6 +45,7 @@ Core capabilities:
 Maintenance rule:
 
 - When a worthwhile user-facing feature is added, append it to `## Recently Added` below (and update this section if store-copy should change).
+- When the app version changes, insert a clear version marker inside `## Recently Added` (for example `### Since v1.6.1`) so changes after each version are easy to spot.
 
 ## Source Layout
 
