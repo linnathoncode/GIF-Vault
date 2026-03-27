@@ -41,7 +41,8 @@ function createEnMessages() {
       importFailed: "Import failed.",
       importButtonIdle: "Import",
       importButtonTerminate: "Stop",
-      importAlreadyRunning: "An import is already running. Wait or stop it first.",
+      importAlreadyRunning:
+        "An import is already running. Wait or stop it first.",
       initializing: "Loading vault...",
       initializingDetail: "Please wait while GIF Vault finishes startup.",
       initializationFailed: "Vault is still starting. Reopen the popup.",
@@ -64,6 +65,7 @@ function createEnMessages() {
       nextPageAriaLabel: "Next page",
       openOptions: "Open Options",
       openLogs: "Open Logs",
+      paginationHint: "Use the arrows to move between pages.",
       themeToggleAriaLabel: "Toggle theme",
       brandLogoAlt: "GIF Vault logo",
       pageTitle: "GIF Vault",
@@ -130,6 +132,7 @@ function createEnMessages() {
       favorite: "Favorite",
       unfavorite: "Unfavorite",
       favoriteBatchHint: "(batch applies to selected cards)",
+      deleteBatchHint: "(batch applies to selected cards)",
       deletedMany: (count) => `${count} items deleted.`,
       deletedSingle: "Item deleted.",
       deletedGifSingle: "GIF deleted.",
@@ -175,6 +178,22 @@ function createEnMessages() {
       statusLanguageUpdated: "Language switched.",
       statusAdjustAndSave: "Tweak values and save.",
       languageLabel: "Language",
+      guideHeading: "Feedback",
+      guideBodyPrimary:
+        "Share feedback or suggestions to improve GIF Vault.",
+      feedbackDescriptionPlaceholder:
+        "Share your feedback or suggestions for improvement.",
+      feedbackCharCount: (count, max) => `${count}/${max}`,
+      sendFeedbackButton: "Send by email",
+      feedbackDescriptionRequired:
+        "Please enter feedback before sending.",
+      feedbackPreparing: "Preparing feedback email...",
+      feedbackFailed: "Couldn't prepare the feedback email.",
+      feedbackEmailSubject: "GIF Vault Feedback",
+      feedbackEmailBody: (description) =>
+        `Feedback from GIF Vault user\n\nFeedback:\n${description}`,
+      feedbackEmailOpened: "Feedback email draft opened.",
+      guideMascotAlt: "Options guide mascot",
     },
     logs: {
       pageTitle: "GIF Vault Logs",
@@ -288,7 +307,8 @@ function createTrMessages() {
       importFailed: "Aktarmada bir pürüz çıktı",
       importButtonIdle: "Vault'a Aktar",
       importButtonTerminate: "Durdur",
-      importAlreadyRunning: "Zaten bir aktarma sürüyor. Önce bekle ya da durdur.",
+      importAlreadyRunning:
+        "Zaten bir aktarma sürüyor. Önce bekle ya da durdur.",
       initializing: "Vault yükleniyor...",
       initializingDetail: "GIF Vault başlatılırken lütfen bekle.",
       initializationFailed: "Vault hala başlıyor. Açılır pencereyi yeniden aç.",
@@ -312,6 +332,7 @@ function createTrMessages() {
       nextPageAriaLabel: "Sonraki sayfa",
       openOptions: "Ayarları Aç",
       openLogs: "Kayıtları Aç",
+      paginationHint: "Sayfalar arasında gezinmek için okları kullan.",
       themeToggleAriaLabel: "Temayı değiştir",
       brandLogoAlt: "GIF Vault logosu",
       pageTitle: "GIF Vault",
@@ -379,6 +400,7 @@ function createTrMessages() {
       favorite: "Favori",
       unfavorite: "Favoriden çıkar",
       favoriteBatchHint: "(toplu işlem seçili kartlara uygulanır)",
+      deleteBatchHint: "(toplu işlem seçili kartlara uygulanır)",
       deletedMany: (count) => `${count} öğe silindi.`,
       deletedSingle: "Öğe silindi.",
       deletedGifSingle: "GIF silindi.",
@@ -396,9 +418,9 @@ function createTrMessages() {
     options: {
       pageTitle: "GIF Vault Ayarları",
       heading: "GIF Vault Ayarları",
-      subtitle: "Açılır pencereyi ve GIF dönüşümünü ince ayarla.",
+      subtitle: "Açılır pencere davranışını ve GIF dönüştürmeyi ayarla.",
       warningAriaLabel: "Ayar uyarısı",
-      warningStrong: "Varsayılan ayarlar çoğu zaman en iyisi.",
+      warningStrong: "Varsayılanlar senin dostundur.",
       warningBody:
         "Bu değerleri değiştirmek CPU kullanımını, bellek kullanımını ve depolama boyutunu artırabilir. Daha stabil ve öngörülebilir performans için varsayılan ayarlar önerilir.",
       gifConversionHeading: "GIF Dönüşümü",
@@ -424,6 +446,22 @@ function createTrMessages() {
       statusLanguageUpdated: "Dil değiştirildi.",
       statusAdjustAndSave: "Değerleri düzenleyip kaydet.",
       languageLabel: "Dil",
+      guideHeading: "Geri Bildirim",
+      guideBodyPrimary:
+        "GIF Vault'u geliştirmek için geri bildirim veya öneri paylaş.",
+      feedbackDescriptionPlaceholder:
+        "Geri bildiriminizi veya geliştirme önerilerinizi yazın.",
+      feedbackCharCount: (count, max) => `${count}/${max}`,
+      sendFeedbackButton: "E-posta ile gönder",
+      feedbackDescriptionRequired:
+        "Göndermeden önce bir geri bildirim yaz.",
+      feedbackPreparing: "Geri bildirim e-postası hazırlanıyor...",
+      feedbackFailed: "Geri bildirim e-postası hazırlanamadı.",
+      feedbackEmailSubject: "GIF Vault Geri Bildirim",
+      feedbackEmailBody: (description) =>
+        `GIF Vault kullanıcı geri bildirimi\n\nGeri bildirim:\n${description}`,
+      feedbackEmailOpened: "Geri bildirim e-posta taslağı açıldı.",
+      guideMascotAlt: "Ayarlar rehberi maskotu",
     },
     logs: {
       pageTitle: "GIF Vault Kayıtları",
@@ -451,8 +489,7 @@ function createTrMessages() {
         "Karşılaştığın durumu ve nasıl yeniden oluşturabileceğimizi yaz.",
       reportBugButtonCollapsed: "Hata bildir",
       reportBugButtonExpanded: "E-posta ile gönder",
-      reportDescriptionRequired:
-        "Göndermeden önce karşılaştığın durumu yaz.",
+      reportDescriptionRequired: "Göndermeden önce karşılaştığın durumu yaz.",
       reportAttachmentHint:
         "Kayıt dosyası otomatik indirilecek. Göndermeden önce e-postaya ekle.",
       reportPreparing: "Hata raporu e-postası hazırlanıyor...",

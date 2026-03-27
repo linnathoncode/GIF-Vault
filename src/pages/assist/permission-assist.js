@@ -2,8 +2,13 @@ import { STORAGE_KEYS } from "../../lib/settings.js";
 import { safeLog } from "../../lib/log.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
 import { applyStaticI18n, initializeI18n } from "../../lib/i18n.js";
+import {
+  MESSAGE_TYPES,
+  IMPORT_ERROR_CODES,
+} from "../../lib/protocol.js";
 import { originPatternFromUrl } from "../../lib/ui.js";
 import { applyDocumentTheme } from "../../lib/theme.js";
+import { addThemeLocaleStorageListener } from "../../lib/page-lifecycle.js";
 
 const reasonEl = document.getElementById("reason");
 const originsEl = document.getElementById("origins");
@@ -22,6 +27,17 @@ let resolvedMediaUrls = [];
 let isBusy = false;
 let usingDefaultReason = false;
 
+function setButtonLabel(button, text) {
+  const labelEl = button?.querySelector?.("span");
+  if (labelEl) {
+    labelEl.textContent = text;
+    return;
+  }
+  if (button) {
+    button.textContent = text;
+  }
+}
+
 async function applyLocale(localeHint = "") {
   await initializeI18n(
     localeHint
@@ -37,9 +53,9 @@ async function applyLocale(localeHint = "") {
     reasonEl.textContent = UI_MESSAGES.assist.defaultReason;
   }
   if (pendingOrigins.length === 0) {
-    grantBtn.textContent = UI_MESSAGES.assist.importButtonIdle;
+    setButtonLabel(grantBtn, UI_MESSAGES.assist.importButtonIdle);
   } else {
-    grantBtn.textContent = UI_MESSAGES.assist.grantAndImportButton;
+    setButtonLabel(grantBtn, UI_MESSAGES.assist.grantAndImportButton);
   }
 }
 
@@ -63,17 +79,13 @@ cancelBtn.addEventListener("click", () => {
   window.close();
 });
 
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== "local") {
-    return;
-  }
-  if (changes[STORAGE_KEYS.themeMode]) {
-    applyTheme(changes[STORAGE_KEYS.themeMode].newValue);
-  }
-  if (changes[STORAGE_KEYS.locale]?.newValue) {
-    const nextLocale = String(changes[STORAGE_KEYS.locale].newValue || "").trim();
+addThemeLocaleStorageListener({
+  onThemeChange(nextTheme) {
+    applyTheme(nextTheme);
+  },
+  onLocaleChange(nextLocale) {
     void applyLocale(nextLocale);
-  }
+  },
 });
 
 async function init() {
@@ -94,10 +106,10 @@ async function init() {
   renderOrigins(pendingOrigins);
 
   if (pendingOrigins.length === 0) {
-    grantBtn.textContent = UI_MESSAGES.assist.importButtonIdle;
+    setButtonLabel(grantBtn, UI_MESSAGES.assist.importButtonIdle);
     setStatus(UI_MESSAGES.assist.accessAlreadyGranted, "");
   } else {
-    grantBtn.textContent = UI_MESSAGES.assist.grantAndImportButton;
+    setButtonLabel(grantBtn, UI_MESSAGES.assist.grantAndImportButton);
     setStatus(UI_MESSAGES.assist.grantThenImport, "");
   }
 
@@ -106,7 +118,7 @@ async function init() {
 
 async function collectMissingOrigins(url) {
   const resolution = await chrome.runtime.sendMessage({
-    type: "RESOLVE_MEDIA_URL",
+    type: MESSAGE_TYPES.resolveMediaUrl,
     url
   }).catch(() => ({ ok: false, resolvedMediaUrl: "" }));
 
@@ -157,7 +169,7 @@ async function grantAndImport() {
     setStatus(UI_MESSAGES.assist.importingMedia, "");
     const requestId = crypto.randomUUID();
     const response = await chrome.runtime.sendMessage({
-      type: "IMPORT_URL",
+      type: MESSAGE_TYPES.importUrl,
       url: importUrl,
       pageUrl,
       requestId,
@@ -165,7 +177,9 @@ async function grantAndImport() {
     });
 
     if (!response?.ok) {
-      throw new Error(response?.error || UI_MESSAGES.popup.importFailed);
+      const error = new Error(response?.error || UI_MESSAGES.popup.importFailed);
+      error.code = String(response?.errorCode || "");
+      throw error;
     }
 
     const importedCount = Number(response.result?.importedCount) || 1;
@@ -178,6 +192,10 @@ async function grantAndImport() {
     });
     await closeCurrentTabSoon();
   } catch (error) {
+    if (String(error?.code || "") === IMPORT_ERROR_CODES.hostAccessRequired) {
+      setStatus(UI_MESSAGES.assist.grantThenImport, "error");
+      return;
+    }
     await safeLog("permissions", "Assist import failed", {
       url: importUrl,
       error: error?.message || "unknown"

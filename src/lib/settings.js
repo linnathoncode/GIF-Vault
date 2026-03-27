@@ -45,17 +45,22 @@ const BADGE = {
 
 const ICONS = {
   light: {
-    16: "assets/icons/icon-light-16.png",
-    32: "assets/icons/icon-light-32.png",
-    48: "assets/icons/icon-light-48.png",
-    128: "assets/icons/icon-light-128.png",
+    16: "assets/icons/app/icon-light-16.png",
+    32: "assets/icons/app/icon-light-32.png",
+    48: "assets/icons/app/icon-light-48.png",
+    128: "assets/icons/app/icon-light-128.png",
   },
   dark: {
-    16: "assets/icons/icon-dark-16.png",
-    32: "assets/icons/icon-dark-32.png",
-    48: "assets/icons/icon-dark-48.png",
-    128: "assets/icons/icon-dark-128.png",
+    16: "assets/icons/app/icon-dark-16.png",
+    32: "assets/icons/app/icon-dark-32.png",
+    48: "assets/icons/app/icon-dark-48.png",
+    128: "assets/icons/app/icon-dark-128.png",
   },
+};
+
+const BRAND_LOGOS = {
+  light: "assets/icons/brand/icon-light.svg",
+  dark: "assets/icons/brand/icon-dark.svg",
 };
 
 const POPUP_MENU = {
@@ -82,6 +87,10 @@ const POPUP_BOOT = {
   fallbackTab: "all",
 };
 
+const OPTIONS_FEEDBACK = {
+  maxChars: 500,
+};
+
 export {
   STORAGE_KEYS,
   CONTEXT_MENU,
@@ -91,6 +100,8 @@ export {
   GIF_CONVERSION,
   BADGE,
   ICONS,
+  BRAND_LOGOS,
   POPUP_MENU,
   POPUP_BOOT,
+  OPTIONS_FEEDBACK,
 };

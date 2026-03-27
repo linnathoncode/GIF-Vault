@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from "../../lib/settings.js";
+import { OPTIONS_FEEDBACK, STORAGE_KEYS } from "../../lib/settings.js";
 import {
   getRuntimeConfig,
   normalizeRuntimeConfig,
@@ -16,14 +16,15 @@ import {
   applyDocumentTheme,
   getThemeMode,
   setThemeMode,
-  setThemeToggleGlyph,
   setToolbarIcon,
 } from "../../lib/theme.js";
+import { addThemeLocaleStorageListener } from "../../lib/page-lifecycle.js";
 
 const formEl = document.getElementById("optionsForm");
 const statusEl = document.getElementById("status");
 const resetBtn = document.getElementById("resetBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
+const themeToggleIcon = document.getElementById("themeToggleIcon");
 const localeInput = document.getElementById("locale");
 const hoverPreviewEnabledInput = document.getElementById(
   "popupHoverPreviewEnabled",
@@ -34,6 +35,15 @@ const hoverPreviewDelayInput = document.getElementById(
 const hoverPreviewDelayField = document.getElementById(
   "popupHoverPreviewDelayField",
 );
+const guideMascotEl = document.getElementById("guideMascot");
+const submitFeedbackBtn = document.getElementById("submitFeedbackBtn");
+const submitFeedbackBtnLabel = document.getElementById("submitFeedbackBtnLabel");
+const feedbackDescriptionInput = document.getElementById(
+  "feedbackDescriptionInput",
+);
+const feedbackCharCountEl = document.getElementById("feedbackCharCount");
+const feedbackStatusEl = document.getElementById("feedbackStatus");
+const FEEDBACK_SUPPORT_EMAIL = "gifvault.support@gmail.com";
 
 let themeMode = "light";
 
@@ -125,9 +135,58 @@ function syncHoverPreviewDelayState() {
 // Theme handling for the options page.
 function applyTheme(mode) {
   const theme = applyDocumentTheme(mode);
-  setThemeToggleGlyph(themeToggleBtn, theme);
+  if (themeToggleIcon) {
+    const themeIcon =
+      theme === "dark" ? "icon-theme-light.svg" : "icon-theme-moon.svg";
+    themeToggleIcon.src = `../../assets/shared/${themeIcon}`;
+  }
   void setToolbarIcon(theme);
+  if (guideMascotEl) {
+    const mascotFile =
+      theme === "dark" ? "pesto-all-no-item.webp" : "otha-all-no-item.webp";
+    guideMascotEl.src = `../../assets/mascots/${mascotFile}`;
+  }
   themeMode = theme;
+}
+
+function setFeedbackStatus(text, ok = false) {
+  if (!feedbackStatusEl) {
+    return;
+  }
+  const normalizedText = String(text || "").trim();
+  if (!normalizedText) {
+    feedbackStatusEl.textContent = "";
+    feedbackStatusEl.className = "status";
+    feedbackStatusEl.hidden = true;
+    return;
+  }
+  feedbackStatusEl.textContent = text;
+  feedbackStatusEl.className = ok ? "status ok" : "status error";
+  feedbackStatusEl.hidden = false;
+}
+
+function syncFeedbackCharCount() {
+  if (!feedbackDescriptionInput || !feedbackCharCountEl) {
+    return;
+  }
+  const count = String(feedbackDescriptionInput.value || "").length;
+  feedbackCharCountEl.textContent = UI_MESSAGES.options.feedbackCharCount(
+    count,
+    OPTIONS_FEEDBACK.maxChars,
+  );
+}
+
+function openFeedbackDraft(description) {
+  const subject = UI_MESSAGES.options.feedbackEmailSubject;
+  const body = UI_MESSAGES.options.feedbackEmailBody(description);
+  const composeUrl = new URL("https://mail.google.com/mail/");
+  composeUrl.searchParams.set("view", "cm");
+  composeUrl.searchParams.set("fs", "1");
+  composeUrl.searchParams.set("tf", "1");
+  composeUrl.searchParams.set("to", FEEDBACK_SUPPORT_EMAIL);
+  composeUrl.searchParams.set("su", subject);
+  composeUrl.searchParams.set("body", body);
+  globalThis.open(composeUrl.toString(), "_blank", "noopener,noreferrer");
 }
 
 async function applyLocale(localeHint = "") {
@@ -141,6 +200,10 @@ async function applyLocale(localeHint = "") {
       : {},
   );
   applyStaticI18n();
+  if (submitFeedbackBtnLabel) {
+    submitFeedbackBtnLabel.textContent = UI_MESSAGES.options.sendFeedbackButton;
+  }
+  syncFeedbackCharCount();
 }
 
 async function applyLocaleChangeFromSelector() {
@@ -184,10 +247,52 @@ localeInput?.addEventListener("change", () => {
   void applyLocaleChangeFromSelector();
 });
 
+feedbackDescriptionInput?.addEventListener("input", () => {
+  syncFeedbackCharCount();
+});
+
+submitFeedbackBtn?.addEventListener("click", async () => {
+  const feedback = String(feedbackDescriptionInput?.value || "").trim();
+  if (!feedback) {
+    setFeedbackStatus(UI_MESSAGES.options.feedbackDescriptionRequired);
+    feedbackDescriptionInput?.focus();
+    return;
+  }
+
+  if (submitFeedbackBtn) {
+    submitFeedbackBtn.disabled = true;
+  }
+  setFeedbackStatus(UI_MESSAGES.options.feedbackPreparing);
+
+  try {
+    openFeedbackDraft(feedback);
+    setFeedbackStatus(UI_MESSAGES.options.feedbackEmailOpened, true);
+  } catch {
+    setFeedbackStatus(UI_MESSAGES.options.feedbackFailed);
+  } finally {
+    if (submitFeedbackBtn) {
+      submitFeedbackBtn.disabled = false;
+    }
+  }
+});
+
 themeToggleBtn.addEventListener("click", async () => {
   themeMode = themeMode === "dark" ? "light" : "dark";
   applyTheme(themeMode);
   await setThemeMode(themeMode);
+});
+
+addThemeLocaleStorageListener({
+  onThemeChange(nextTheme) {
+    applyTheme(nextTheme);
+  },
+  onLocaleChange(nextLocale) {
+    void (async () => {
+      await applyLocale(nextLocale);
+      setLocaleValue(nextLocale);
+      setStatus(UI_MESSAGES.options.statusLanguageUpdated, "ok");
+    })();
+  },
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -195,31 +300,22 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     return;
   }
 
-  if (changes[STORAGE_KEYS.themeMode]) {
-    const nextTheme = changes[STORAGE_KEYS.themeMode].newValue;
-    applyTheme(nextTheme);
-  }
-
   if (changes[STORAGE_KEYS.runtimeConfig]?.newValue) {
     fillForm(
       normalizeRuntimeConfig(changes[STORAGE_KEYS.runtimeConfig].newValue),
     );
   }
-
-  if (changes[STORAGE_KEYS.locale]?.newValue) {
-    const nextLocale = String(changes[STORAGE_KEYS.locale].newValue || "").trim();
-    void (async () => {
-      await applyLocale(nextLocale);
-      setLocaleValue(nextLocale);
-      setStatus(UI_MESSAGES.options.statusLanguageUpdated, "ok");
-    })();
-  }
 });
 
 // Page bootstrap.
 async function init() {
+  if (feedbackDescriptionInput) {
+    feedbackDescriptionInput.maxLength = OPTIONS_FEEDBACK.maxChars;
+  }
   await applyLocale();
   applyTheme(await getThemeMode());
+  setFeedbackStatus("");
+  syncFeedbackCharCount();
   fillForm(await getRuntimeConfig());
   setLocaleValue(await getStoredLocale());
   setStatus(UI_MESSAGES.options.statusAdjustAndSave);

@@ -12,6 +12,10 @@
   --accent-text: #8b2635;
   --scrollbar-thumb: #8b2635;
   --scrollbar-track: #cfd6d2;
+  --page-bg:
+    radial-gradient(circle at 10% -10%, color-mix(in srgb, var(--bg-top) 78%, #ffffff 22%), transparent 35%),
+    radial-gradient(circle at 98% 18%, color-mix(in srgb, var(--bg-top) 68%, var(--card) 32%), transparent 40%),
+    linear-gradient(180deg, var(--bg-top), var(--bg) 44%);
 }
 
 :root[data-theme="dark"] {
@@ -28,4 +32,8 @@
   --accent-text: #e0e2db;
   --scrollbar-thumb: #8b2635;
   --scrollbar-track: #3a4541;
+  --page-bg:
+    radial-gradient(circle at 10% -10%, color-mix(in srgb, var(--bg-top) 90%, #ffffff 10%), transparent 42%),
+    radial-gradient(circle at 98% 18%, color-mix(in srgb, var(--bg-top) 84%, var(--card) 16%), transparent 46%),
+    linear-gradient(180deg, var(--bg-top), var(--bg) 56%);
 }

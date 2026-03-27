@@ -1,5 +1,5 @@
 import { idbGetLogs, idbClearLogs } from "../../lib/db.js";
-import { DB, STORAGE_KEYS } from "../../lib/settings.js";
+import { DB } from "../../lib/settings.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
 import { applyStaticI18n, initializeI18n } from "../../lib/i18n.js";
 import { formatBytes } from "../../lib/ui.js";
@@ -8,9 +8,9 @@ import {
   applyDocumentTheme,
   getThemeMode,
   setThemeMode,
-  setThemeToggleGlyph,
   setToolbarIcon
 } from "../../lib/theme.js";
+import { addThemeLocaleStorageListener } from "../../lib/page-lifecycle.js";
 
 const logsEl = document.getElementById("logs");
 const statusEl = document.getElementById("status");
@@ -18,7 +18,9 @@ const storageUsageEl = document.getElementById("storageUsage");
 const refreshBtn = document.getElementById("refreshBtn");
 const clearBtn = document.getElementById("clearBtn");
 const themeToggleBtn = document.getElementById("themeToggleBtn");
+const themeToggleIcon = document.getElementById("themeToggleIcon");
 const viewToggleBtn = document.getElementById("viewToggleBtn");
+const viewToggleIcon = document.getElementById("viewToggleIcon");
 const reportBugBtn = document.getElementById("reportBugBtn");
 const reportPanel = document.getElementById("reportPanel");
 const wrapEl =
@@ -66,7 +68,20 @@ function updateViewToggleButton() {
   const label = showUnbundledLogs
     ? UI_MESSAGES.logs.bundleAllButton
     : UI_MESSAGES.logs.expandAllButton;
-  viewToggleBtn.textContent = label;
+  const labelEl =
+    typeof viewToggleBtn.querySelector === "function"
+      ? viewToggleBtn.querySelector("span")
+      : null;
+  if (labelEl) {
+    labelEl.textContent = label;
+  } else {
+    viewToggleBtn.textContent = label;
+  }
+  if (viewToggleIcon) {
+    viewToggleIcon.src = showUnbundledLogs
+      ? "../../assets/shared/icon-view-bundle.svg"
+      : "../../assets/shared/icon-view-expand.svg";
+  }
   viewToggleBtn.title = label;
   viewToggleBtn.setAttribute("aria-label", label);
   viewToggleBtn.disabled = latestLoadedLogs.length === 0;
@@ -91,7 +106,15 @@ function setReportStatus(text, ok = false) {
 function setReportComposerOpen(open) {
   isReportComposerOpen = Boolean(open);
   if (reportBugBtn) {
-    reportBugBtn.textContent = UI_MESSAGES.logs.reportBugButtonCollapsed;
+    const labelEl =
+      typeof reportBugBtn.querySelector === "function"
+        ? reportBugBtn.querySelector("span")
+        : null;
+    if (labelEl) {
+      labelEl.textContent = UI_MESSAGES.logs.reportBugButtonCollapsed;
+    } else {
+      reportBugBtn.textContent = UI_MESSAGES.logs.reportBugButtonCollapsed;
+    }
   }
   if (reportPanel) {
     reportPanel.hidden = !isReportComposerOpen;
@@ -142,6 +165,7 @@ function renderEmptyLogsState() {
   }
   logsEl.classList.add("empty-state");
   logsEl.classList.remove("has-logs");
+  logsContentEl?.classList.remove("entries-view");
 
   logsMascotEl.src = getLogsEmptyMascotSrc(themeMode);
   logsContentEl.textContent = UI_MESSAGES.logs.noLogsYet;
@@ -266,6 +290,35 @@ function formatLogsStatusCount(visibleCount, totalCount) {
   return UI_MESSAGES.logs.logCount(safeVisibleCount);
 }
 
+function renderLogLines(lines) {
+  if (!logsContentEl) {
+    return;
+  }
+  if (!Array.isArray(lines) || !lines.length) {
+    logsContentEl.classList.remove("entries-view");
+    logsContentEl.textContent = "";
+    return;
+  }
+
+  // Keep unit-test mocks stable while using row elements in real DOM.
+  if (Array.isArray(logsContentEl.children)) {
+    logsContentEl.classList.remove("entries-view");
+    logsContentEl.textContent = lines.join("\n");
+    return;
+  }
+
+  logsContentEl.classList.add("entries-view");
+  logsContentEl.innerHTML = "";
+  const fragment = document.createDocumentFragment();
+  for (const line of lines) {
+    const row = document.createElement("div");
+    row.className = "log-row";
+    row.textContent = line;
+    fragment.append(row);
+  }
+  logsContentEl.append(fragment);
+}
+
 function renderLoadedLogs(logs) {
   latestLoadedLogs = Array.isArray(logs) ? logs : [];
 
@@ -282,7 +335,7 @@ function renderLoadedLogs(logs) {
   logsEl.classList.remove("empty-state");
   logsEl.classList.add("has-logs");
   logsMascotEl.src = getLogsEmptyMascotSrc(themeMode);
-  logsContentEl.textContent = lines.join("\n");
+  renderLogLines(lines);
   setStatus(formatLogsStatusCount(lines.length, latestLoadedLogs.length), true);
   updateViewToggleButton();
 }
@@ -390,7 +443,11 @@ async function renderLogs() {
 function applyTheme(mode) {
   const theme = applyDocumentTheme(mode);
   void setToolbarIcon(theme);
-  setThemeToggleGlyph(themeToggleBtn, theme);
+  if (themeToggleIcon) {
+    const themeIcon =
+      theme === "dark" ? "icon-theme-light.svg" : "icon-theme-moon.svg";
+    themeToggleIcon.src = `../../assets/shared/${themeIcon}`;
+  }
   themeMode = theme;
   updateLogsEmptyStateMascot(theme);
 }
@@ -476,26 +533,18 @@ themeToggleBtn?.addEventListener("click", async () => {
   await setThemeMode(themeMode);
 });
 
-if (globalThis.chrome?.storage?.onChanged?.addListener) {
-  globalThis.chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== "local") {
-      return;
-    }
-
-    if (changes[STORAGE_KEYS.themeMode]) {
-      const next = changes[STORAGE_KEYS.themeMode].newValue === "dark" ? "dark" : "light";
-      applyTheme(next);
-    }
-
-    if (changes[STORAGE_KEYS.locale]?.newValue) {
-      const nextLocale = String(changes[STORAGE_KEYS.locale].newValue || "").trim();
-      void (async () => {
-        await applyLocale(nextLocale);
-        await renderLogs();
-      })();
-    }
-  });
-}
+addThemeLocaleStorageListener({
+  onThemeChange(nextTheme) {
+    const next = nextTheme === "dark" ? "dark" : "light";
+    applyTheme(next);
+  },
+  onLocaleChange(nextLocale) {
+    void (async () => {
+      await applyLocale(nextLocale);
+      await renderLogs();
+    })();
+  },
+});
 
 async function init() {
   ensureLogsStructure();
