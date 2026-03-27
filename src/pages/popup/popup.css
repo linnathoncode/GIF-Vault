@@ -3,6 +3,7 @@
 :root {
   --input-pad-x: 10px;
   --input-border: 1px;
+  --popup-btn-border: var(--line);
 }
 
 * {
@@ -278,9 +279,9 @@ body.boot-loading .input {
 }
 
 .danger-btn {
-  border: 2px solid var(--accent-line);
-  background: var(--accent-line);
-  color: #ffffff;
+  border: 2px solid var(--popup-btn-border);
+  background: var(--accent-bg);
+  color: var(--text);
   border-radius: 10px;
   padding: 6px 8px;
   font-size: 12px;
@@ -296,7 +297,7 @@ body.boot-loading .input {
 }
 
 .icon-btn {
-  border: 2px solid color-mix(in srgb, var(--line) 85%, var(--text) 15%);
+  border: 2px solid var(--popup-btn-border);
   background: var(--accent-bg);
   border-radius: 10px;
   width: 38px;
@@ -391,7 +392,7 @@ body.boot-loading .input {
 }
 
 .btn {
-  border: 2px solid color-mix(in srgb, var(--line) 85%, var(--text) 15%);
+  border: 2px solid var(--popup-btn-border);
   background: var(--accent-bg);
   border-radius: 10px;
   font-size: 13px;
@@ -405,7 +406,7 @@ body.boot-loading .input {
 
 .btn.primary {
   background: var(--accent-bg);
-  border-color: color-mix(in srgb, var(--accent-line) 82%, var(--line) 18%);
+  border-color: var(--popup-btn-border);
   color: #2e3532;
   font-weight: 700;
 }
@@ -434,7 +435,7 @@ body.boot-loading .input {
 
 .tab-btn.active {
   background: var(--accent-bg);
-  border-color: var(--accent-line);
+  border-color: var(--popup-btn-border);
   color: var(--accent-text);
   font-weight: 600;
 }
@@ -566,7 +567,7 @@ body.boot-loading .input {
 }
 
 .name-btn {
-  border: 2px solid color-mix(in srgb, var(--line) 85%, var(--text) 15%);
+  border: 2px solid var(--popup-btn-border);
   background: var(--accent-bg);
   border-radius: 8px;
   font-size: 11px;
@@ -616,9 +617,9 @@ body.boot-loading .input {
 }
 
 .btn.danger {
-  background: var(--accent-line);
-  border-color: var(--accent-line);
-  color: #ffffff;
+  background: var(--accent-bg);
+  border-color: var(--popup-btn-border);
+  color: var(--text);
 }
 
 .btn.danger.delete-armed {
@@ -710,7 +711,7 @@ body.boot-loading .input {
 
 .danger-btn .btn-icon,
 .btn.danger .btn-icon {
-  filter: brightness(0) invert(1);
+  filter: none;
 }
 
 .btn.favorite-active .btn-icon {
@@ -720,6 +721,18 @@ body.boot-loading .input {
 :root[data-theme="dark"] .btn-icon,
 :root[data-theme="dark"] .search-icon {
   filter: brightness(0) invert(0.9);
+}
+
+.danger-btn:hover:not(:disabled),
+.btn.danger:hover:not(:disabled) {
+  background: #c74747;
+  border-color: #c74747;
+  color: #ffffff;
+}
+
+.danger-btn:hover:not(:disabled) .btn-icon,
+.btn.danger:hover:not(:disabled) .btn-icon {
+  filter: brightness(0) invert(1);
 }
 
 :root[data-theme="dark"] .input::placeholder {
