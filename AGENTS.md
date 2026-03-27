@@ -95,6 +95,15 @@ PowerShell note:
 - Popup state defaults and state mutations are centralized in `popup-state.js`.
 - Popup grid was modularized into `src/pages/popup/popup-grid/` with focused modules (`controller.js`, `data.js`, `preview.js`, `focus.js`, `copy.js`, `selection.js`, `media-kind.js`, `dom.js`) while `popup-grid.js` remains a compatibility facade export.
 
+### Popup Card UI Rules (Current)
+
+- Popup header/import/tab sections are de-pilled (no panel/card wrapper chrome), with subtle centered divider lines under header and progress.
+- Card action controls are icon-only in the bottom row (rename, copy, favorite, delete) with preserved hover feedback.
+- Favorite action uses a filled star asset for favorited items (`src/assets/shared/icon-star-filled.svg`).
+- Card hover metadata uses a top full-row overlay in the non-preview section; source/size are shown on hover only.
+- Hover metadata visibility is pointer-hover based (`.meta:hover`) and does not persist after button click focus.
+- Empty-state grid placeholder is width/height-fitted to available grid space and hides the grid scrollbar while empty.
+
 ### Progress Bar Behavior Contract (Important)
 
 - Progress UI source of truth is `STORAGE_KEYS.importState` + `IMPORT_PROGRESS` runtime messages.
@@ -162,10 +171,17 @@ Rules:
 
 ## Recently Added
 
+- Popup card actions were redesigned to icon-only controls with even bottom-row spacing, and rename was moved from the title row into the action row.
+- Favorited popup items now use a dedicated filled star icon (`icon-star-filled.svg`) for clearer state feedback.
+- Popup card source/size metadata now appears as a full-width hover row in the non-preview area and no longer sticks after click focus.
+- Popup empty-state block now fills available grid width/height and hides the grid scrollbar when no items are shown.
+- Popup dark-theme active tab indicator now uses stronger red text for clearer selected-state visibility.
+- Logs page clear button now keeps neutral default styling and turns danger-red on hover.
 - Options guide now focuses on feedback flow: the Help Docs action was removed, a compact feedback field opens inline to the right when requested, and the same button switches from "Provide Feedback" to "Send by email".
 - Options feedback input now has a 500-character cap with a live counter to keep email-draft payload size safe.
 - Logs list now uses alternating row stripes in the has-logs view for easier scanning.
 - Logs striping now aligns per entry (not per text line), so wrapped long entries keep a single consistent stripe block.
+- Toolbar action icon is now pinned to the dark default asset set and no longer changes with theme toggles.
 - Options page header copy was reverted to the original messaging, warning copy now emphasizes defaults, and dropdown styling was refined to match field corner curvature.
 - Logs page now includes an Expand/Bundle toggle button to switch between bundled and unbundled log views.
 - Increased log retention cap from 250 to 500 entries.

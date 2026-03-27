@@ -508,17 +508,23 @@ export function createPopupGridController({
     });
     setButtonIcon(renameBtn, "icon-rename.svg");
 
-    nameRow.append(nameText, renameBtn);
+    nameRow.append(nameText);
 
-    const urlText = document.createElement("div");
-    urlText.className = "url";
-    urlText.textContent = hostFromUrl(item.sourceUrl || item.mediaUrl || "");
-
-    const sizeText = document.createElement("div");
-    sizeText.className = "size";
-    sizeText.textContent = UI_MESSAGES.grid.sizeLabel(
+    const hoverInfoText = document.createElement("div");
+    hoverInfoText.className = "meta-hover-row";
+    const sourceHost = hostFromUrl(item.sourceUrl || item.mediaUrl || "");
+    const sizeLabel = UI_MESSAGES.grid.sizeLabel(
       formatBytes(item.blob?.size || 0),
     );
+    const hoverSourceText = document.createElement("span");
+    hoverSourceText.className = "meta-hover-source";
+    hoverSourceText.textContent = sourceHost;
+
+    const hoverSizeText = document.createElement("span");
+    hoverSizeText.className = "meta-hover-size";
+    hoverSizeText.textContent = sizeLabel;
+
+    hoverInfoText.append(hoverSourceText, hoverSizeText);
 
     const actions = document.createElement("div");
     actions.className = "actions";
@@ -554,7 +560,10 @@ export function createPopupGridController({
         void setFavoriteForItems(targetIds, nextFavorite);
       },
     });
-    setButtonIcon(favoriteBtn, "icon-star.svg");
+    setButtonIcon(
+      favoriteBtn,
+      item.favorite ? "icon-star-filled.svg" : "icon-star.svg",
+    );
     if (item.favorite) {
       favoriteBtn.classList.add("favorite-active");
     }
@@ -589,8 +598,8 @@ export function createPopupGridController({
       armDeleteButton(removeBtn, actionKey, targetIds.length, targetIds);
     });
 
-    actions.append(copyBtn, favoriteBtn, removeBtn);
-    meta.append(nameRow, urlText, sizeText, actions);
+    actions.append(renameBtn, copyBtn, favoriteBtn, removeBtn);
+    meta.append(nameRow, actions, hoverInfoText);
     card.append(media, meta);
     card.addEventListener("mousedown", (event) => {
       const rawTarget = event.target;
