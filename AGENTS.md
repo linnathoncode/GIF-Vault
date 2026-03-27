@@ -38,6 +38,8 @@ Core capabilities:
 - Clean grid layout: Browse your GIFs in a simple visual gallery with pagination.
 - Import progress status: See import steps in real time and stop an import if needed.
 - Guided permissions flow: If a site needs access, GIF Vault walks you through it.
+- Safer imports: Strong URL/media validation, redirect re-checks, configurable download-size limits, and single active import protection.
+- Built-in support tools: Send feedback from Options and generate bug-report emails with log attachments from Logs.
 - Custom options: Adjust conversion quality and popup behavior.
 - Light and dark themes: Pick the look you prefer.
 - Supported languages: English and Turkish (change via options).
@@ -172,55 +174,20 @@ Rules:
 
 ## Recently Added
 
-- Options feedback composer is now always visible, the "open feedback field" helper sentence was removed, and the action button now consistently works as "Send by email".
-- Popup card actions were redesigned to icon-only controls with even bottom-row spacing, and rename was moved from the title row into the action row.
-- Favorited popup items now use a dedicated filled star icon (`icon-star-filled.svg`) for clearer state feedback.
-- Popup card source/size metadata now appears as a full-width hover row in the non-preview area and no longer sticks after click focus.
-- Popup empty-state block now fills available grid width/height and hides the grid scrollbar when no items are shown.
-- Popup dark-theme active tab indicator now uses stronger red text for clearer selected-state visibility.
-- Logs page clear button now keeps neutral default styling and turns danger-red on hover.
-- Options guide now focuses on feedback flow: the Help Docs action was removed, a compact feedback field opens inline to the right when requested, and the same button switches from "Provide Feedback" to "Send by email".
-- Options feedback input now has a 500-character cap with a live counter to keep email-draft payload size safe.
-- Logs list now uses alternating row stripes in the has-logs view for easier scanning.
-- Logs striping now aligns per entry (not per text line), so wrapped long entries keep a single consistent stripe block.
-- Toolbar action icon is now pinned to the dark default asset set and no longer changes with theme toggles.
-- Options page header copy was reverted to the original messaging, warning copy now emphasizes defaults, and dropdown styling was refined to match field corner curvature.
-- Logs page now includes an Expand/Bundle toggle button to switch between bundled and unbundled log views.
-- Increased log retention cap from 250 to 500 entries.
-- Logs page now bundles repeated successful action entries (for example preview creation) into `xN` summary lines while leaving error entries unbundled.
-- Added cross-page i18n plumbing with centralized locale storage and static `data-i18n*` key hydration.
-- Added Turkish (`tr`) locale support and a language selector on the options page.
-- Import progress now supports locale-safe `phase` metadata instead of English text matching.
-- Empty popup grid now renders mascot placeholder art above the empty-state message.
-- Added theme-aware mascots: `7billion` for popup empty/favorites state and `bug` for empty logs state.
-- Added low-opacity, theme-aware mascot background art to the permission-assist page.
-- Refreshed mascot set with theme-specific `otha` (light) and `pesto` (dark) variants for popup empty states and logs, using combined `*-log-bug` mascot art on the logs page.
-- Permission-assist page mascot now uses a shared dual-character `otha-pesto-permissions` art for both themes.
-- Centralized UI text in `src/lib/messages.js`.
-- Progress bar now handles long status text without breaking popup layout.
-- Permission-assist feedback is isolated from popup progress messaging.
-- Multi-select delete now arms all selected cards with a danger `!` state.
-- Popup grid now supports Shift-click range selection for faster multi-select workflows.
-- Armed multi-select delete is canceled if selection changes.
-- Header count now includes selected item count and supports overflow-safe truncation.
-- Added atomic batch import rollback for real per-item failures.
-- User-terminated imports no longer trigger rollback of already-saved items.
-- Fixed popup ghost progress-message replay and added restore/clear ordering safeguards.
-- Logs page now includes an email bug-report form that collects user notes, prepares a support email draft to `gifvault-support@gmail.com`, and downloads a log attachment file for sending.
-- Options page default tab now supports `Latest`, which reopens the popup on the most recently used tab (`All` or `Favorites`).
-- Popup now shows an explicit startup loading state on browser launch and temporarily disables popup interactions until initialization completes.
-- Popup now blocks concurrent imports by preventing new import starts while an import is active.
-- Background import pipeline now enforces a single active import globally, so context-menu, popup, and assist imports cannot run concurrently.
-- Import pipeline now enforces strict `http/https` URL validation, redirect URL re-validation, and hard download-size limits, with stricter media-type fallback checks.
-- Options now use a configurable max download-size limit (MB) instead of max video duration for import safety limits.
-- Options page UI was redesigned with balanced side-by-side settings cards, an expanded guide panel, and mirrored `all-no-item` mascot art for the settings experience.
-- Popup, logs, assist, and options pages now use shared SVG action/header icons from `src/assets/shared` with theme-aware toggle icons and reused alias mappings.
-- Added `src/lib/protocol.js` to centralize runtime message types and import error codes for background/popup/assist flows.
-- Import/background runtime routing now uses stable protocol constants and structured error-code propagation instead of localized-text-only control flow.
-- Added `src/pages/popup/popup-state.js` to centralize popup state defaults and key state transitions.
-- Added `src/lib/page-lifecycle.js` and adopted shared theme/locale storage-change wiring in options/logs/assist pages.
-- Reorganized icon assets into `src/assets/icons/app` (manifest/action PNG sizes) and `src/assets/icons/brand` (in-page SVG logos), with popup header branding switched to SVG.
-- Refactored popup grid to a folder-based module architecture with a thin API facade (`src/pages/popup/popup-grid.js`) and specialized submodules under `src/pages/popup/popup-grid/`.
+### Since v1.6.1
+
+- Popup UI refresh: de-pilled layout, tighter alignment, clearer divider/progress behavior, icon-only card actions, and hover-only source/size metadata row.
+- Favorites action now uses a filled star icon for stronger state clarity.
+- Options feedback flow simplified: composer is always visible with a direct "Send by email" action.
+- Empty-state layout now fills available grid space more cleanly (including scrollbar handling).
+
+### Since v1.5.0
+
+- Import safety and reliability upgrades: global single-active-import guard, stricter URL/redirect/media validation, configurable max download-size limits, and atomic batch rollback behavior.
+- Multi-select workflow improvements: Shift-click range selection, selection-aware favorite/delete actions, and safer armed-delete behavior.
+- Logs upgrades: bundled/unbundled views, grouped repeated-success entries, increased retention cap (500), and built-in bug-report email flow with downloadable log attachment.
+- Localization and messaging infrastructure: centralized `UI_MESSAGES`, Turkish locale support, locale-safe import progress phase metadata, and shared theme/locale lifecycle wiring.
+- Popup resilience improvements: startup loading lock, progress ghost-replay fix, and clearer permission-vs-progress feedback separation.
 
 ## Operational Notes
 
