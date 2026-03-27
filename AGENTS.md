@@ -11,7 +11,7 @@
 
 - Branch: `test`
 - HEAD: `4cab35e`
-- Version: `1.6.0`
+- Version: `1.6.1`
 
 ## Project Purpose
 
