@@ -2,6 +2,7 @@ import { idbGetLogs, idbClearLogs } from "../../lib/db.js";
 import { DB } from "../../lib/settings.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
 import { applyStaticI18n, initializeI18n } from "../../lib/i18n.js";
+import { withTimeout } from "../../lib/async.js";
 import { formatBytes } from "../../lib/ui.js";
 import { safeStringifyLogValue } from "../../lib/log.js";
 import {
@@ -180,19 +181,6 @@ function updateLogsEmptyStateMascot(mode) {
 
 function invalidatePendingLocaleApply() {
   localeApplyVersion += 1;
-}
-
-function withTimeout(promise, timeoutMs, code = "TIMEOUT") {
-  let timeoutId = 0;
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error(code));
-    }, Math.max(0, timeoutMs));
-  });
-
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    clearTimeout(timeoutId);
-  });
 }
 
 function isErrorLikeLog(log) {

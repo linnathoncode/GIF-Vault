@@ -38,9 +38,8 @@ Core capabilities:
 - Clean grid layout: Browse your GIFs in a simple visual gallery with pagination.
 - Import progress status: See import steps in real time and stop an import if needed.
 - Guided permissions flow: If a site needs access, GIF Vault walks you through it.
-- Safer imports: Strong URL/media validation, redirect re-checks, configurable download-size limits, and single active import protection.
 - Built-in support tools: Send feedback from Options and generate bug-report emails with log attachments from Logs.
-- Custom options: Adjust conversion quality and popup behavior.
+- Custom options: Tune GIF conversion and popup behavior with flexible controls for FPS, output width, max colors, max download-size limit, default tab behavior, page size, hover-preview preferences, language selection, and direct feedback submission.
 - Light and dark themes: Pick the look you prefer.
 - Supported languages: English and Turkish (change via options).
 
@@ -61,7 +60,7 @@ Maintenance rule:
 - `src/pages/assist/`: Permission assist page.
 - `src/pages/logs/`: Logs page.
 - `src/pages/options/`: Settings/options page.
-- `src/lib/`: Shared helpers (`db.js`, `theme.js`, `ui.js`, `log.js`, `runtime-config.js`, `messages.js`, `protocol.js`, `page-lifecycle.js`).
+- `src/lib/`: Shared helpers (`async.js`, `db.js`, `theme.js`, `ui.js`, `log.js`, `runtime-config.js`, `messages.js`, `protocol.js`, `page-lifecycle.js`).
 - `src/assets/icons/app/`: Manifest/action PNG icon sizes.
 - `src/assets/icons/brand/`: In-page SVG logos.
 
@@ -74,6 +73,15 @@ Maintenance rule:
 PowerShell note:
 
 - `npm.ps1` may be blocked by execution policy in this environment; use `npm.cmd`.
+
+## Local Skills Reference
+
+- Local Claude-style skills are available under `.claude/skills/`.
+- Each skill should be treated as optional workflow guidance, with `SKILL.md` as the primary entry point when present.
+- A skill can be used in two ways:
+  - Explicit: user names the skill and asks to use it.
+  - Implicit: task clearly matches a skill folder and using it is likely to improve output quality or speed.
+- If both built-in Codex skills and `.claude/skills` guidance are relevant, prefer built-in Codex skill execution rules first, then layer `.claude/skills` conventions when they do not conflict.
 
 ## Architecture Notes
 
@@ -194,7 +202,7 @@ Rules:
 - Load extension from `dist/` in browser developer mode.
 - `release/` contains local package artifacts.
 - Avoid reverting permission-assist UX without a stronger, gesture-safe alternative.
-- Keep tweakable/static constants centralized in `src/lib/settings.js` (for example popup boot/init timeouts, query limits, fallback tabs) and import them into feature modules instead of redefining local literals.
+- Keep tweakable/static constants centralized in `src/lib/settings.js` (for example popup boot/init timeouts, fallback tabs) and import them into feature modules instead of redefining local literals.
 - Add brief doc comments for abstract logic and non-obvious intent.
 
 ## Known Issues

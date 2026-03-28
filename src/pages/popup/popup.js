@@ -16,6 +16,7 @@ import {
   IMPORT_ERROR_CODES,
   isRuntimeMessage,
 } from "../../lib/protocol.js";
+import { withTimeout } from "../../lib/async.js";
 import { isValidUrl, originPatternFromUrl } from "../../lib/ui.js";
 import {
   applyDocumentTheme,
@@ -63,7 +64,6 @@ const stateStore = createPopupState();
 const { state } = stateStore;
 let localeApplyVersion = 0;
 const INIT_STEP_TIMEOUT_MS = POPUP_BOOT.initStepTimeoutMs;
-const QUERY_STATUS_MAX_LENGTH = POPUP_BOOT.statusQueryMaxLength;
 const FALLBACK_POPUP_TAB = POPUP_BOOT.fallbackTab;
 const INTERACTIVE_REFS = [
   "clearAllBtn",
@@ -109,17 +109,6 @@ function isImportProgressMessage(message) {
   }
 
   return true;
-}
-
-function getSafeStatusQueryText(rawStatus) {
-  const status = String(rawStatus || "")
-    .replace(/[\u0000-\u001f\u007f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!status || status.length > QUERY_STATUS_MAX_LENGTH) {
-    return "";
-  }
-  return status;
 }
 
 function normalizePopupTab(value, fallback = FALLBACK_POPUP_TAB) {
@@ -443,19 +432,6 @@ async function openPermissionAssist(url, pageUrl, missingOrigins) {
   await chrome.tabs.create({ url: assistUrl.toString() });
 }
 
-// Popup bootstrap, theme, and storage sync.
-function applyImportAssistFromQuery() {
-  const params = new URLSearchParams(window.location.search);
-  const importUrlFromQuery = params.get("importUrl") || "";
-  const status = getSafeStatusQueryText(params.get("status"));
-  if (importUrlFromQuery && !refs.importInput.value) {
-    refs.importInput.value = importUrlFromQuery;
-  }
-  if (status) {
-    statusController.setStatus(status);
-  }
-}
-
 function applyTheme(mode) {
   const theme = applyDocumentTheme(mode);
   if (refs.themeToggleIcon) {
@@ -491,22 +467,6 @@ async function applyLocale(localeHint = "") {
 
 function invalidatePendingLocaleApply() {
   localeApplyVersion += 1;
-}
-
-function withTimeout(promise, timeoutMs, code = "TIMEOUT") {
-  let timeoutId = 0;
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(
-      () => {
-        reject(new Error(code));
-      },
-      Math.max(0, timeoutMs),
-    );
-  });
-
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    clearTimeout(timeoutId);
-  });
 }
 
 function getImportState() {
@@ -806,7 +766,7 @@ async function init() {
       gridController.hideHoverPreview();
     }
 
-    // Resolve persisted UI state (tab + theme) and query-based assist hints.
+    // Resolve persisted UI state (tab + theme).
     stateStore.setCurrentTab(await resolveInitialTab(
       state.popupMenuConfig.defaultTab,
     ));
@@ -816,8 +776,6 @@ async function init() {
       "THEME_LOAD_TIMEOUT",
     ).catch(() => "light");
     applyTheme(initialTheme);
-    applyImportAssistFromQuery();
-
     // Restore import progress/state from storage (if present).
     const importState = await withTimeout(
       getImportState(),

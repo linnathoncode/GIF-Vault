@@ -83,7 +83,6 @@ const POPUP_MENU = {
 
 const POPUP_BOOT = {
   initStepTimeoutMs: 3000,
-  statusQueryMaxLength: 120,
   fallbackTab: "all",
 };
 
