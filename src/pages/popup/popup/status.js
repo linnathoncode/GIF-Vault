@@ -1,5 +1,5 @@
 // Import progress and transient status UI.
-import { UI_MESSAGES } from "../../lib/messages.js";
+import { UI_MESSAGES } from "../../../lib/messages.js";
 
 export function createPopupStatusController({
   refs,

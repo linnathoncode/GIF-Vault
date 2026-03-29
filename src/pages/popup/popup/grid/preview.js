@@ -1,4 +1,4 @@
-import { safeLog } from "../../../lib/log.js";
+import { safeLog } from "../../../../lib/log.js";
 
 export function createGridPreviewController({
   hoverPreviewEl,

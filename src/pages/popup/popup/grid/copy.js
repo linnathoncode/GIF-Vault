@@ -1,5 +1,4 @@
-import { fileExtensionFromMime } from "../../../lib/media.js";
-import { safeLog } from "../../../lib/log.js";
+import { safeLog } from "../../../../lib/log.js";
 
 export function sanitizeCopyFallbackUrl(candidateUrl) {
   const normalized = String(candidateUrl || "")
@@ -25,34 +24,7 @@ export function sanitizeCopyFallbackUrl(candidateUrl) {
   return parsedUrl.toString();
 }
 
-export async function copyItemBlob(item) {
-  const canWriteBlob =
-    navigator.clipboard &&
-    typeof navigator.clipboard.write === "function" &&
-    typeof ClipboardItem !== "undefined";
-
-  if (canWriteBlob) {
-    try {
-      const ext = fileExtensionFromMime(item.mimeType);
-      const file = new File([item.blob], `gif-vault-${item.id}.${ext}`, {
-        type: item.mimeType || item.blob.type || "application/octet-stream",
-      });
-      await navigator.clipboard.write([
-        new ClipboardItem({ [file.type]: file }),
-      ]);
-      await safeLog("popup", "Copy succeeded (blob)", {
-        id: item.id,
-        mimeType: file.type,
-      });
-      return { ok: true, method: "blob" };
-    } catch (error) {
-      await safeLog("popup", "Copy blob failed", {
-        id: item.id,
-        error: error?.message || "unknown",
-      });
-    }
-  }
-
+export async function copyItemUrl(item) {
   const canWriteText =
     navigator.clipboard && typeof navigator.clipboard.writeText === "function";
   if (canWriteText) {
@@ -60,19 +32,19 @@ export async function copyItemBlob(item) {
       item.mediaUrl || item.sourceUrl || "",
     );
     if (!copiedUrl) {
-      await safeLog("popup", "Copy url fallback blocked", {
+      await safeLog("popup", "Copy url blocked", {
         id: item.id,
       });
       return { ok: false, method: "none" };
     }
     try {
       await navigator.clipboard.writeText(copiedUrl);
-      await safeLog("popup", "Copy fallback succeeded (url text)", {
+      await safeLog("popup", "Copy succeeded (url text)", {
         id: item.id,
       });
       return { ok: true, method: "url", copiedUrl };
     } catch (error) {
-      await safeLog("popup", "Copy url fallback failed", {
+      await safeLog("popup", "Copy url failed", {
         id: item.id,
         error: error?.message || "unknown",
       });

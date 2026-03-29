@@ -28,9 +28,13 @@ release/
 *.log
 *.tmp
 *.temp
+a.out
 
 # Local agent context
 agentcontext
 
 # Local issue tracking
 LOCAL_KNOWN_ISSUES.md
+
+# Local Claude skills
+.claude/skills/

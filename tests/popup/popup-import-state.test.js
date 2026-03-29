@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   restoreInactiveImportState,
   shouldClearProgressVisualsOnStorageClear,
-} from "../../src/pages/popup/popup-import-state.js";
+} from "../../src/pages/popup/popup/import-state.js";
 
 describe("popup inactive import-state restore", () => {
   it("clears stored import state before showing transient restored message", async () => {

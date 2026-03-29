@@ -1,7 +1,4 @@
-import { STORAGE_KEYS, ICONS } from "./settings.js";
-import { MESSAGE_TYPES } from "./protocol.js";
-
-let lastToolbarIconTheme = "";
+import { STORAGE_KEYS } from "./settings.js";
 
 function normalizeThemeMode(mode) {
   return mode === "dark" ? "dark" : "light";
@@ -21,40 +18,7 @@ function setThemeToggleGlyph(button, mode) {
 }
 
 async function setToolbarIcon(theme) {
-  const normalizedTheme = "dark";
-  if (lastToolbarIconTheme === normalizedTheme) {
-    return;
-  }
-
-  try {
-    const response = await chrome.runtime.sendMessage({
-      type: MESSAGE_TYPES.setThemeIcon,
-      theme: normalizedTheme
-    });
-    if (response?.ok) {
-      lastToolbarIconTheme = normalizedTheme;
-      return;
-    }
-  } catch {
-    // fallback below
-  }
-
-  const paths = ICONS[normalizedTheme];
-  await new Promise((resolve) => {
-    chrome.action.setIcon(
-      {
-        path: {
-          16: paths["16"],
-          32: paths["32"],
-          48: paths["48"]
-        }
-      },
-      () => {
-        lastToolbarIconTheme = normalizedTheme;
-        resolve();
-      }
-    );
-  });
+  void theme;
 }
 
 function getThemeMode() {
