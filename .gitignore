@@ -28,6 +28,7 @@ release/
 *.log
 *.tmp
 *.temp
+a.out
 
 # Local agent context
 agentcontext
