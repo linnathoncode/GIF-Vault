@@ -13,7 +13,7 @@ import {
   shouldCancelArmedDeleteOnSelectionChange,
 } from "./selection.js";
 import {
-  copyItemBlob,
+  copyItemUrl,
   resolveMediaCopyKind,
 } from "./copy.js";
 import { createStoredMediaKindDetector } from "./media-kind.js";
@@ -301,26 +301,6 @@ export function createPopupGridController({
     const copiedUrl = String(result.copiedUrl || "");
     const mediaKind = resolveMediaCopyKind(item, copiedUrl);
 
-    if (result.method === "blob") {
-      const label =
-        mediaKind === "image"
-          ? UI_MESSAGES.grid.copiedImage
-          : mediaKind === "animated-webp"
-            ? UI_MESSAGES.grid.copiedAnimatedWebp
-          : UI_MESSAGES.grid.copiedGif;
-      const hint =
-        mediaKind === "image"
-          ? UI_MESSAGES.grid.copiedImageLinkTip
-          : mediaKind === "animated-webp"
-            ? UI_MESSAGES.grid.copiedLinkTip
-          : UI_MESSAGES.grid.copiedGifLinkTip;
-      showTransientStatus(`${label}\n${hint}`, "ok", COPY_HINT_DURATION_MS, {
-        forceTemporary: true,
-        preserveProgress: false,
-      });
-      return;
-    }
-
     const label = mediaKind === "video"
       ? UI_MESSAGES.grid.copiedVideoLink
       : mediaKind === "animated-webp"
@@ -541,7 +521,7 @@ export function createPopupGridController({
     setButtonIcon(copyBtn, "icon-copy.svg");
     copyBtn.addEventListener("click", async () => {
       clearAllSelections();
-      const result = await copyItemBlob(item);
+      const result = await copyItemUrl(item);
       const feedbackIcon = result.ok ? "icon-copy-success.svg" : "icon-warning.svg";
       const feedbackGlyph = result.ok ? "\u2713" : "!";
       setButtonIcon(copyBtn, feedbackIcon, feedbackGlyph);

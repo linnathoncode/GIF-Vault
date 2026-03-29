@@ -9,9 +9,7 @@ import {
   getImportErrorCode,
 } from "../lib/protocol.js";
 import {
-  setActionIcon,
   showBadgeFallback,
-  syncActionIconToTheme,
 } from "./action-icon.js";
 import { importFromUrl, terminateImport } from "./import-service.js";
 import { resolveMediaUrls } from "./media-resolver.js";
@@ -60,7 +58,6 @@ chrome.runtime.onInstalled.addListener(() => {
       title: UI_MESSAGES.serviceWorker.contextMenuAddToVault,
       contexts: ["image", "video"],
     });
-    await syncActionIconToTheme();
   })();
 });
 
@@ -68,19 +65,12 @@ chrome.runtime.onStartup.addListener(() => {
   void (async () => {
     await ensureLocaleReady();
     await updateContextMenuTitle();
-    await syncActionIconToTheme();
   })();
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") {
     return;
-  }
-
-  if (changes[STORAGE_KEYS.themeMode]) {
-    const nextTheme =
-      changes[STORAGE_KEYS.themeMode].newValue === "dark" ? "dark" : "light";
-    void setActionIcon(nextTheme);
   }
 
   if (changes[STORAGE_KEYS.locale]?.newValue) {
@@ -122,11 +112,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
   const localeSyncPromise = ensureLocaleReady();
-
-  if (message.type === MESSAGE_TYPES.setThemeIcon) {
-    handleThemeIconMessage(message, sendResponse);
-    return true;
-  }
 
   if (message.type === MESSAGE_TYPES.resolveMediaUrl) {
     localeSyncPromise
@@ -183,23 +168,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     );
   return true;
 });
-
-function handleThemeIconMessage(message, sendResponse) {
-  const theme = message.theme === "dark" ? "dark" : "light";
-  void safeLog("theme", "SET_THEME_ICON request received", { theme });
-  setActionIcon(theme)
-    .then(() => sendResponse({ ok: true }))
-    .catch(async (error) => {
-      await safeLog("theme", "SET_THEME_ICON failed", {
-        theme,
-        error: error?.message || "unknown",
-      });
-      sendResponse({
-        ok: false,
-        error: error?.message || UI_MESSAGES.serviceWorker.failedToSetIcon,
-      });
-    });
-}
 
 // Permission-assist handoff.
 async function openPermissionAssist(url, pageUrl, reason = "") {

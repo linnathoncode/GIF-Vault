@@ -2,7 +2,6 @@ const MESSAGE_TYPES = {
   importUrl: "IMPORT_URL",
   importProgress: "IMPORT_PROGRESS",
   resolveMediaUrl: "RESOLVE_MEDIA_URL",
-  setThemeIcon: "SET_THEME_ICON",
   terminateImport: "TERMINATE_IMPORT",
   vaultUpdated: "VAULT_UPDATED",
 };

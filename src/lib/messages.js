@@ -272,12 +272,6 @@ function createEnMessages() {
       contextMenuAddToVault: "Add to GIF Vault",
       resolveFailed: "Resolve failed",
       terminateFailed: "Terminate failed",
-      failedToSetIcon: "Could not set the toolbar icon.",
-    },
-    actionIcon: {
-      failedToSetImageData: "Couldn't set action icon via imageData",
-      failedToLoadAsset: (path) => `Failed to load icon asset: ${path}`,
-      failedToCreate2dContext: "Couldn't create 2D context for icon rendering",
     },
     offscreen: {
       probeFailed: "Could not check video duration.",
@@ -539,12 +533,6 @@ function createTrMessages() {
       contextMenuAddToVault: "GIF Vault'a Aktar",
       resolveFailed: "Çözümleme başarısız",
       terminateFailed: "Durdurma başarısız",
-      failedToSetIcon: "Araç çubuğu simgesi ayarlanamadı",
-    },
-    actionIcon: {
-      failedToSetImageData: "Eylem simgesi imageData ile ayarlanamadı",
-      failedToLoadAsset: (path) => `Simge dosyası yüklenemedi: ${path}`,
-      failedToCreate2dContext: "Simge çizimi için 2B bağlam oluşturulamadı",
     },
     offscreen: {
       probeFailed: "Video süresi kontrol edilemedi.",

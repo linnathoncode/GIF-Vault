@@ -11,7 +11,7 @@
 
 - Branch: `test`
 - HEAD: `4cab35e`
-- Version: `1.6.1`
+- Version: `1.6.2`
 
 ## Project Purpose
 
@@ -186,6 +186,10 @@ Rules:
 - Added test coverage for host-access/progress isolation.
 
 ## Recently Added
+
+### Since v1.6.2
+
+- No new user-facing features yet; this version currently tracks cleanup and refactoring work after `v1.6.1`.
 
 ### Since v1.6.1
 
