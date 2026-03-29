@@ -1,4 +1,4 @@
-import { POPUP_MENU } from "../../lib/settings.js";
+import { POPUP_MENU } from "../../../lib/settings.js";
 
 function defaultPopupMenuConfig() {
   return {

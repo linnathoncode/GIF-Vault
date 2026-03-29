@@ -29,7 +29,7 @@ vi.mock("../../src/lib/theme.js", () => ({
   setToolbarIcon: mocks.setToolbarIcon,
 }));
 
-vi.mock("../../src/pages/popup/popup-grid.js", () => ({
+vi.mock("../../src/pages/popup/popup/grid.js", () => ({
   createPopupGridController: ({ state }) => ({
     clearSelections: vi.fn(),
     cleanupObjectUrls: vi.fn(),
@@ -41,7 +41,7 @@ vi.mock("../../src/pages/popup/popup-grid.js", () => ({
   }),
 }));
 
-vi.mock("../../src/pages/popup/popup-status.js", () => ({
+vi.mock("../../src/pages/popup/popup/status.js", () => ({
   createPopupStatusController: () => ({
     applyImportState: vi.fn(),
     clearTransientStatus: vi.fn(),

@@ -56,7 +56,8 @@ Maintenance rule:
 - `src/background/media-resolver.js`: URL/media resolution.
 - `src/background/action-icon.js`: Toolbar icon/badge helpers.
 - `src/offscreen/offscreen.js`: FFmpeg offscreen conversion path.
-- `src/pages/popup/`: Popup UI (`popup.js`, `popup-grid.js` facade, `popup-grid/` modules, `popup-status.js`, `popup-import-state.js`, `popup-state.js`, `popup.css`, `popup.html`).
+- `src/pages/popup/`: Popup entry files (`popup.js`, `popup.css`, `popup.html`) plus the popup subsystem folder `popup/`.
+- `src/pages/popup/popup/`: Popup internal modules (`state.js`, `status.js`, `tab.js`, `import-flow.js`, `import-state.js`, `grid.js`, `grid/`).
 - `src/pages/assist/`: Permission assist page.
 - `src/pages/logs/`: Logs page.
 - `src/pages/options/`: Settings/options page.
@@ -101,10 +102,14 @@ PowerShell note:
 ### Popup UI
 
 - Uses paginated grid, favorites tab, search, rename, and two-step delete confirmation.
-- Import progress bar and transient status are controlled by `popup-status.js`.
-- Grid item actions and selection hints are handled by `popup-grid.js`.
-- Popup state defaults and state mutations are centralized in `popup-state.js`.
-- Popup grid was modularized into `src/pages/popup/popup-grid/` with focused modules (`controller.js`, `data.js`, `preview.js`, `focus.js`, `copy.js`, `selection.js`, `media-kind.js`, `dom.js`) while `popup-grid.js` remains a compatibility facade export.
+- `popup.js` should remain a page coordinator that wires refs, listeners, storage/runtime sync, and startup flow.
+- Popup internals now live under `src/pages/popup/popup/`, grouped by concern instead of adding more flat `popup-*.js` files.
+- Import progress bar and transient status are controlled by `src/pages/popup/popup/status.js`.
+- Popup state defaults and state mutations are centralized in `src/pages/popup/popup/state.js`.
+- Popup tab persistence/default-tab resolution lives in `src/pages/popup/popup/tab.js`.
+- Popup import orchestration, permission precheck, and popup-owned import request handling live in `src/pages/popup/popup/import-flow.js`.
+- Popup grid item actions and selection hints are handled by `src/pages/popup/popup/grid.js`.
+- Popup grid internals live in `src/pages/popup/popup/grid/` with focused modules (`controller.js`, `data.js`, `preview.js`, `focus.js`, `copy.js`, `selection.js`, `media-kind.js`, `dom.js`).
 
 ### Popup Card UI Rules (Current)
 
@@ -124,7 +129,7 @@ PowerShell note:
   - use `clearStoredImportStatePreservingUi()` in `popup.js`
   - rely on one-shot guard `state.suppressNextImportStateClearUiReset` in storage-change handling
 - Restore flow for inactive stored state must clear storage before transient display:
-  - implemented in `src/pages/popup/popup-import-state.js`
+  - implemented in `src/pages/popup/popup/import-state.js`
 - Expected reopen behavior:
   - popup-owned outcomes should not reappear as ghost hints
   - background/context-menu outcomes can still appear when popup is opened later

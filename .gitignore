@@ -34,3 +34,6 @@ agentcontext
 
 # Local issue tracking
 LOCAL_KNOWN_ISSUES.md
+
+# Local Claude skills
+.claude/skills/

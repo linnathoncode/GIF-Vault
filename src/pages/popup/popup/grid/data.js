@@ -1,4 +1,4 @@
-import { UI_MESSAGES } from "../../../lib/messages.js";
+import { UI_MESSAGES } from "../../../../lib/messages.js";
 
 function getEmptyMascotVariant({ query = "", currentTab = "all" } = {}) {
   if (String(query || "").trim()) {

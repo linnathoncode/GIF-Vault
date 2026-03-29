@@ -1,5 +1,5 @@
-import { getWebpAnimationState } from "../../../lib/media.js";
-import { safeLog } from "../../../lib/log.js";
+import { getWebpAnimationState } from "../../../../lib/media.js";
+import { safeLog } from "../../../../lib/log.js";
 import { isGifLikeUrl, isImageLikeUrl, isVideoLikeUrl } from "./copy.js";
 
 const WEBP_ANIMATION_SNIFF_BYTES = 512;

@@ -3,10 +3,10 @@ import {
   idbGetAllMedia,
   idbGetMediaBlobs,
   idbSave,
-} from "../../../lib/db.js";
-import { formatBytes, hostFromUrl } from "../../../lib/ui.js";
-import { safeLog } from "../../../lib/log.js";
-import { UI_MESSAGES } from "../../../lib/messages.js";
+} from "../../../../lib/db.js";
+import { formatBytes, hostFromUrl } from "../../../../lib/ui.js";
+import { safeLog } from "../../../../lib/log.js";
+import { UI_MESSAGES } from "../../../../lib/messages.js";
 import {
   armedDeleteGlyph,
   selectionIdsChanged,

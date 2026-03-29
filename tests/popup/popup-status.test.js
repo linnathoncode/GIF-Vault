@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UI_MESSAGES } from "../../src/lib/messages.js";
-import { createPopupStatusController } from "../../src/pages/popup/popup-status.js";
+import { createPopupStatusController } from "../../src/pages/popup/popup/status.js";
 
 function createClassList() {
   const classes = new Set();

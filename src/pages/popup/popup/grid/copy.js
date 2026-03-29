@@ -1,5 +1,5 @@
-import { fileExtensionFromMime } from "../../../lib/media.js";
-import { safeLog } from "../../../lib/log.js";
+import { fileExtensionFromMime } from "../../../../lib/media.js";
+import { safeLog } from "../../../../lib/log.js";
 
 export function sanitizeCopyFallbackUrl(candidateUrl) {
   const normalized = String(candidateUrl || "")

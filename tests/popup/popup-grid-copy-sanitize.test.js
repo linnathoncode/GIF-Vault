@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeCopyFallbackUrl } from "../../src/pages/popup/popup-grid.js";
+import { sanitizeCopyFallbackUrl } from "../../src/pages/popup/popup/grid.js";
 
 describe("popup-grid copy fallback URL sanitization", () => {
   it("accepts https urls", () => {
