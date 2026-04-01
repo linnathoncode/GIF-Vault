@@ -128,6 +128,9 @@ export function createGridDataController({
   }
 
   function updateEmptyStateMascotForTheme(grid, themeMode = state.themeMode) {
+    if (!grid || typeof grid.querySelector !== "function") {
+      return;
+    }
     const mascotEl = grid.querySelector(".empty-mascot");
     if (!mascotEl) {
       return;
