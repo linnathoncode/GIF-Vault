@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   initializeI18n: vi.fn(async () => {}),
   safeLog: vi.fn(async () => {}),
+  importFromFiles: vi.fn(async () => ({})),
   importFromUrl: vi.fn(async () => ({})),
   terminateImport: vi.fn(async () => true),
   resolveMediaUrls: vi.fn(async () => []),
@@ -18,6 +19,7 @@ vi.mock("../../src/lib/log.js", () => ({
 }));
 
 vi.mock("../../src/background/import-service.js", () => ({
+  importFromFiles: mocks.importFromFiles,
   importFromUrl: mocks.importFromUrl,
   terminateImport: mocks.terminateImport,
 }));

@@ -39,6 +39,8 @@ const refs = {
   importBtnIcon: document.getElementById("importBtnIcon"),
   importBtnLabel: document.getElementById("importBtnLabel"),
   importInput: document.getElementById("importInput"),
+  localFileInput: document.getElementById("localFileInput"),
+  localImportBtn: document.getElementById("localImportBtn"),
   nextPageBtn: document.getElementById("nextPageBtn"),
   openLogsBtn: document.getElementById("openLogsBtn"),
   openOptionsBtn: document.getElementById("openOptionsBtn"),
@@ -59,11 +61,14 @@ const refs = {
 const stateStore = createPopupState();
 const { state } = stateStore;
 let localeApplyVersion = 0;
+let dragStartedInPopup = false;
 const INIT_STEP_TIMEOUT_MS = POPUP_BOOT.initStepTimeoutMs;
 const INTERACTIVE_REFS = [
   "clearAllBtn",
   "importBtn",
   "importInput",
+  "localFileInput",
+  "localImportBtn",
   "nextPageBtn",
   "openLogsBtn",
   "openOptionsBtn",
@@ -163,6 +168,20 @@ function runWhenInteractive(handler) {
   };
 }
 
+function isFileDragEvent(event) {
+  const types = Array.from(event?.dataTransfer?.types || []);
+  return types.includes("Files");
+}
+
+function getDroppedFiles(event) {
+  const files = Array.from(event?.dataTransfer?.files || []);
+  return files.filter((file) => file instanceof Blob);
+}
+
+function shouldIgnoreFileDrop(event) {
+  return dragStartedInPopup || state.isBootLoading || state.currentImportState?.active || !isFileDragEvent(event);
+}
+
 const statusController = createPopupStatusController({
   refs,
   getState: () => state,
@@ -182,6 +201,12 @@ function syncImportUiState() {
   const hasActiveImport = Boolean(state.currentImportState?.active);
   statusController.syncImportActionButton();
   refs.importInput.disabled = state.isBootLoading || hasActiveImport;
+  if (refs.localImportBtn) {
+    refs.localImportBtn.disabled = state.isBootLoading || hasActiveImport;
+  }
+  if (refs.localFileInput) {
+    refs.localFileInput.disabled = state.isBootLoading || hasActiveImport;
+  }
 }
 
 function applyTheme(mode) {
@@ -287,6 +312,75 @@ refs.importInput.addEventListener(
     }
   }),
 );
+if (refs.localImportBtn && refs.localFileInput) {
+  refs.localImportBtn.addEventListener(
+    "click",
+    runWhenInteractive(() => {
+      gridController.clearSelections();
+      importController.openLocalFilePicker();
+    }),
+  );
+  refs.localFileInput.addEventListener(
+    "change",
+    runWhenInteractive(() => {
+      gridController.clearSelections();
+      const files = Array.from(refs.localFileInput.files || []);
+      void importController.importFiles(files);
+    }),
+  );
+}
+
+window.addEventListener("dragstart", (event) => {
+  dragStartedInPopup = event.target instanceof Node && document.body.contains(event.target);
+});
+
+window.addEventListener("dragend", () => {
+  dragStartedInPopup = false;
+  document.body.classList.remove("drag-file-active");
+});
+
+window.addEventListener("dragenter", (event) => {
+  if (shouldIgnoreFileDrop(event)) {
+    return;
+  }
+  event.preventDefault();
+  document.body.classList.add("drag-file-active");
+});
+
+window.addEventListener("dragover", (event) => {
+  if (shouldIgnoreFileDrop(event)) {
+    return;
+  }
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "copy";
+  }
+  document.body.classList.add("drag-file-active");
+});
+
+window.addEventListener("dragleave", (event) => {
+  const toElement = event.relatedTarget;
+  if (toElement instanceof Node && document.body.contains(toElement)) {
+    return;
+  }
+  document.body.classList.remove("drag-file-active");
+});
+
+window.addEventListener("drop", (event) => {
+  dragStartedInPopup = false;
+  document.body.classList.remove("drag-file-active");
+  if (shouldIgnoreFileDrop(event)) {
+    return;
+  }
+  event.preventDefault();
+  const files = getDroppedFiles(event);
+  if (files.length === 0) {
+    return;
+  }
+  gridController.clearSelections();
+  void importController.importFiles(files);
+});
+
 refs.grid.addEventListener("scroll", gridController.hideHoverPreview);
 window.addEventListener("blur", gridController.hideHoverPreview);
 

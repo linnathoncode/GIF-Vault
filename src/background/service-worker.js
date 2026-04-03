@@ -11,7 +11,7 @@ import {
 import {
   showBadgeFallback,
 } from "./action-icon.js";
-import { importFromUrl, terminateImport } from "./import-service.js";
+import { importFromFiles, importFromUrl, terminateImport } from "./import-service.js";
 import { resolveMediaUrls } from "./media-resolver.js";
 
 let localeReadyPromise = null;
@@ -177,6 +177,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({
           ok: false,
           error: error?.message || UI_MESSAGES.serviceWorker.terminateFailed,
+        }),
+      );
+    return true;
+  }
+
+  if (message.type === MESSAGE_TYPES.importFiles) {
+    localeSyncPromise
+      .then(() =>
+        importFromFiles(
+          message.files || [],
+          message.requestId || "",
+        ),
+      )
+      .then((result) => sendResponse({ ok: true, result }))
+      .catch((error) =>
+        sendResponse({
+          ok: false,
+          error: error?.message || UI_MESSAGES.popup.importFailed,
+          errorCode:
+            getImportErrorCode(error) || inferImportErrorCode(error?.message || ""),
         }),
       );
     return true;

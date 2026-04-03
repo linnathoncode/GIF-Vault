@@ -31,6 +31,12 @@ body {
   color: var(--text);
 }
 
+body.drag-file-active .container {
+  outline: 2px dashed color-mix(in srgb, var(--line) 70%, var(--text) 30%);
+  outline-offset: -3px;
+  border-radius: 10px;
+}
+
 body.boot-loading .container {
   opacity: 0.88;
 }
@@ -390,8 +396,20 @@ body.boot-loading .input {
   align-items: center;
 }
 
+.import-row.import-row-main {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
 .import-row.single {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.visually-hidden-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .input {

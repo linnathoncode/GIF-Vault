@@ -189,7 +189,8 @@ Rules:
 
 ### Since v1.6.2
 
-- No new user-facing features yet; this version currently tracks cleanup and refactoring work after `v1.6.1`.
+- Added local file import from popup with a compact "Choose files" action that uses the same progress/status pipeline as URL imports (including video-to-GIF conversion for supported local videos).
+- Added drag-and-drop local file import across the popup surface to start imports quickly without opening the file picker.
 
 ### Since v1.6.1
 

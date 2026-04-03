@@ -34,12 +34,16 @@
     </section>
 
     <section class="panel import-panel">
-      <div class="import-row">
+      <div class="import-row import-row-main">
         <input id="importInput" class="input" type="url" placeholder="Paste GIF / MP4 / tweet URL" data-i18n-placeholder="popup.importInputPlaceholder" />
+        <button id="localImportBtn" class="btn icon-text-btn" type="button">
+          <span data-i18n="popup.chooseFilesButton">Choose files</span>
+        </button>
         <button id="importBtn" class="btn primary icon-text-btn" type="button">
           <img id="importBtnIcon" class="btn-icon" src="../../assets/shared/icon-import.svg" alt="" aria-hidden="true" />
           <span id="importBtnLabel">Import</span>
         </button>
+        <input id="localFileInput" type="file" class="visually-hidden-file-input" accept="image/*,video/mp4,video/webm" multiple />
       </div>
       <div class="import-row single">
         <div class="search-wrap">

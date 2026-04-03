@@ -41,6 +41,9 @@ function createEnMessages() {
       importFailed: "Import failed.",
       importButtonIdle: "Import",
       importButtonTerminate: "Stop",
+      chooseFilesButton: "Choose files",
+      chooseFilesFirst: "Choose one or more local files first.",
+      startingFileImport: "Preparing local files...",
       importAlreadyRunning:
         "An import is already running. Wait or stop it first.",
       initializing: "Loading vault...",
@@ -240,6 +243,7 @@ function createEnMessages() {
       couldNotResolveMediaFromPost:
         "Couldn't resolve media from that post URL.",
       fetchingMedia: (suffix = "") => `Fetching media${suffix}...`,
+      readingLocalFiles: (suffix = "") => `Reading local file${suffix}...`,
       importedMany: (count) => `Imported ${count} items successfully.`,
       importedSingle: "Import complete.",
       importTerminated: "Import stopped by user.",
@@ -257,6 +261,7 @@ function createEnMessages() {
       couldNotDetermineVideoDuration: "Couldn't determine video duration.",
       resolvedUrlNotMedia: (contentType = "") =>
         `That URL does not point to media (${contentType || "unknown"})`,
+      localFileNotMedia: "That file is not a supported media type.",
       importTerminatedError: "IMPORT_TERMINATED",
       missingRequestId: "Missing request ID.",
       phaseResolving: "resolving",
@@ -301,6 +306,9 @@ function createTrMessages() {
       importFailed: "Aktarmada bir pürüz çıktı",
       importButtonIdle: "Vault'a Aktar",
       importButtonTerminate: "Durdur",
+      chooseFilesButton: "Dosya sec",
+      chooseFilesFirst: "Once bir veya daha fazla yerel dosya sec.",
+      startingFileImport: "Yerel dosyalar hazirlaniyor...",
       importAlreadyRunning:
         "Zaten bir aktarma sürüyor. Önce bekle ya da durdur.",
       initializing: "Vault yükleniyor...",
@@ -501,6 +509,7 @@ function createTrMessages() {
       couldNotResolveMediaUrl: "Medya URL'si çözümlenemedi",
       couldNotResolveMediaFromPost: "Bu gönderiden medya URL'si çıkarılamadı.",
       fetchingMedia: (suffix = "") => `Medya alınıyor${suffix}...`,
+      readingLocalFiles: (suffix = "") => `Yerel dosya okunuyor${suffix}...`,
       importedMany: (count) => `${count} öğe başarıyla aktarıldı.`,
       importedSingle: "Aktarma tamamlandı.",
       importTerminated: "Aktarma kullanıcı tarafından durduruldu.",
@@ -518,6 +527,7 @@ function createTrMessages() {
       couldNotDetermineVideoDuration: "Video süresi belirlenemedi.",
       resolvedUrlNotMedia: (contentType = "") =>
         `Bu URL doğrudan medya içermiyor (${contentType || "bilinmiyor"})`,
+      localFileNotMedia: "Bu dosya desteklenen bir medya turu degil.",
       importTerminatedError: "IMPORT_TERMINATED",
       missingRequestId: "İstek kimliği eksik.",
       phaseResolving: "resolving",

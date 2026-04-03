@@ -38,6 +38,55 @@ function buildImportSuccessMessage(sourceUrl, importedCount, convertedCount) {
   return parts.join(" ");
 }
 
+function buildLocalImportSuccessMessage(importedCount, convertedCount) {
+  const parts = [];
+
+  if (importedCount > 1) {
+    parts.push(UI_MESSAGES.popup.successImportedMany(importedCount));
+  } else {
+    parts.push(UI_MESSAGES.popup.successImportedSingle);
+  }
+
+  if (convertedCount > 1) {
+    parts.push(UI_MESSAGES.popup.successConvertedMany(convertedCount));
+  } else if (convertedCount === 1 && importedCount > 1) {
+    parts.push(UI_MESSAGES.popup.successConvertedSingleInBatch);
+  } else if (convertedCount === 1) {
+    parts.push(UI_MESSAGES.popup.successConvertedSingle);
+  }
+
+  return parts.join(" ");
+}
+
+function uint8ToBase64(bytes) {
+  if (!(bytes instanceof Uint8Array) || bytes.length === 0) {
+    return "";
+  }
+  const CHUNK_SIZE = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, i + CHUNK_SIZE);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+async function serializeLocalFilesForMessage(files) {
+  const payloads = [];
+  for (const file of files) {
+    if (!(file instanceof Blob)) {
+      continue;
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    payloads.push({
+      name: String(file?.name || ""),
+      mimeType: String(file?.type || ""),
+      bytesBase64: uint8ToBase64(bytes),
+    });
+  }
+  return payloads;
+}
+
 async function findMissingOrigins(origins) {
   const missing = [];
   for (const origin of origins) {
@@ -168,6 +217,62 @@ export function createPopupImportController({
     }
   }
 
+  async function runPopupImportFilesRequest(files, requestId) {
+    try {
+      const serializedFiles = await serializeLocalFilesForMessage(files);
+      if (serializedFiles.length === 0) {
+        throw new Error(UI_MESSAGES.popup.chooseFilesFirst);
+      }
+      const response = await chrome.runtime.sendMessage({
+        type: MESSAGE_TYPES.importFiles,
+        files: serializedFiles,
+        requestId,
+      });
+      if (!response?.ok) {
+        await safeLog("popup", "Popup local file import request was rejected", {
+          fileCount: files.length,
+          error: response?.error || UI_MESSAGES.popup.importFailed,
+          errorCode: String(response?.errorCode || ""),
+        });
+        const importError = new Error(
+          response?.error || UI_MESSAGES.popup.importFailed,
+        );
+        importError.code = String(response?.errorCode || "");
+        throw importError;
+      }
+
+      if (refs.localFileInput) {
+        refs.localFileInput.value = "";
+      }
+      const importedCount = Number(response.result?.importedCount) || 1;
+      const convertedCount = Number(response.result?.convertedCount) || 0;
+      const successMessage = buildLocalImportSuccessMessage(
+        importedCount,
+        convertedCount,
+      );
+      statusController.setImportSuccessState(successMessage);
+      stateStore.setActiveImportRequestId("");
+      await clearStoredImportStatePreservingUi();
+      await gridController.render();
+    } catch (error) {
+      statusController.setImportErrorState(
+        error?.message || UI_MESSAGES.popup.importFailed,
+      );
+      stateStore.setActiveImportRequestId("");
+      await clearStoredImportStatePreservingUi();
+      await safeLog("popup", "Local file import failed in popup", {
+        requestId,
+        fileCount: files.length,
+        errorCode: String(error?.code || ""),
+        error: error?.message || "unknown",
+      });
+    }
+  }
+
+  function openLocalFilePicker() {
+    refs.localFileInput?.click();
+  }
+
   async function terminateImport() {
     const requestId =
       state.activeImportRequestId || state.currentImportState?.requestId || "";
@@ -253,7 +358,63 @@ export function createPopupImportController({
     await runPopupImportRequest(url, requestId);
   }
 
+  async function importFiles(rawFiles) {
+    if (state.currentImportState?.active || state.activeImportRequestId) {
+      statusController.showTransientStatus(
+        UI_MESSAGES.popup.importAlreadyRunning,
+        "error",
+      );
+      await safeLog("popup", "Local file import blocked while another import is active", {
+        active: Boolean(state.currentImportState?.active),
+        requestId:
+          state.activeImportRequestId ||
+          state.currentImportState?.requestId ||
+          "",
+      });
+      syncImportUiState();
+      return;
+    }
+
+    const files = Array.isArray(rawFiles)
+      ? rawFiles.filter((file) => file instanceof Blob)
+      : [];
+    if (files.length === 0) {
+      statusController.showTransientStatus(
+        UI_MESSAGES.popup.chooseFilesFirst,
+        "error",
+      );
+      if (refs.localFileInput) {
+        refs.localFileInput.value = "";
+      }
+      return;
+    }
+
+    statusController.clearTransientStatus();
+    const requestId = crypto.randomUUID();
+    stateStore.setActiveImportRequestId(requestId);
+    stateStore.setImportState({
+      requestId,
+      text: UI_MESSAGES.popup.startingFileImport,
+      kind: "info",
+      active: true,
+    });
+    syncImportUiState();
+    statusController.setStatus(UI_MESSAGES.popup.startingFileImport);
+    statusController.setProgressState({
+      text: UI_MESSAGES.popup.startingFileImport,
+      kind: "info",
+      active: true,
+    });
+    await safeLog("popup", "Local file import requested from popup", {
+      fileCount: files.length,
+    });
+
+    await runPopupImportFilesRequest(files, requestId);
+  }
+
   return {
+    openLocalFilePicker,
+    importFiles,
     importUrl,
     terminateImport,
   };
