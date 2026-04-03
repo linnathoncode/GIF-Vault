@@ -40,6 +40,18 @@ function normalizeHttpUrl(rawUrl, fallbackError = UI_MESSAGES.popup.enterValidUr
   return new URL(value).toString();
 }
 
+function normalizeOptionalHttpUrl(rawUrl) {
+  const value = String(rawUrl || "").trim();
+  if (!value) {
+    return "";
+  }
+  try {
+    return normalizeHttpUrl(value);
+  } catch {
+    return "";
+  }
+}
+
 function buildLocalPseudoUrl(fileName = "") {
   const safeName = String(fileName || "").trim() || `local-${Date.now()}.bin`;
   return `https://local.file/${encodeURIComponent(safeName)}`;
@@ -73,6 +85,7 @@ function normalizeSingleLocalFile(file) {
       blob: file,
       name: String(file?.name || "").trim(),
       mimeType: String(file?.type || "").trim().toLowerCase(),
+      localPath: String(file?.path || file?.webkitRelativePath || "").trim(),
     };
   }
 
@@ -97,6 +110,7 @@ function normalizeSingleLocalFile(file) {
     blob,
     name: String(file.name || "").trim(),
     mimeType,
+    localPath: String(file.localPath || file.path || file.webkitRelativePath || "").trim(),
   };
 }
 
@@ -273,9 +287,10 @@ async function importFromUrl(
   }
 }
 
-async function importFromFiles(files, requestId = "") {
+async function importFromFiles(files, requestId = "", sourceUrlHint = "") {
   const progressId = requestId || crypto.randomUUID();
   const localFiles = normalizeLocalFiles(files);
+  const normalizedSourceUrlHint = normalizeOptionalHttpUrl(sourceUrlHint);
   if (!localFiles.length) {
     await safeLog("import", "Rejected empty local file selection");
     throw createImportError(IMPORT_ERROR_CODES.invalidUrl, UI_MESSAGES.popup.chooseFilesFirst);
@@ -324,6 +339,7 @@ async function importFromFiles(files, requestId = "") {
         localFile: localFiles[index],
         progressId,
         gifConversionConfig,
+        sourceUrlHint: normalizedSourceUrlHint,
         ensureImportActive,
       });
       ensureImportActive();
@@ -559,6 +575,7 @@ async function importLocalFileMedia({
   localFile,
   progressId,
   gifConversionConfig,
+  sourceUrlHint,
   ensureImportActive,
 }) {
   ensureImportActive();
@@ -651,8 +668,9 @@ async function importLocalFileMedia({
   const item = {
     id: crypto.randomUUID(),
     name: inferNameFromLocalFile(localFile.name),
-    sourceUrl: "",
+    sourceUrl: String(sourceUrlHint || "").trim(),
     mediaUrl: "",
+    localPath: String(localFile.localPath || "").trim(),
     pageUrl: "",
     mimeType: finalMime,
     kind: finalMime.startsWith("video/") ? "video" : "image",

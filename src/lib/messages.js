@@ -120,6 +120,8 @@ function createEnMessages() {
       copiedGifLink: "GIF link copied.",
       copiedAnimatedWebpLink: "Animated WebP link copied.",
       copiedImageLink: "Image link copied.",
+      copyNoSourceUrlForLocal:
+        "This local item has no source URL. Copy the local path if available.",
       copiedLinkTip: "Tip: drag the preview to drop it directly.",
       copiedGifLinkTip: "Tip: drag the preview to drop the GIF directly.",
       copiedImageLinkTip: "Tip: drag the preview to drop the image directly.",
@@ -149,6 +151,7 @@ function createEnMessages() {
         `${savedCount} saved | ${favoriteCount} favorites`,
       selectedCount: (count) => `${count} selected`,
       sizeLabel: (size) => `Size: ${size}`,
+      sourceLocal: "local",
     },
     options: {
       pageTitle: "GIF Vault Options",
@@ -385,6 +388,8 @@ function createTrMessages() {
       copiedGifLink: "GIF bağlantısı kopyalandı.",
       copiedAnimatedWebpLink: "Animasyonlu WebP bağlantısı kopyalandı.",
       copiedImageLink: "Görsel bağlantısı kopyalandı.",
+      copyNoSourceUrlForLocal:
+        "Bu yerel öğenin kaynak URL'si yok. Varsa yerel yolu kopyalayın.",
       copiedLinkTip: "İpucu: önizlemeyi sürükleyip doğrudan kullan.",
       copiedGifLinkTip:
         "İpucu: GIF'i doğrudan kullanmak için önizlemeyi sürükleyip bırak.",
@@ -416,6 +421,7 @@ function createTrMessages() {
         `${savedCount} kayıtlı | ${favoriteCount} favori`,
       selectedCount: (count) => `${count} seçili`,
       sizeLabel: (size) => `Boyut: ${size}`,
+      sourceLocal: "yerel",
     },
     options: {
       pageTitle: "GIF Vault Ayarları",

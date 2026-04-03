@@ -191,6 +191,7 @@ Rules:
 
 - Added local file import from popup with a compact "Choose files" action that uses the same progress/status pipeline as URL imports (including video-to-GIF conversion for supported local videos).
 - Added drag-and-drop local file import across the popup surface to start imports quickly without opening the file picker.
+- Improved local/dragged item metadata and copy behavior: cards now show `local` as source when no web source exists, copy action clearly reports when no source URL is available for local-origin items, and drag-dropped web media now preserves source URL when the browser exposes it via drop data.
 
 ### Since v1.6.1
 

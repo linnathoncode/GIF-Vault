@@ -27,7 +27,10 @@ export {
   selectionIdsChanged,
   shouldCancelArmedDeleteOnSelectionChange,
 };
-export { sanitizeCopyFallbackUrl } from "./copy.js";
+export {
+  sanitizeCopyFallbackUrl,
+  sanitizeCopyFallbackLocalPath,
+} from "./copy.js";
 
 // Vault filtering, rendering, and item actions.
 export function createPopupGridController({
@@ -294,6 +297,10 @@ export function createPopupGridController({
 
   function setCopyStatus(item, result) {
     if (!result?.ok) {
+      if (result?.reason === "no-source-url") {
+        showTransientStatus(UI_MESSAGES.grid.copyNoSourceUrlForLocal, "error");
+        return;
+      }
       showTransientStatus(UI_MESSAGES.grid.copyFailed, "error");
       return;
     }
@@ -495,7 +502,9 @@ export function createPopupGridController({
 
     const hoverInfoText = document.createElement("div");
     hoverInfoText.className = "meta-hover-row";
-    const sourceHost = hostFromUrl(item.sourceUrl || item.mediaUrl || "");
+    const sourceHost =
+      hostFromUrl(item.sourceUrl || item.mediaUrl || "") ||
+      UI_MESSAGES.grid.sourceLocal;
     const sizeLabel = UI_MESSAGES.grid.sizeLabel(
       formatBytes(item.blob?.size || 0),
     );

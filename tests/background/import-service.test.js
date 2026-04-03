@@ -589,6 +589,7 @@ describe("import service long-video gate", () => {
           {
             name: "from-popup.gif",
             mimeType: "image/gif",
+            localPath: "C:\\Users\\MONSTER\\Desktop\\from-popup.gif",
             bytesBase64,
           },
         ],
@@ -599,5 +600,30 @@ describe("import service long-video gate", () => {
       convertedCount: 0,
     });
     expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+    const savedItem = mocks.idbSave.mock.calls[0]?.[0] || {};
+    expect(savedItem.localPath).toBe("C:\\Users\\MONSTER\\Desktop\\from-popup.gif");
+  });
+
+  it("applies drop sourceUrlHint for local file imports when provided", async () => {
+    const localGif = new Blob([new Uint8Array([71, 73, 70, 56, 57, 97])], {
+      type: "image/gif",
+    });
+    Object.defineProperty(localGif, "name", {
+      value: "drop-from-web.gif",
+      configurable: true,
+    });
+
+    await expect(
+      importFromFiles(
+        [localGif],
+        "request-local-with-source-hint",
+        "https://example.com/media/drop-from-web.gif",
+      ),
+    ).resolves.toMatchObject({
+      importedCount: 1,
+    });
+
+    const savedItem = mocks.idbSave.mock.calls.at(-1)?.[0] || {};
+    expect(savedItem.sourceUrl).toBe("https://example.com/media/drop-from-web.gif");
   });
 });

@@ -178,6 +178,37 @@ function getDroppedFiles(event) {
   return files.filter((file) => file instanceof Blob);
 }
 
+function normalizeDroppedSourceUrl(rawValue) {
+  const candidate = String(rawValue || "").trim();
+  if (!candidate) {
+    return "";
+  }
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.toString();
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+function getDroppedSourceUrl(event) {
+  const uriListRaw = String(event?.dataTransfer?.getData("text/uri-list") || "");
+  const firstUri = uriListRaw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith("#"));
+  const normalizedUriList = normalizeDroppedSourceUrl(firstUri);
+  if (normalizedUriList) {
+    return normalizedUriList;
+  }
+
+  const plainTextRaw = String(event?.dataTransfer?.getData("text/plain") || "").trim();
+  return normalizeDroppedSourceUrl(plainTextRaw);
+}
+
 function shouldIgnoreFileDrop(event) {
   return dragStartedInPopup || state.isBootLoading || state.currentImportState?.active || !isFileDragEvent(event);
 }
@@ -377,8 +408,9 @@ window.addEventListener("drop", (event) => {
   if (files.length === 0) {
     return;
   }
+  const sourceUrlHint = getDroppedSourceUrl(event);
   gridController.clearSelections();
-  void importController.importFiles(files);
+  void importController.importFiles(files, { sourceUrlHint });
 });
 
 refs.grid.addEventListener("scroll", gridController.hideHoverPreview);

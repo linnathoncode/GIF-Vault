@@ -71,6 +71,18 @@ function uint8ToBase64(bytes) {
   return btoa(binary);
 }
 
+function getLocalPathHint(file) {
+  const directPath = String(file?.path || "").trim();
+  if (directPath) {
+    return directPath;
+  }
+  const relativePath = String(file?.webkitRelativePath || "").trim();
+  if (relativePath) {
+    return relativePath;
+  }
+  return "";
+}
+
 async function serializeLocalFilesForMessage(files) {
   const payloads = [];
   for (const file of files) {
@@ -81,6 +93,7 @@ async function serializeLocalFilesForMessage(files) {
     payloads.push({
       name: String(file?.name || ""),
       mimeType: String(file?.type || ""),
+      localPath: getLocalPathHint(file),
       bytesBase64: uint8ToBase64(bytes),
     });
   }
@@ -217,7 +230,7 @@ export function createPopupImportController({
     }
   }
 
-  async function runPopupImportFilesRequest(files, requestId) {
+  async function runPopupImportFilesRequest(files, requestId, sourceUrlHint = "") {
     try {
       const serializedFiles = await serializeLocalFilesForMessage(files);
       if (serializedFiles.length === 0) {
@@ -227,6 +240,7 @@ export function createPopupImportController({
         type: MESSAGE_TYPES.importFiles,
         files: serializedFiles,
         requestId,
+        sourceUrlHint: String(sourceUrlHint || ""),
       });
       if (!response?.ok) {
         await safeLog("popup", "Popup local file import request was rejected", {
@@ -250,14 +264,28 @@ export function createPopupImportController({
         importedCount,
         convertedCount,
       );
-      statusController.setImportSuccessState(successMessage);
+      const hasTerminalProgressFeedback =
+        Boolean(state.currentImportState?.text) &&
+        !Boolean(state.currentImportState?.active) &&
+        (state.currentImportState?.kind === "success" ||
+          state.currentImportState?.kind === "error");
+      if (!hasTerminalProgressFeedback) {
+        statusController.setImportSuccessState(successMessage);
+      }
       stateStore.setActiveImportRequestId("");
       await clearStoredImportStatePreservingUi();
       await gridController.render();
     } catch (error) {
-      statusController.setImportErrorState(
-        error?.message || UI_MESSAGES.popup.importFailed,
-      );
+      const hasTerminalProgressFeedback =
+        Boolean(state.currentImportState?.text) &&
+        !Boolean(state.currentImportState?.active) &&
+        (state.currentImportState?.kind === "success" ||
+          state.currentImportState?.kind === "error");
+      if (!hasTerminalProgressFeedback) {
+        statusController.setImportErrorState(
+          error?.message || UI_MESSAGES.popup.importFailed,
+        );
+      }
       stateStore.setActiveImportRequestId("");
       await clearStoredImportStatePreservingUi();
       await safeLog("popup", "Local file import failed in popup", {
@@ -358,7 +386,7 @@ export function createPopupImportController({
     await runPopupImportRequest(url, requestId);
   }
 
-  async function importFiles(rawFiles) {
+  async function importFiles(rawFiles, options = {}) {
     if (state.currentImportState?.active || state.activeImportRequestId) {
       statusController.showTransientStatus(
         UI_MESSAGES.popup.importAlreadyRunning,
@@ -399,7 +427,6 @@ export function createPopupImportController({
       active: true,
     });
     syncImportUiState();
-    statusController.setStatus(UI_MESSAGES.popup.startingFileImport);
     statusController.setProgressState({
       text: UI_MESSAGES.popup.startingFileImport,
       kind: "info",
@@ -407,9 +434,14 @@ export function createPopupImportController({
     });
     await safeLog("popup", "Local file import requested from popup", {
       fileCount: files.length,
+      sourceUrlHint: String(options?.sourceUrlHint || ""),
     });
 
-    await runPopupImportFilesRequest(files, requestId);
+    await runPopupImportFilesRequest(
+      files,
+      requestId,
+      String(options?.sourceUrlHint || ""),
+    );
   }
 
   return {

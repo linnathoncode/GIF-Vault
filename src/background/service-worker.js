@@ -188,6 +188,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         importFromFiles(
           message.files || [],
           message.requestId || "",
+          message.sourceUrlHint || "",
         ),
       )
       .then((result) => sendResponse({ ok: true, result }))

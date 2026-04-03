@@ -38,9 +38,9 @@ export function createGridDataController({
         : normalized;
     const query = state.searchTerm.trim().toLowerCase();
     const visibleItems = query
-      ? byTab.filter((item) => {
+        ? byTab.filter((item) => {
           const haystack =
-            `${item.name || ""} ${item.sourceUrl || ""} ${item.mediaUrl || ""}`.toLowerCase();
+            `${item.name || ""} ${item.sourceUrl || ""} ${item.mediaUrl || ""} ${item.localPath || ""} local`.toLowerCase();
           return haystack.includes(query);
         })
       : byTab;

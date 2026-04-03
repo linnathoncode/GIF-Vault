@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeCopyFallbackUrl } from "../../src/pages/popup/popup/grid.js";
+import {
+  sanitizeCopyFallbackLocalPath,
+  sanitizeCopyFallbackUrl,
+} from "../../src/pages/popup/popup/grid.js";
 
 describe("popup-grid copy fallback URL sanitization", () => {
   it("accepts https urls", () => {
@@ -28,5 +31,29 @@ describe("popup-grid copy fallback URL sanitization", () => {
 
   it("rejects malformed urls", () => {
     expect(sanitizeCopyFallbackUrl("not a url")).toBe("");
+  });
+});
+
+describe("popup-grid copy fallback local path sanitization", () => {
+  it("accepts file urls", () => {
+    expect(sanitizeCopyFallbackLocalPath("file:///tmp/a.gif")).toBe(
+      "file:///tmp/a.gif",
+    );
+  });
+
+  it("accepts absolute local paths", () => {
+    expect(sanitizeCopyFallbackLocalPath("C:\\Users\\test\\a.gif")).toBe(
+      "C:\\Users\\test\\a.gif",
+    );
+    expect(sanitizeCopyFallbackLocalPath("\\\\server\\share\\a.gif")).toBe(
+      "\\\\server\\share\\a.gif",
+    );
+    expect(sanitizeCopyFallbackLocalPath("/tmp/a.gif")).toBe("/tmp/a.gif");
+    expect(sanitizeCopyFallbackLocalPath("folder/a.gif")).toBe("folder/a.gif");
+  });
+
+  it("rejects non-path values", () => {
+    expect(sanitizeCopyFallbackLocalPath("javascript:alert(1)")).toBe("");
+    expect(sanitizeCopyFallbackLocalPath("not a path")).toBe("");
   });
 });

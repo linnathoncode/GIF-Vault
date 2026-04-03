@@ -4,4 +4,7 @@ export {
   selectionIdsChanged,
   shouldCancelArmedDeleteOnSelectionChange,
 } from "./grid/selection.js";
-export { sanitizeCopyFallbackUrl } from "./grid/copy.js";
+export {
+  sanitizeCopyFallbackUrl,
+  sanitizeCopyFallbackLocalPath,
+} from "./grid/copy.js";

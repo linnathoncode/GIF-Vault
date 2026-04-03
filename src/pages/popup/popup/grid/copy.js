@@ -24,6 +24,40 @@ export function sanitizeCopyFallbackUrl(candidateUrl) {
   return parsedUrl.toString();
 }
 
+export function sanitizeCopyFallbackLocalPath(candidatePath) {
+  const normalized = String(candidatePath || "")
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .trim();
+  if (!normalized) {
+    return "";
+  }
+
+  if (/^file:\/\//i.test(normalized)) {
+    try {
+      const parsedUrl = new URL(normalized);
+      if (parsedUrl.protocol.toLowerCase() === "file:") {
+        return parsedUrl.toString();
+      }
+    } catch {
+      return "";
+    }
+    return "";
+  }
+
+  const isWindowsDrivePath = /^[a-z]:[\\/]/i.test(normalized);
+  const isUncPath = /^\\\\[^\\]/.test(normalized);
+  const isUnixAbsolutePath = /^\//.test(normalized);
+  const isRelativePath =
+    /[\\/]/.test(normalized) && !/^[a-z][a-z0-9+.-]*:/i.test(normalized);
+
+  if (isWindowsDrivePath || isUncPath || isUnixAbsolutePath || isRelativePath) {
+    return normalized;
+  }
+
+  return "";
+}
+
 export async function copyItemUrl(item) {
   const canWriteText =
     navigator.clipboard && typeof navigator.clipboard.writeText === "function";
@@ -31,18 +65,36 @@ export async function copyItemUrl(item) {
     const copiedUrl = sanitizeCopyFallbackUrl(
       item.mediaUrl || item.sourceUrl || "",
     );
-    if (!copiedUrl) {
-      await safeLog("popup", "Copy url blocked", {
-        id: item.id,
-      });
-      return { ok: false, method: "none" };
+    const copiedLocalPath = sanitizeCopyFallbackLocalPath(
+      item.localPath ||
+        item.sourcePath ||
+        item.filePath ||
+        "",
+    );
+    const copiedText = copiedLocalPath || copiedUrl;
+    if (!copiedText) {
+      await safeLog("popup", "Copy url blocked", { id: item.id });
+      const hasNoSourceUrl = !String(item?.mediaUrl || item?.sourceUrl || "").trim();
+      if (hasNoSourceUrl) {
+        return { ok: false, method: "none", reason: "no-source-url" };
+      }
+      return { ok: false, method: "none", reason: "blocked" };
     }
+
     try {
-      await navigator.clipboard.writeText(copiedUrl);
-      await safeLog("popup", "Copy succeeded (url text)", {
-        id: item.id,
-      });
-      return { ok: true, method: "url", copiedUrl };
+      await navigator.clipboard.writeText(copiedText);
+      await safeLog(
+        "popup",
+        copiedLocalPath
+          ? "Copy succeeded (local path text)"
+          : "Copy succeeded (url text)",
+        { id: item.id },
+      );
+      return {
+        ok: true,
+        method: copiedLocalPath ? "local-path" : "url",
+        copiedUrl: copiedText,
+      };
     } catch (error) {
       await safeLog("popup", "Copy url failed", {
         id: item.id,
