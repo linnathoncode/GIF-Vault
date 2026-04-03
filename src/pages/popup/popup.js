@@ -49,6 +49,7 @@ const refs = {
   progressBarEl: document.getElementById("progressBar"),
   progressLabelEl: document.getElementById("progressLabel"),
   progressTrackEl: document.getElementById("progressTrack"),
+  selectionCancelBtn: document.getElementById("selectionCancelBtn"),
   statusTextEl: document.getElementById("statusText"),
   searchInput: document.getElementById("searchInput"),
   statusEl: document.getElementById("status"),
@@ -73,6 +74,7 @@ const INTERACTIVE_REFS = [
   "openLogsBtn",
   "openOptionsBtn",
   "prevPageBtn",
+  "selectionCancelBtn",
   "searchInput",
   "tabAllBtn",
   "tabFavoritesBtn",
@@ -213,6 +215,13 @@ function shouldIgnoreFileDrop(event) {
   return dragStartedInPopup || state.isBootLoading || state.currentImportState?.active || !isFileDragEvent(event);
 }
 
+function syncSelectionUi(selectedCount = 0) {
+  if (!(refs.selectionCancelBtn instanceof HTMLButtonElement)) {
+    return;
+  }
+  refs.selectionCancelBtn.hidden = selectedCount <= 0;
+}
+
 const statusController = createPopupStatusController({
   refs,
   getState: () => state,
@@ -226,6 +235,7 @@ const gridController = createPopupGridController({
   state,
   getPopupMenuConfig,
   showTransientStatus: statusController.showTransientStatus,
+  onSelectionChange: syncSelectionUi,
 });
 
 function syncImportUiState() {
@@ -466,6 +476,15 @@ refs.tabAllBtn.addEventListener(
     await gridController.render();
   }),
 );
+
+if (refs.selectionCancelBtn) {
+  refs.selectionCancelBtn.addEventListener(
+    "click",
+    runWhenInteractive(() => {
+      gridController.clearSelections();
+    }),
+  );
+}
 refs.tabFavoritesBtn.addEventListener(
   "click",
   runWhenInteractive(async () => {
@@ -693,6 +712,7 @@ async function init() {
     // First full render, then unlock interactions.
     syncImportUiState();
     await gridController.render();
+    syncSelectionUi(0);
     if (!state.currentImportState?.text) {
       clearBootLoadingUiIfPresent();
     }

@@ -17,6 +17,9 @@
         </div>
       </div>
       <div class="header-actions">
+        <button id="selectionCancelBtn" class="btn selection-cancel-btn" type="button" title="Clear" aria-label="Clear" data-i18n-title="popup.clearSelectionButton" data-i18n-aria-label="popup.clearSelectionButton" hidden>
+          <span data-i18n="popup.clearSelectionButton">Clear</span>
+        </button>
         <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme" data-i18n-title="common.toggleTheme" data-i18n-aria-label="common.toggleTheme">
           <img id="themeToggleIcon" class="btn-icon btn-icon-md" src="../../assets/shared/icon-theme-light.svg" alt="" aria-hidden="true" />
         </button>
@@ -26,9 +29,8 @@
         <button id="openLogsBtn" class="icon-btn logs-btn" type="button" title="Open Logs" aria-label="Open Logs" data-i18n-title="popup.openLogs" data-i18n-aria-label="popup.openLogs">
           <img class="btn-icon btn-icon-md" src="../../assets/shared/icon-logs.svg" alt="" aria-hidden="true" />
         </button>
-        <button id="clearAllBtn" class="danger-btn" type="button">
-          <img class="btn-icon" src="../../assets/shared/icon-clear.svg" alt="" aria-hidden="true" />
-          <span data-i18n="popup.clearAllButton">Clear all</span>
+        <button id="clearAllBtn" class="icon-btn danger-icon-btn" type="button" title="Clear all" aria-label="Clear all" data-i18n-title="popup.clearAllButton" data-i18n-aria-label="popup.clearAllButton">
+          <img class="btn-icon btn-icon-md" src="../../assets/shared/icon-clear.svg" alt="" aria-hidden="true" />
         </button>
       </div>
     </section>
@@ -36,7 +38,7 @@
     <section class="panel import-panel">
       <div class="import-row import-row-main">
         <input id="importInput" class="input" type="url" placeholder="Paste GIF / MP4 / tweet URL" data-i18n-placeholder="popup.importInputPlaceholder" />
-        <button id="localImportBtn" class="btn icon-text-btn" type="button">
+        <button id="localImportBtn" class="btn primary icon-text-btn" type="button">
           <span data-i18n="popup.chooseFilesButton">Choose files</span>
         </button>
         <button id="importBtn" class="btn primary icon-text-btn" type="button">

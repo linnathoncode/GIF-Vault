@@ -34,7 +34,8 @@ Core capabilities:
 - Search your collection: Find saved items by name or source link in seconds.
 - Favorites tab: Star your best GIFs and access them fast.
 - Easy library management: Rename, copy, delete, or clear your saved items anytime.
-- Shift-click multi-select: Select and manage many items at once by shift clicking.
+- Shift-click multi-select: Start selection with Shift-click, then add/remove items with regular click while selection is active.
+- In-selection quick cancel: A header cancel button appears during multi-select and clears current selections in one click.
 - Clean grid layout: Browse your GIFs in a simple visual gallery with pagination.
 - Import progress status: See import steps in real time and stop an import if needed.
 - Guided permissions flow: If a site needs access, GIF Vault walks you through it.
@@ -192,6 +193,10 @@ Rules:
 - Added local file import from popup with a compact "Choose files" action that uses the same progress/status pipeline as URL imports (including video-to-GIF conversion for supported local videos).
 - Added drag-and-drop local file import across the popup surface to start imports quickly without opening the file picker.
 - Improved local/dragged item metadata and copy behavior: cards now show `local` as source when no web source exists, copy action clearly reports when no source URL is available for local-origin items, and drag-dropped web media now preserves source URL when the browser exposes it via drop data.
+- Updated popup multi-select flow so after the first selection, regular left-click can add/remove cards without requiring Shift on every click.
+- Added a header-level cancel control that appears during multi-select and clears current selections immediately.
+- Refined header actions to prevent overflow: cancel and clear-all controls are now icon-based with tooltip/aria hints.
+- Refined selection-clear affordance: multi-select header control now uses a clear-style icon/tooltip to make non-destructive behavior more obvious.
 
 ### Since v1.6.1
 

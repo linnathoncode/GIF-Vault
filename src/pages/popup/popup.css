@@ -120,6 +120,17 @@ body.boot-loading .input {
   justify-content: flex-end;
 }
 
+.selection-cancel-btn {
+  border-color: var(--line);
+  font-weight: 700;
+}
+
+.danger-icon-btn {
+  background: var(--accent-bg);
+  border-color: var(--popup-btn-border);
+  color: var(--text);
+}
+
 .title {
   margin: 0;
   font-size: 17px;
@@ -834,8 +845,18 @@ body.boot-loading .input {
   color: #ffffff;
 }
 
+.icon-btn.danger-icon-btn:hover:not(:disabled) {
+  background: #c74747;
+  border-color: #c74747;
+  color: #ffffff;
+}
+
 .danger-btn:hover:not(:disabled) .btn-icon,
 .btn.danger:hover:not(:disabled) .btn-icon {
+  filter: brightness(0) invert(1);
+}
+
+.icon-btn.danger-icon-btn:hover:not(:disabled) .btn-icon {
   filter: brightness(0) invert(1);
 }
 

@@ -38,6 +38,7 @@ export function createPopupGridController({
   state,
   getPopupMenuConfig,
   showTransientStatus,
+  onSelectionChange,
 }) {
   const TEMP_STATUS_DURATION_MS = 5000;
   const ARMED_DELETE_DURATION_MS = 5000;
@@ -90,6 +91,11 @@ export function createPopupGridController({
   });
   const deleteButtonLabelWithBatchHint = () =>
     `${UI_MESSAGES.grid.delete} ${UI_MESSAGES.grid.deleteBatchHint}`;
+  const notifySelectionChange = () => {
+    if (typeof onSelectionChange === "function") {
+      onSelectionChange(selectedItemIds.size);
+    }
+  };
 
   function resetDeleteButton(button) {
     if (!(button instanceof HTMLElement)) {
@@ -138,6 +144,7 @@ export function createPopupGridController({
     for (const id of next) {
       selectedItemIds.add(id);
     }
+    notifySelectionChange();
   }
 
   function setCardSelected(card, selected) {
@@ -169,6 +176,7 @@ export function createPopupGridController({
     }
     dataController.refreshCountTextFromCache(selectedItemIds.size);
     showSelectionHint(selectedItemIds.size);
+    notifySelectionChange();
   }
 
   function removeCardFromSelection(itemId, card) {
@@ -191,11 +199,13 @@ export function createPopupGridController({
     }
     dataController.refreshCountTextFromCache(selectedItemIds.size);
     showSelectionHint(selectedItemIds.size);
+    notifySelectionChange();
     return true;
   }
 
   function clearAllSelections() {
     if (selectedItemIds.size === 0) {
+      notifySelectionChange();
       return;
     }
 
@@ -204,6 +214,7 @@ export function createPopupGridController({
       setCardSelected(card, false);
     }
     dataController.refreshCountTextFromCache(selectedItemIds.size);
+    notifySelectionChange();
   }
 
   function clearSelections() {
@@ -605,7 +616,7 @@ export function createPopupGridController({
         return;
       }
       focusController.blurSelectionResetInputs();
-      if (event.shiftKey) {
+      if (event.shiftKey || selectedItemIds.size > 0) {
         event.preventDefault();
       }
     });
@@ -622,7 +633,7 @@ export function createPopupGridController({
       }
       focusController.blurSelectionResetInputs();
       event.preventDefault();
-      if (event.shiftKey) {
+      if (event.shiftKey || selectedItemIds.size > 0) {
         toggleCardSelection(item.id, card);
         return;
       }
