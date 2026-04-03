@@ -50,7 +50,6 @@ const refs = {
   progressLabelEl: document.getElementById("progressLabel"),
   progressTrackEl: document.getElementById("progressTrack"),
   selectionCancelBtn: document.getElementById("selectionCancelBtn"),
-  selectionDeleteBtn: document.getElementById("selectionDeleteBtn"),
   statusTextEl: document.getElementById("statusText"),
   searchInput: document.getElementById("searchInput"),
   statusEl: document.getElementById("status"),
@@ -76,7 +75,6 @@ const INTERACTIVE_REFS = [
   "openOptionsBtn",
   "prevPageBtn",
   "selectionCancelBtn",
-  "selectionDeleteBtn",
   "searchInput",
   "tabAllBtn",
   "tabFavoritesBtn",
@@ -172,6 +170,19 @@ function runWhenInteractive(handler) {
   };
 }
 
+function isEditableEventTarget(target) {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    return true;
+  }
+  if (target instanceof HTMLElement && target.isContentEditable) {
+    return true;
+  }
+  return Boolean(target.closest("input, textarea, [contenteditable='true']"));
+}
+
 function isFileDragEvent(event) {
   const types = Array.from(event?.dataTransfer?.types || []);
   return types.includes("Files");
@@ -221,9 +232,6 @@ function syncSelectionUi(selectedCount = 0) {
   const hasSelections = selectedCount > 0;
   if (refs.selectionCancelBtn instanceof HTMLButtonElement) {
     refs.selectionCancelBtn.hidden = !hasSelections;
-  }
-  if (refs.selectionDeleteBtn instanceof HTMLButtonElement) {
-    refs.selectionDeleteBtn.hidden = !hasSelections;
   }
 }
 
@@ -490,25 +498,6 @@ if (refs.selectionCancelBtn) {
     }),
   );
 }
-if (refs.selectionDeleteBtn) {
-  refs.selectionDeleteBtn.addEventListener(
-    "click",
-    runWhenInteractive(async () => {
-      const selectedCount = gridController.getSelectedCount();
-      if (selectedCount <= 0) {
-        return;
-      }
-      const confirmText = selectedCount > 1
-        ? UI_MESSAGES.grid.confirmDeleteTitleMany(selectedCount)
-        : UI_MESSAGES.grid.confirmDeleteTitleSingle;
-      const confirmed = window.confirm(`${confirmText}?`);
-      if (!confirmed) {
-        return;
-      }
-      await gridController.deleteSelectedItems();
-    }),
-  );
-}
 refs.tabFavoritesBtn.addEventListener(
   "click",
   runWhenInteractive(async () => {
@@ -550,6 +539,40 @@ refs.nextPageBtn.addEventListener(
   runWhenInteractive(async () => {
     stateStore.setCurrentPage(state.currentPage + 1);
     await gridController.render();
+  }),
+);
+window.addEventListener(
+  "keydown",
+  runWhenInteractive(async (event) => {
+    if (event.defaultPrevented || event.repeat) {
+      return;
+    }
+    if (
+      event.key !== "Delete" &&
+      event.key !== "Backspace"
+    ) {
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    if (isEditableEventTarget(event.target)) {
+      return;
+    }
+    const selectedCount = gridController.getSelectedCount();
+    if (selectedCount <= 0) {
+      return;
+    }
+
+    event.preventDefault();
+    const confirmText = selectedCount > 1
+      ? UI_MESSAGES.grid.confirmDeleteTitleMany(selectedCount)
+      : UI_MESSAGES.grid.confirmDeleteTitleSingle;
+    const confirmed = window.confirm(`${confirmText}?`);
+    if (!confirmed) {
+      return;
+    }
+    await gridController.deleteSelectedItems();
   }),
 );
 
