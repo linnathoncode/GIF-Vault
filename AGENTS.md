@@ -38,6 +38,7 @@ Core capabilities:
 - Easy library management: Rename, copy, delete, or clear your saved items anytime.
 - Shift-click multi-select: Start selection with Shift-click, then add/remove items with regular click while selection is active.
 - In-selection quick clear: A header clear button appears during multi-select and clears current selections in one click.
+- In-selection delete action: A header delete action appears during multi-select to remove selected items with confirmation.
 - Clean grid layout: Browse your GIFs in a simple visual gallery with pagination.
 - Import progress status: See import steps in real time and stop an import if needed.
 - Guided permissions flow: If a site needs access, GIF Vault walks you through it.
@@ -199,6 +200,7 @@ Rules:
 - Added a header-level clear control that appears during multi-select and clears current selections immediately.
 - Refined header actions to prevent overflow: clear-selection and clear-all controls now use compact labels/icon hints.
 - Refined selection-clear affordance: multi-select header control now uses a short "Clear" label to make non-destructive behavior more obvious.
+- Added a header delete-selected action for multi-select mode, with confirmation before removing selected items.
 
 ### Since v1.6.1
 

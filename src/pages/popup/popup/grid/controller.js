@@ -222,6 +222,10 @@ export function createPopupGridController({
     clearAllSelections();
   }
 
+  function getSelectedCount() {
+    return selectedItemIds.size;
+  }
+
   function resolveTargetIdsForAction(fallbackItemId) {
     const fallbackId = String(fallbackItemId || "");
     if (
@@ -729,9 +733,26 @@ export function createPopupGridController({
     previewController.cleanupObjectUrls();
   }
 
+  async function deleteSelectedItems() {
+    const targetIds = [...selectedItemIds];
+    if (targetIds.length === 0) {
+      return false;
+    }
+
+    const deletedStatusText = deletedStatusTextForIds(targetIds);
+    await removeItems(targetIds, targetIds[0]);
+    showTransientStatus(deletedStatusText, "ok", TEMP_STATUS_DURATION_MS, {
+      forceTemporary: true,
+      preserveProgress: false,
+    });
+    return true;
+  }
+
   return {
     clearSelections,
     cleanupObjectUrls,
+    deleteSelectedItems,
+    getSelectedCount,
     hideHoverPreview: previewController.hideHoverPreview,
     render,
     updateEmptyStateMascotForTheme(themeMode = state.themeMode) {

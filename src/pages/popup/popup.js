@@ -50,6 +50,7 @@ const refs = {
   progressLabelEl: document.getElementById("progressLabel"),
   progressTrackEl: document.getElementById("progressTrack"),
   selectionCancelBtn: document.getElementById("selectionCancelBtn"),
+  selectionDeleteBtn: document.getElementById("selectionDeleteBtn"),
   statusTextEl: document.getElementById("statusText"),
   searchInput: document.getElementById("searchInput"),
   statusEl: document.getElementById("status"),
@@ -75,6 +76,7 @@ const INTERACTIVE_REFS = [
   "openOptionsBtn",
   "prevPageBtn",
   "selectionCancelBtn",
+  "selectionDeleteBtn",
   "searchInput",
   "tabAllBtn",
   "tabFavoritesBtn",
@@ -216,10 +218,13 @@ function shouldIgnoreFileDrop(event) {
 }
 
 function syncSelectionUi(selectedCount = 0) {
-  if (!(refs.selectionCancelBtn instanceof HTMLButtonElement)) {
-    return;
+  const hasSelections = selectedCount > 0;
+  if (refs.selectionCancelBtn instanceof HTMLButtonElement) {
+    refs.selectionCancelBtn.hidden = !hasSelections;
   }
-  refs.selectionCancelBtn.hidden = selectedCount <= 0;
+  if (refs.selectionDeleteBtn instanceof HTMLButtonElement) {
+    refs.selectionDeleteBtn.hidden = !hasSelections;
+  }
 }
 
 const statusController = createPopupStatusController({
@@ -482,6 +487,25 @@ if (refs.selectionCancelBtn) {
     "click",
     runWhenInteractive(() => {
       gridController.clearSelections();
+    }),
+  );
+}
+if (refs.selectionDeleteBtn) {
+  refs.selectionDeleteBtn.addEventListener(
+    "click",
+    runWhenInteractive(async () => {
+      const selectedCount = gridController.getSelectedCount();
+      if (selectedCount <= 0) {
+        return;
+      }
+      const confirmText = selectedCount > 1
+        ? UI_MESSAGES.grid.confirmDeleteTitleMany(selectedCount)
+        : UI_MESSAGES.grid.confirmDeleteTitleSingle;
+      const confirmed = window.confirm(`${confirmText}?`);
+      if (!confirmed) {
+        return;
+      }
+      await gridController.deleteSelectedItems();
     }),
   );
 }
