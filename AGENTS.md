@@ -29,13 +29,15 @@ Core capabilities:
 
 - Save from the web in one click: Right-click GIFs or images and add them to your vault instantly.
 - Paste-and-import support: Import GIF, image, video, or X/Twitter post links directly from the popup.
+- Local file import support: Choose one or more local images/videos from popup and import them directly.
+- Drag-and-drop import support: Drop local files onto popup to start import without opening the file picker.
 - Video to GIF conversion: Turn supported videos into GIFs automatically during import.
 - Privacy-first storage: Your media stays in your browser. No account, no tracking.
 - Search your collection: Find saved items by name or source link in seconds.
 - Favorites tab: Star your best GIFs and access them fast.
 - Easy library management: Rename, copy, delete, or clear your saved items anytime.
 - Shift-click multi-select: Start selection with Shift-click, then add/remove items with regular click while selection is active.
-- In-selection quick cancel: A header cancel button appears during multi-select and clears current selections in one click.
+- In-selection quick clear: A header clear button appears during multi-select and clears current selections in one click.
 - Clean grid layout: Browse your GIFs in a simple visual gallery with pagination.
 - Import progress status: See import steps in real time and stop an import if needed.
 - Guided permissions flow: If a site needs access, GIF Vault walks you through it.
@@ -194,9 +196,9 @@ Rules:
 - Added drag-and-drop local file import across the popup surface to start imports quickly without opening the file picker.
 - Improved local/dragged item metadata and copy behavior: cards now show `local` as source when no web source exists, copy action clearly reports when no source URL is available for local-origin items, and drag-dropped web media now preserves source URL when the browser exposes it via drop data.
 - Updated popup multi-select flow so after the first selection, regular left-click can add/remove cards without requiring Shift on every click.
-- Added a header-level cancel control that appears during multi-select and clears current selections immediately.
-- Refined header actions to prevent overflow: cancel and clear-all controls are now icon-based with tooltip/aria hints.
-- Refined selection-clear affordance: multi-select header control now uses a clear-style icon/tooltip to make non-destructive behavior more obvious.
+- Added a header-level clear control that appears during multi-select and clears current selections immediately.
+- Refined header actions to prevent overflow: clear-selection and clear-all controls now use compact labels/icon hints.
+- Refined selection-clear affordance: multi-select header control now uses a short "Clear" label to make non-destructive behavior more obvious.
 
 ### Since v1.6.1
 

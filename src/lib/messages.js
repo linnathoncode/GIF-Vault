@@ -36,7 +36,7 @@ function createEnMessages() {
       terminateFailed: "Couldn't stop the import.",
       importTerminationRequested: "Stopping import...",
       pasteUrlFirst: "Paste a URL first.",
-      enterValidUrl: "That looks like a page, not a media URL.",
+      enterValidUrl: "Please enter a valid media or post URL.",
       startingImport: "Warming up the vault...",
       importFailed: "Import failed.",
       importButtonIdle: "Import",
@@ -122,8 +122,7 @@ function createEnMessages() {
       copiedGifLink: "GIF link copied.",
       copiedAnimatedWebpLink: "Animated WebP link copied.",
       copiedImageLink: "Image link copied.",
-      copyNoSourceUrlForLocal:
-        "This local item has no source URL. Copy the local path if available.",
+      copyNoSourceUrlForLocal: "This local item has no source URL.",
       copiedLinkTip: "Tip: drag the preview to drop it directly.",
       copiedGifLinkTip: "Tip: drag the preview to drop the GIF directly.",
       copiedImageLinkTip: "Tip: drag the preview to drop the image directly.",
@@ -306,7 +305,7 @@ function createTrMessages() {
       terminateFailed: "Aktarma durdurulamadı.",
       importTerminationRequested: "Aktarma durduruluyor...",
       pasteUrlFirst: "Url yapıştırıp bir daha dene.",
-      enterValidUrl: "Bu bir sayfa gibi görünüyor; medya URL'si yapıştır.",
+      enterValidUrl: "Lütfen geçerli bir medya veya gönderi URL'si gir.",
       startingImport: "Vault hazırlanıyor...",
       importFailed: "Aktarmada bir pürüz çıktı",
       importButtonIdle: "Vault'a Aktar",
@@ -392,8 +391,7 @@ function createTrMessages() {
       copiedGifLink: "GIF bağlantısı kopyalandı.",
       copiedAnimatedWebpLink: "Animasyonlu WebP bağlantısı kopyalandı.",
       copiedImageLink: "Görsel bağlantısı kopyalandı.",
-      copyNoSourceUrlForLocal:
-        "Bu yerel öğenin kaynak URL'si yok. Varsa yerel yolu kopyalayın.",
+      copyNoSourceUrlForLocal: "Bu yerel öğenin kaynak URL'si yok.",
       copiedLinkTip: "İpucu: önizlemeyi sürükleyip doğrudan kullan.",
       copiedGifLinkTip:
         "İpucu: GIF'i doğrudan kullanmak için önizlemeyi sürükleyip bırak.",
