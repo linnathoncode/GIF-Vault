@@ -58,6 +58,11 @@ Maintenance rule:
 - When the app version changes, insert a clear version marker inside `## Recently Added` (for example `### Since v1.6.1`) so changes after each version are easy to spot.
 - PR/release-note rule: when preparing PR text for a release train, summarize changes from the last released version marker/tag (for example `v1.6.2 -> v1.6.3`) even if the current branch has only merge/sync commits.
 - Release-summary rule: for each version marker, prefer broad net-change bullets; if a feature was added and then fixed/refined within the same version, list the feature once (not each intermediate fix).
+- README release-table rule: keep version notes as simple/high-level as possible; avoid detailed implementation breakdowns.
+- README release-table scope rule: include only user-facing features added or fixes applied.
+- README release-table dedupe rule: if a feature was added and then fixed/refined in the same version, mention only the feature.
+- README release-table fix rule: mention fixes/tweaks only when they resolve issues that existed in previously listed versions in the table.
+- README release-table compare rule: do not mention or compare with previous versions unless the difference is drastic and user-significant.
 
 ## Source Layout
 
