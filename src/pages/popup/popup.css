@@ -408,11 +408,46 @@ body.boot-loading .input {
 }
 
 .import-row.import-row-main {
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .import-row.single {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.import-input-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.input-with-action {
+  padding-right: 42px;
+}
+
+.inline-input-icon-btn {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  bottom: 2px;
+  width: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    transform 110ms ease,
+    filter 110ms ease,
+    background-color 110ms ease;
+}
+
+.inline-input-icon-btn:hover:not(:disabled),
+.inline-input-icon-btn:focus-visible {
+  background: color-mix(in srgb, var(--line) 24%, transparent 76%);
+  outline: none;
 }
 
 .visually-hidden-file-input {

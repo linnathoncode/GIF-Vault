@@ -37,10 +37,12 @@
 
     <section class="panel import-panel">
       <div class="import-row import-row-main">
-        <input id="importInput" class="input" type="url" placeholder="Paste GIF / MP4 / tweet URL" data-i18n-placeholder="popup.importInputPlaceholder" />
-        <button id="localImportBtn" class="btn primary icon-text-btn" type="button">
-          <span data-i18n="popup.chooseFilesButton">Choose files</span>
-        </button>
+        <div class="import-input-wrap">
+          <input id="importInput" class="input input-with-action" type="url" placeholder="Paste GIF / MP4 / tweet URL" data-i18n-placeholder="popup.importInputPlaceholder" />
+          <button id="localImportBtn" class="inline-input-icon-btn" type="button" title="Choose files" aria-label="Choose files" data-i18n-title="popup.chooseFilesButton" data-i18n-aria-label="popup.chooseFilesButton">
+            <img class="btn-icon" src="../../assets/shared/icon-folder.svg" alt="" aria-hidden="true" />
+          </button>
+        </div>
         <button id="importBtn" class="btn primary icon-text-btn" type="button">
           <img id="importBtnIcon" class="btn-icon" src="../../assets/shared/icon-import.svg" alt="" aria-hidden="true" />
           <span id="importBtnLabel">Import</span>
