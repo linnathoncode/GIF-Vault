@@ -114,6 +114,7 @@ function toMediaMetadata(item) {
   return {
     id: item.id,
     name: item.name || "",
+    localPath: item.localPath || item.sourcePath || item.filePath || "",
     sourceUrl: item.sourceUrl || "",
     mediaUrl: item.mediaUrl || "",
     pageUrl: item.pageUrl || "",

@@ -1,4 +1,5 @@
 const MESSAGE_TYPES = {
+  importFiles: "IMPORT_FILES",
   importUrl: "IMPORT_URL",
   importProgress: "IMPORT_PROGRESS",
   resolveMediaUrl: "RESOLVE_MEDIA_URL",

@@ -7,6 +7,7 @@ import {
 import { formatBytes, hostFromUrl } from "../../../../lib/ui.js";
 import { safeLog } from "../../../../lib/log.js";
 import { UI_MESSAGES } from "../../../../lib/messages.js";
+import { POPUP_GRID } from "../../../../lib/settings.js";
 import {
   armedDeleteGlyph,
   selectionIdsChanged,
@@ -27,18 +28,26 @@ export {
   selectionIdsChanged,
   shouldCancelArmedDeleteOnSelectionChange,
 };
-export { sanitizeCopyFallbackUrl } from "./copy.js";
+export {
+  sanitizeCopyUrl,
+} from "./copy.js";
 
-// Vault filtering, rendering, and item actions.
+/**
+ * Creates the popup grid controller that coordinates filtering, rendering,
+ * selection state, card actions, and focus/preview behavior for the vault.
+ *
+ * The returned handlers are intended to be wired by the popup page coordinator.
+ */
 export function createPopupGridController({
   refs,
   state,
   getPopupMenuConfig,
   showTransientStatus,
+  onSelectionChange,
 }) {
-  const TEMP_STATUS_DURATION_MS = 5000;
-  const ARMED_DELETE_DURATION_MS = 5000;
-  const COPY_HINT_DURATION_MS = 5000;
+  const TEMP_STATUS_DURATION_MS = POPUP_GRID.transientStatusDurationMs;
+  const ARMED_DELETE_DURATION_MS = POPUP_GRID.armedDeleteDurationMs;
+  const COPY_HINT_DURATION_MS = POPUP_GRID.copyHintDurationMs;
   const {
     countEl,
     grid,
@@ -87,6 +96,11 @@ export function createPopupGridController({
   });
   const deleteButtonLabelWithBatchHint = () =>
     `${UI_MESSAGES.grid.delete} ${UI_MESSAGES.grid.deleteBatchHint}`;
+  const notifySelectionChange = () => {
+    if (typeof onSelectionChange === "function") {
+      onSelectionChange(selectedItemIds.size);
+    }
+  };
 
   function resetDeleteButton(button) {
     if (!(button instanceof HTMLElement)) {
@@ -135,6 +149,7 @@ export function createPopupGridController({
     for (const id of next) {
       selectedItemIds.add(id);
     }
+    notifySelectionChange();
   }
 
   function setCardSelected(card, selected) {
@@ -166,6 +181,7 @@ export function createPopupGridController({
     }
     dataController.refreshCountTextFromCache(selectedItemIds.size);
     showSelectionHint(selectedItemIds.size);
+    notifySelectionChange();
   }
 
   function removeCardFromSelection(itemId, card) {
@@ -188,11 +204,13 @@ export function createPopupGridController({
     }
     dataController.refreshCountTextFromCache(selectedItemIds.size);
     showSelectionHint(selectedItemIds.size);
+    notifySelectionChange();
     return true;
   }
 
   function clearAllSelections() {
     if (selectedItemIds.size === 0) {
+      notifySelectionChange();
       return;
     }
 
@@ -201,11 +219,16 @@ export function createPopupGridController({
       setCardSelected(card, false);
     }
     dataController.refreshCountTextFromCache(selectedItemIds.size);
+    notifySelectionChange();
   }
 
   function clearSelections() {
     clearArmedDelete();
     clearAllSelections();
+  }
+
+  function getSelectedCount() {
+    return selectedItemIds.size;
   }
 
   function resolveTargetIdsForAction(fallbackItemId) {
@@ -294,6 +317,10 @@ export function createPopupGridController({
 
   function setCopyStatus(item, result) {
     if (!result?.ok) {
+      if (result?.reason === "no-source-url") {
+        showTransientStatus(UI_MESSAGES.grid.copyNoSourceUrlForLocal, "error");
+        return;
+      }
       showTransientStatus(UI_MESSAGES.grid.copyFailed, "error");
       return;
     }
@@ -495,7 +522,9 @@ export function createPopupGridController({
 
     const hoverInfoText = document.createElement("div");
     hoverInfoText.className = "meta-hover-row";
-    const sourceHost = hostFromUrl(item.sourceUrl || item.mediaUrl || "");
+    const sourceHost =
+      hostFromUrl(item.sourceUrl || item.mediaUrl || "") ||
+      UI_MESSAGES.grid.sourceLocal;
     const sizeLabel = UI_MESSAGES.grid.sizeLabel(
       formatBytes(item.blob?.size || 0),
     );
@@ -596,7 +625,7 @@ export function createPopupGridController({
         return;
       }
       focusController.blurSelectionResetInputs();
-      if (event.shiftKey) {
+      if (event.shiftKey || selectedItemIds.size > 0) {
         event.preventDefault();
       }
     });
@@ -613,7 +642,7 @@ export function createPopupGridController({
       }
       focusController.blurSelectionResetInputs();
       event.preventDefault();
-      if (event.shiftKey) {
+      if (event.shiftKey || selectedItemIds.size > 0) {
         toggleCardSelection(item.id, card);
         return;
       }
@@ -709,9 +738,26 @@ export function createPopupGridController({
     previewController.cleanupObjectUrls();
   }
 
+  async function deleteSelectedItems() {
+    const targetIds = [...selectedItemIds];
+    if (targetIds.length === 0) {
+      return false;
+    }
+
+    const deletedStatusText = deletedStatusTextForIds(targetIds);
+    await removeItems(targetIds, targetIds[0]);
+    showTransientStatus(deletedStatusText, "ok", TEMP_STATUS_DURATION_MS, {
+      forceTemporary: true,
+      preserveProgress: false,
+    });
+    return true;
+  }
+
   return {
     clearSelections,
     cleanupObjectUrls,
+    deleteSelectedItems,
+    getSelectedCount,
     hideHoverPreview: previewController.hideHoverPreview,
     render,
     updateEmptyStateMascotForTheme(themeMode = state.themeMode) {

@@ -71,6 +71,12 @@ const POPUP_BOOT = {
   fallbackTab: "all",
 };
 
+const POPUP_GRID = {
+  transientStatusDurationMs: 5000,
+  armedDeleteDurationMs: 5000,
+  copyHintDurationMs: 5000,
+};
+
 const OPTIONS_FEEDBACK = {
   maxChars: 500,
 };
@@ -86,5 +92,6 @@ export {
   BRAND_LOGOS,
   POPUP_MENU,
   POPUP_BOOT,
+  POPUP_GRID,
   OPTIONS_FEEDBACK,
 };

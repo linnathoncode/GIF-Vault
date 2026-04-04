@@ -4,6 +4,8 @@
   --input-pad-x: 10px;
   --input-border: 1px;
   --popup-btn-border: var(--line);
+  --import-inline-action-width: 34px;
+  --import-inline-action-gap: 4px;
 }
 
 * {
@@ -29,6 +31,12 @@ body {
   font-size: 13px;
   background: var(--page-bg);
   color: var(--text);
+}
+
+body.drag-file-active .container {
+  outline: 2px dashed color-mix(in srgb, var(--line) 70%, var(--text) 30%);
+  outline-offset: -3px;
+  border-radius: 10px;
 }
 
 body.boot-loading .container {
@@ -112,6 +120,17 @@ body.boot-loading .input {
   gap: 5px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.selection-cancel-btn {
+  border-color: var(--line);
+  font-weight: 700;
+}
+
+.danger-icon-btn {
+  background: var(--accent-bg);
+  border-color: var(--popup-btn-border);
+  color: var(--text);
 }
 
 .title {
@@ -390,8 +409,51 @@ body.boot-loading .input {
   align-items: center;
 }
 
+.import-row.import-row-main {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .import-row.single {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.import-input-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.inline-input-icon-btn {
+  position: absolute;
+  right: 3px;
+  top: 2px;
+  bottom: 2px;
+  width: var(--import-inline-action-width);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    transform 110ms ease,
+    filter 110ms ease,
+    background-color 110ms ease;
+}
+
+.inline-input-icon-btn:hover:not(:disabled),
+.inline-input-icon-btn:focus-visible {
+  background: color-mix(in srgb, var(--line) 24%, transparent 76%);
+  outline: none;
+}
+
+.visually-hidden-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .input {
@@ -402,6 +464,10 @@ body.boot-loading .input {
   font-size: 13px;
   background: var(--card);
   color: var(--text);
+}
+
+.input.input-with-action {
+  padding-right: calc(var(--import-inline-action-width) + 2px);
 }
 
 .input::placeholder {
@@ -816,8 +882,18 @@ body.boot-loading .input {
   color: #ffffff;
 }
 
+.icon-btn.danger-icon-btn:hover:not(:disabled) {
+  background: #c74747;
+  border-color: #c74747;
+  color: #ffffff;
+}
+
 .danger-btn:hover:not(:disabled) .btn-icon,
 .btn.danger:hover:not(:disabled) .btn-icon {
+  filter: brightness(0) invert(1);
+}
+
+.icon-btn.danger-icon-btn:hover:not(:disabled) .btn-icon {
   filter: brightness(0) invert(1);
 }
 

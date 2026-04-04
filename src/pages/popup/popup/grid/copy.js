@@ -1,6 +1,6 @@
 import { safeLog } from "../../../../lib/log.js";
 
-export function sanitizeCopyFallbackUrl(candidateUrl) {
+export function sanitizeCopyUrl(candidateUrl) {
   const normalized = String(candidateUrl || "")
     .normalize("NFKC")
     .replace(/[\u0000-\u001f\u007f]/g, "")
@@ -28,21 +28,31 @@ export async function copyItemUrl(item) {
   const canWriteText =
     navigator.clipboard && typeof navigator.clipboard.writeText === "function";
   if (canWriteText) {
-    const copiedUrl = sanitizeCopyFallbackUrl(
+    const copiedUrl = sanitizeCopyUrl(
       item.mediaUrl || item.sourceUrl || "",
     );
     if (!copiedUrl) {
-      await safeLog("popup", "Copy url blocked", {
+      const hasNoSourceUrl = !String(item?.mediaUrl || item?.sourceUrl || "").trim();
+      if (hasNoSourceUrl) {
+        await safeLog("popup", "Copy failed (local path does not have URL)", {
+          id: item.id,
+        });
+        return { ok: false, method: "none", reason: "no-source-url" };
+      }
+      await safeLog("popup", "Copy failed (local path does not have URL)", {
         id: item.id,
       });
-      return { ok: false, method: "none" };
+      return { ok: false, method: "none", reason: "blocked" };
     }
+
     try {
       await navigator.clipboard.writeText(copiedUrl);
-      await safeLog("popup", "Copy succeeded (url text)", {
-        id: item.id,
-      });
-      return { ok: true, method: "url", copiedUrl };
+      await safeLog("popup", "Copy succeeded (url text)", { id: item.id });
+      return {
+        ok: true,
+        method: "url",
+        copiedUrl,
+      };
     } catch (error) {
       await safeLog("popup", "Copy url failed", {
         id: item.id,

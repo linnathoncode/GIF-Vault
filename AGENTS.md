@@ -11,7 +11,7 @@
 
 - Branch: `test`
 - HEAD: `4cab35e`
-- Version: `1.6.2`
+- Version: `1.6.3`
 
 ## Project Purpose
 
@@ -27,14 +27,23 @@ Core capabilities:
 
 ## Store Listing Features
 
+### Recently Added (Store Listing)
+
+- Local file import support: Choose one or more local images/videos from popup and import them directly.
+- Drag-and-drop import support: Drop local files onto popup to start import without opening the file picker.
+
 - Save from the web in one click: Right-click GIFs or images and add them to your vault instantly.
 - Paste-and-import support: Import GIF, image, video, or X/Twitter post links directly from the popup.
+- Local file import support: Choose one or more local images/videos from popup and import them directly.
+- Drag-and-drop import support: Drop local files onto popup to start import without opening the file picker.
 - Video to GIF conversion: Turn supported videos into GIFs automatically during import.
 - Privacy-first storage: Your media stays in your browser. No account, no tracking.
 - Search your collection: Find saved items by name or source link in seconds.
 - Favorites tab: Star your best GIFs and access them fast.
 - Easy library management: Rename, copy, delete, or clear your saved items anytime.
-- Shift-click multi-select: Select and manage many items at once by shift clicking.
+- Shift-click multi-select: Start selection with Shift-click, then add/remove items with regular click while selection is active.
+- In-selection quick clear: A header clear button appears during multi-select and clears current selections in one click.
+- In-selection keyboard delete: Press Delete/Backspace during multi-select to remove selected items with confirmation.
 - Clean grid layout: Browse your GIFs in a simple visual gallery with pagination.
 - Import progress status: See import steps in real time and stop an import if needed.
 - Guided permissions flow: If a site needs access, GIF Vault walks you through it.
@@ -47,6 +56,7 @@ Maintenance rule:
 
 - When a worthwhile user-facing feature is added, append it to `## Recently Added` below (and update this section if store-copy should change).
 - When the app version changes, insert a clear version marker inside `## Recently Added` (for example `### Since v1.6.1`) so changes after each version are easy to spot.
+- PR/release-note rule: when preparing PR text for a release train, summarize changes from the last released version marker/tag (for example `v1.6.2 -> v1.6.3`) even if the current branch has only merge/sync commits.
 
 ## Source Layout
 
@@ -187,9 +197,22 @@ Rules:
 
 ## Recently Added
 
+### Since v1.6.3
+
+- Internal maintenance: added controller doc comments for popup import/grid coordinators and centralized popup grid timing constants in `src/lib/settings.js`.
+- Store-listing copy alignment: explicitly included local file import support (and popup drag-and-drop local import support) in the listed user-facing capabilities.
+- Import cancel UX/performance: while cancellation is pending, popup action buttons are temporarily disabled to prevent conflicting actions, and cancel requests now return/propagate faster (including during conversion-heavy paths).
+
 ### Since v1.6.2
 
-- No new user-facing features yet; this version currently tracks cleanup and refactoring work after `v1.6.1`.
+- Added local file import from popup with a compact "Choose files" action that uses the same progress/status pipeline as URL imports (including video-to-GIF conversion for supported local videos).
+- Added drag-and-drop local file import across the popup surface to start imports quickly without opening the file picker.
+- Improved local/dragged item metadata and copy behavior: cards now show `local` as source when no web source exists, copy action clearly reports when no source URL is available for local-origin items, and drag-dropped web media now preserves source URL when the browser exposes it via drop data.
+- Updated popup multi-select flow so after the first selection, regular left-click can add/remove cards without requiring Shift on every click.
+- Added a header-level clear control that appears during multi-select and clears current selections immediately.
+- Refined header actions to prevent overflow: clear-selection and clear-all controls now use compact labels/icon hints.
+- Refined selection-clear affordance: multi-select header control now uses a short "Clear" label to make non-destructive behavior more obvious.
+- Added keyboard delete support for multi-select mode: Delete/Backspace removes selected items after confirmation.
 
 ### Since v1.6.1
 

@@ -196,4 +196,36 @@ describe("offscreen runtime message validation", () => {
     expect(mocks.ffmpegProbe).not.toHaveBeenCalled();
     expect(mocks.ffmpegExec).not.toHaveBeenCalled();
   });
+
+  it("uses long-edge scaling in conversion filter to avoid oversized portrait gifs", async () => {
+    const sendResponse = vi.fn();
+    mocks.ffmpegExec.mockResolvedValueOnce(undefined);
+    mocks.ffmpegReadFile.mockResolvedValueOnce(new Uint8Array([71, 73, 70]));
+
+    const handled = mocks.listener(
+      {
+        type: "OFFSCREEN_CONVERT_MP4",
+        url: "https://example.com/v.mp4",
+        inputExtension: "mp4",
+        gifConversion: {
+          fps: 10,
+          width: 360,
+          maxColors: 96,
+          maxDownloadSizeMb: 50,
+        },
+      },
+      { id: "ext-id" },
+      sendResponse,
+    );
+
+    expect(handled).toBe(true);
+    await vi.waitFor(() => {
+      expect(mocks.ffmpegExec).toHaveBeenCalledTimes(1);
+    });
+    const ffmpegArgs = mocks.ffmpegExec.mock.calls[0][0];
+    const filterIndex = ffmpegArgs.indexOf("-vf");
+    expect(filterIndex).toBeGreaterThan(-1);
+    const filter = ffmpegArgs[filterIndex + 1];
+    expect(filter).toContain("scale=if(gte(iw\\,ih)\\,360\\,-1):if(gte(iw\\,ih)\\,-1\\,360):flags=lanczos");
+  });
 });

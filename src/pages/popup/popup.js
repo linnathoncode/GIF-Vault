@@ -39,6 +39,8 @@ const refs = {
   importBtnIcon: document.getElementById("importBtnIcon"),
   importBtnLabel: document.getElementById("importBtnLabel"),
   importInput: document.getElementById("importInput"),
+  localFileInput: document.getElementById("localFileInput"),
+  localImportBtn: document.getElementById("localImportBtn"),
   nextPageBtn: document.getElementById("nextPageBtn"),
   openLogsBtn: document.getElementById("openLogsBtn"),
   openOptionsBtn: document.getElementById("openOptionsBtn"),
@@ -47,6 +49,7 @@ const refs = {
   progressBarEl: document.getElementById("progressBar"),
   progressLabelEl: document.getElementById("progressLabel"),
   progressTrackEl: document.getElementById("progressTrack"),
+  selectionCancelBtn: document.getElementById("selectionCancelBtn"),
   statusTextEl: document.getElementById("statusText"),
   searchInput: document.getElementById("searchInput"),
   statusEl: document.getElementById("status"),
@@ -59,15 +62,19 @@ const refs = {
 const stateStore = createPopupState();
 const { state } = stateStore;
 let localeApplyVersion = 0;
+let dragStartedInPopup = false;
 const INIT_STEP_TIMEOUT_MS = POPUP_BOOT.initStepTimeoutMs;
 const INTERACTIVE_REFS = [
   "clearAllBtn",
   "importBtn",
   "importInput",
+  "localFileInput",
+  "localImportBtn",
   "nextPageBtn",
   "openLogsBtn",
   "openOptionsBtn",
   "prevPageBtn",
+  "selectionCancelBtn",
   "searchInput",
   "tabAllBtn",
   "tabFavoritesBtn",
@@ -156,11 +163,82 @@ function clearBootLoadingUiIfPresent() {
 
 function runWhenInteractive(handler) {
   return (...args) => {
-    if (state.isBootLoading) {
+    if (state.isBootLoading || state.isImportTerminationPending) {
       return;
     }
     return handler(...args);
   };
+}
+
+function isEditableEventTarget(target) {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    return true;
+  }
+  if (target instanceof HTMLElement && target.isContentEditable) {
+    return true;
+  }
+  return Boolean(target.closest("input, textarea, [contenteditable='true']"));
+}
+
+function isFileDragEvent(event) {
+  const types = Array.from(event?.dataTransfer?.types || []);
+  return types.includes("Files");
+}
+
+function getDroppedFiles(event) {
+  const files = Array.from(event?.dataTransfer?.files || []);
+  return files.filter((file) => file instanceof Blob);
+}
+
+function normalizeDroppedSourceUrl(rawValue) {
+  const candidate = String(rawValue || "").trim();
+  if (!candidate) {
+    return "";
+  }
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.toString();
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+function getDroppedSourceUrl(event) {
+  const uriListRaw = String(event?.dataTransfer?.getData("text/uri-list") || "");
+  const firstUri = uriListRaw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith("#"));
+  const normalizedUriList = normalizeDroppedSourceUrl(firstUri);
+  if (normalizedUriList) {
+    return normalizedUriList;
+  }
+
+  const plainTextRaw = String(event?.dataTransfer?.getData("text/plain") || "").trim();
+  return normalizeDroppedSourceUrl(plainTextRaw);
+}
+
+function shouldIgnoreFileDrop(event) {
+  return (
+    dragStartedInPopup ||
+    state.isBootLoading ||
+    state.isImportTerminationPending ||
+    state.currentImportState?.active ||
+    !isFileDragEvent(event)
+  );
+}
+
+function syncSelectionUi(selectedCount = 0) {
+  const hasSelections = selectedCount > 0;
+  if (refs.selectionCancelBtn instanceof HTMLButtonElement) {
+    refs.selectionCancelBtn.hidden = !hasSelections;
+  }
 }
 
 const statusController = createPopupStatusController({
@@ -176,12 +254,56 @@ const gridController = createPopupGridController({
   state,
   getPopupMenuConfig,
   showTransientStatus: statusController.showTransientStatus,
+  onSelectionChange: syncSelectionUi,
 });
 
 function syncImportUiState() {
   const hasActiveImport = Boolean(state.currentImportState?.active);
+  const hasPendingTermination = Boolean(state.isImportTerminationPending);
+  const isGloballyLocked = state.isBootLoading || hasPendingTermination;
+
+  for (const key of INTERACTIVE_REFS) {
+    const element = refs[key];
+    if (
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLButtonElement
+    ) {
+      element.disabled = isGloballyLocked;
+    }
+  }
+
   statusController.syncImportActionButton();
-  refs.importInput.disabled = state.isBootLoading || hasActiveImport;
+  refs.importBtn.disabled = isGloballyLocked;
+  refs.importInput.disabled =
+    state.isBootLoading || hasActiveImport || hasPendingTermination;
+  if (refs.localImportBtn) {
+    refs.localImportBtn.disabled =
+      state.isBootLoading || hasActiveImport || hasPendingTermination;
+  }
+  if (refs.localFileInput) {
+    refs.localFileInput.disabled =
+      state.isBootLoading || hasActiveImport || hasPendingTermination;
+  }
+
+  const gridButtons =
+    typeof refs.grid?.querySelectorAll === "function"
+      ? refs.grid.querySelectorAll("button")
+      : [];
+
+  if (!hasPendingTermination) {
+    for (const button of gridButtons) {
+      if (button instanceof HTMLButtonElement) {
+        button.disabled = false;
+      }
+    }
+    return;
+  }
+
+  for (const button of gridButtons) {
+    if (button instanceof HTMLButtonElement) {
+      button.disabled = true;
+    }
+  }
 }
 
 function applyTheme(mode) {
@@ -287,6 +409,77 @@ refs.importInput.addEventListener(
     }
   }),
 );
+if (refs.localImportBtn && refs.localFileInput) {
+  refs.localImportBtn.addEventListener(
+    "click",
+    runWhenInteractive(() => {
+      gridController.clearSelections();
+      importController.openLocalFilePicker();
+    }),
+  );
+  refs.localFileInput.addEventListener(
+    "change",
+    runWhenInteractive(() => {
+      gridController.clearSelections();
+      const files = Array.from(refs.localFileInput.files || []);
+      void importController.importFiles(files);
+    }),
+  );
+}
+
+window.addEventListener("dragstart", (event) => {
+  dragStartedInPopup = event.target instanceof Node && document.body.contains(event.target);
+});
+
+window.addEventListener("dragend", () => {
+  dragStartedInPopup = false;
+  document.body.classList.remove("drag-file-active");
+});
+
+window.addEventListener("dragenter", (event) => {
+  if (shouldIgnoreFileDrop(event)) {
+    return;
+  }
+  event.preventDefault();
+  document.body.classList.add("drag-file-active");
+});
+
+window.addEventListener("dragover", (event) => {
+  if (shouldIgnoreFileDrop(event)) {
+    return;
+  }
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = "copy";
+  }
+  document.body.classList.add("drag-file-active");
+});
+
+window.addEventListener("dragleave", (event) => {
+  const toElement = event.relatedTarget;
+  if (toElement instanceof Node && document.body.contains(toElement)) {
+    return;
+  }
+  document.body.classList.remove("drag-file-active");
+});
+
+window.addEventListener("drop", (event) => {
+  const startedInPopup = dragStartedInPopup;
+  dragStartedInPopup = false;
+  document.body.classList.remove("drag-file-active");
+  if (startedInPopup || shouldIgnoreFileDrop(event)) {
+    return;
+  }
+  event.preventDefault();
+  const files = getDroppedFiles(event);
+  if (files.length === 0) {
+    return;
+  }
+  const sourceUrlHint = getDroppedSourceUrl(event);
+  gridController.clearSelections();
+  void importController.importFiles(files, { sourceUrlHint });
+});
+
 refs.grid.addEventListener("scroll", gridController.hideHoverPreview);
 window.addEventListener("blur", gridController.hideHoverPreview);
 
@@ -340,6 +533,15 @@ refs.tabAllBtn.addEventListener(
     await gridController.render();
   }),
 );
+
+if (refs.selectionCancelBtn) {
+  refs.selectionCancelBtn.addEventListener(
+    "click",
+    runWhenInteractive(() => {
+      gridController.clearSelections();
+    }),
+  );
+}
 refs.tabFavoritesBtn.addEventListener(
   "click",
   runWhenInteractive(async () => {
@@ -383,6 +585,40 @@ refs.nextPageBtn.addEventListener(
     await gridController.render();
   }),
 );
+window.addEventListener(
+  "keydown",
+  runWhenInteractive(async (event) => {
+    if (event.defaultPrevented || event.repeat) {
+      return;
+    }
+    if (
+      event.key !== "Delete" &&
+      event.key !== "Backspace"
+    ) {
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    if (isEditableEventTarget(event.target)) {
+      return;
+    }
+    const selectedCount = gridController.getSelectedCount();
+    if (selectedCount <= 0) {
+      return;
+    }
+
+    event.preventDefault();
+    const confirmText = selectedCount > 1
+      ? UI_MESSAGES.grid.confirmDeleteTitleMany(selectedCount)
+      : UI_MESSAGES.grid.confirmDeleteTitleSingle;
+    const confirmed = window.confirm(`${confirmText}?`);
+    if (!confirmed) {
+      return;
+    }
+    await gridController.deleteSelectedItems();
+  }),
+);
 
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (!isTrustedRuntimeSender(sender) || !isRuntimeMessage(message)) {
@@ -404,6 +640,19 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     message.requestId !== state.activeImportRequestId
   ) {
     return;
+  }
+  if (
+    state.isImportTerminationPending &&
+    !message.active
+  ) {
+    const requestId = String(message.requestId || "").trim();
+    if (
+      !state.importTerminationRequestId ||
+      !requestId ||
+      requestId === state.importTerminationRequestId
+    ) {
+      stateStore.clearImportTerminationPending();
+    }
   }
   statusController.applyImportState(message);
   syncImportUiState();
@@ -452,10 +701,25 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   ) {
     const nextState = changes[STORAGE_KEYS.importState].newValue || null;
     const prevState = changes[STORAGE_KEYS.importState].oldValue || null;
+    if (
+      state.isImportTerminationPending &&
+      !nextState?.active
+    ) {
+      const requestId = String(nextState?.requestId || "").trim();
+      if (
+        !state.importTerminationRequestId ||
+        !requestId ||
+        requestId === state.importTerminationRequestId
+      ) {
+        stateStore.clearImportTerminationPending();
+      }
+    }
     if (nextState) {
       statusController.applyImportState(nextState);
     } else {
       stateStore.setImportState(null);
+      stateStore.setActiveImportRequestId("");
+      stateStore.clearImportTerminationPending();
       if (state.isBootLoading) {
         syncImportUiState();
         return;
@@ -567,6 +831,7 @@ async function init() {
     // First full render, then unlock interactions.
     syncImportUiState();
     await gridController.render();
+    syncSelectionUi(0);
     if (!state.currentImportState?.text) {
       clearBootLoadingUiIfPresent();
     }

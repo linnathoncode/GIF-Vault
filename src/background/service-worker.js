@@ -11,10 +11,11 @@ import {
 import {
   showBadgeFallback,
 } from "./action-icon.js";
-import { importFromUrl, terminateImport } from "./import-service.js";
+import { importFromFiles, importFromUrl, terminateImport } from "./import-service.js";
 import { resolveMediaUrls } from "./media-resolver.js";
 
 let localeReadyPromise = null;
+const CONTEXT_MENU_DUPLICATE_ID_FRAGMENT = "duplicate id";
 
 function ensureLocaleReady(localeHint = "") {
   if (!localeHint && localeReadyPromise) {
@@ -43,6 +44,46 @@ async function updateContextMenuTitle() {
   }
 }
 
+function createContextMenuSafely() {
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.contextMenus.create(
+        {
+          id: CONTEXT_MENU.addToVaultId,
+          title: UI_MESSAGES.serviceWorker.contextMenuAddToVault,
+          contexts: ["image", "video"],
+        },
+        () => {
+          const runtimeError = chrome.runtime?.lastError;
+          if (!runtimeError) {
+            resolve();
+            return;
+          }
+          const errorMessage = String(runtimeError.message || "");
+          if (
+            errorMessage
+              .toLowerCase()
+              .includes(CONTEXT_MENU_DUPLICATE_ID_FRAGMENT)
+          ) {
+            resolve();
+            return;
+          }
+          reject(new Error(errorMessage || "Failed to create context menu"));
+        },
+      );
+    } catch (error) {
+      const errorMessage = String(error?.message || "");
+      if (
+        errorMessage.toLowerCase().includes(CONTEXT_MENU_DUPLICATE_ID_FRAGMENT)
+      ) {
+        resolve();
+        return;
+      }
+      reject(error);
+    }
+  });
+}
+
 void ensureLocaleReady();
 
 function isTrustedRuntimeSender(sender) {
@@ -53,11 +94,7 @@ function isTrustedRuntimeSender(sender) {
 chrome.runtime.onInstalled.addListener(() => {
   void (async () => {
     await ensureLocaleReady();
-    chrome.contextMenus.create({
-      id: CONTEXT_MENU.addToVaultId,
-      title: UI_MESSAGES.serviceWorker.contextMenuAddToVault,
-      contexts: ["image", "video"],
-    });
+    await createContextMenuSafely();
   })();
 });
 
@@ -140,6 +177,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({
           ok: false,
           error: error?.message || UI_MESSAGES.serviceWorker.terminateFailed,
+        }),
+      );
+    return true;
+  }
+
+  if (message.type === MESSAGE_TYPES.importFiles) {
+    localeSyncPromise
+      .then(() =>
+        importFromFiles(
+          message.files || [],
+          message.requestId || "",
+          message.sourceUrlHint || "",
+        ),
+      )
+      .then((result) => sendResponse({ ok: true, result }))
+      .catch((error) =>
+        sendResponse({
+          ok: false,
+          error: error?.message || UI_MESSAGES.popup.importFailed,
+          errorCode:
+            getImportErrorCode(error) || inferImportErrorCode(error?.message || ""),
         }),
       );
     return true;

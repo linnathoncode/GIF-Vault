@@ -255,11 +255,19 @@ async function convertMp4ToGif(message) {
 
   await ffmpeg.writeFile(inputName, inputData);
 
+  // Keep the configured width as the target long-edge. This avoids
+  // disproportionately large portrait GIFs while preserving landscape quality.
+  const scaleFilter = [
+    `if(gte(iw\\,ih)\\,${gifConversion.width}\\,-1)`,
+    `if(gte(iw\\,ih)\\,-1\\,${gifConversion.width})`,
+    "flags=lanczos",
+  ].join(":");
+
   await ffmpeg.exec([
     "-i",
     inputName,
     "-vf",
-    `fps=${gifConversion.fps},scale=${gifConversion.width}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=${gifConversion.maxColors}:stats_mode=diff[p];[s1][p]paletteuse=dither=sierra2_4a`,
+    `fps=${gifConversion.fps},scale=${scaleFilter},split[s0][s1];[s0]palettegen=max_colors=${gifConversion.maxColors}:stats_mode=diff[p];[s1][p]paletteuse=dither=sierra2_4a`,
     "-loop",
     "0",
     outputName

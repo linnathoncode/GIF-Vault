@@ -40,6 +40,80 @@ function normalizeHttpUrl(rawUrl, fallbackError = UI_MESSAGES.popup.enterValidUr
   return new URL(value).toString();
 }
 
+function normalizeOptionalHttpUrl(rawUrl) {
+  const value = String(rawUrl || "").trim();
+  if (!value) {
+    return "";
+  }
+  try {
+    return normalizeHttpUrl(value);
+  } catch {
+    return "";
+  }
+}
+
+function buildLocalPseudoUrl(fileName = "") {
+  const safeName = String(fileName || "").trim() || `local-${Date.now()}.bin`;
+  return `https://local.file/${encodeURIComponent(safeName)}`;
+}
+
+function normalizeLocalFiles(files) {
+  if (!Array.isArray(files)) {
+    return [];
+  }
+
+  return files
+    .map((file) => normalizeSingleLocalFile(file))
+    .filter(Boolean);
+}
+
+function isBlobLike(value) {
+  return (
+    value instanceof Blob ||
+    (
+      Boolean(value) &&
+      typeof value === "object" &&
+      typeof value.arrayBuffer === "function" &&
+      typeof value.size === "number"
+    )
+  );
+}
+
+function normalizeSingleLocalFile(file) {
+  if (isBlobLike(file)) {
+    return {
+      blob: file,
+      name: String(file?.name || "").trim(),
+      mimeType: String(file?.type || "").trim().toLowerCase(),
+      localPath: String(file?.path || file?.webkitRelativePath || "").trim(),
+    };
+  }
+
+  if (
+    !file ||
+    typeof file !== "object" ||
+    typeof file.bytesBase64 !== "string"
+  ) {
+    return null;
+  }
+
+  const bytes = base64ToUint8(file.bytesBase64);
+  if (bytes.length === 0) {
+    return null;
+  }
+
+  const mimeType = String(file.mimeType || "").trim().toLowerCase();
+  const blob = new Blob([bytes], {
+    type: mimeType || "application/octet-stream",
+  });
+  return {
+    blob,
+    name: String(file.name || "").trim(),
+    mimeType,
+    localPath: String(file.localPath || file.path || file.webkitRelativePath || "").trim(),
+  };
+}
+
 function resolveMaxDownloadBytes(gifConversionConfig) {
   const mb = Number(gifConversionConfig?.maxDownloadSizeMb);
   if (!Number.isFinite(mb) || mb <= 0) {
@@ -213,6 +287,112 @@ async function importFromUrl(
   }
 }
 
+async function importFromFiles(files, requestId = "", sourceUrlHint = "") {
+  const progressId = requestId || crypto.randomUUID();
+  const localFiles = normalizeLocalFiles(files);
+  const normalizedSourceUrlHint = normalizeOptionalHttpUrl(sourceUrlHint);
+  if (!localFiles.length) {
+    await safeLog("import", "Rejected empty local file selection");
+    throw createImportError(IMPORT_ERROR_CODES.invalidUrl, UI_MESSAGES.popup.chooseFilesFirst);
+  }
+  if (activeImportRequestId) {
+    throw createImportError(
+      IMPORT_ERROR_CODES.concurrentImportInProgress,
+      UI_MESSAGES.import.concurrentImportInProgress,
+    );
+  }
+  activeImportRequestId = progressId;
+
+  const abortController = new AbortController();
+  const ensureImportActive = () => throwIfTerminated(progressId, abortController);
+  importAbortControllerById.set(progressId, abortController);
+  const savedItems = [];
+  try {
+    const runtimeConfig = await getRuntimeConfig();
+    const gifConversionConfig = runtimeConfig.gifConversion;
+
+    await reportProgress(
+      progressId,
+      UI_MESSAGES.import.readingLocalFiles(),
+      true,
+      "info",
+      UI_MESSAGES.import.phaseFetching,
+    );
+    await safeLog("import", "Local file import started", {
+      fileCount: localFiles.length,
+    });
+
+    for (let index = 0; index < localFiles.length; index += 1) {
+      ensureImportActive();
+      const current = index + 1;
+      const total = localFiles.length;
+      const suffix = total > 1 ? ` (${current}/${total})` : "";
+      await reportProgress(
+        progressId,
+        UI_MESSAGES.import.readingLocalFiles(suffix),
+        true,
+        "info",
+        UI_MESSAGES.import.phaseFetching,
+      );
+
+      const item = await importLocalFileMedia({
+        localFile: localFiles[index],
+        progressId,
+        abortController,
+        gifConversionConfig,
+        sourceUrlHint: normalizedSourceUrlHint,
+        ensureImportActive,
+      });
+      ensureImportActive();
+      savedItems.push(item);
+      await notifyVaultUpdated(item.id);
+    }
+
+    await reportProgress(
+      progressId,
+      savedItems.length > 1
+        ? UI_MESSAGES.import.importedMany(savedItems.length)
+        : UI_MESSAGES.import.importedSingle,
+      false,
+      "success",
+      UI_MESSAGES.import.phaseComplete,
+    );
+    return {
+      id: savedItems[0]?.id || "",
+      kind: savedItems[0]?.kind || "image",
+      converted: savedItems.some((item) => item.converted),
+      importedCount: savedItems.length,
+      convertedCount: savedItems.filter((item) => item.converted).length,
+    };
+  } catch (error) {
+    const isTerminatedError = isUserTerminatedImport(
+      progressId,
+      abortController,
+      error,
+    );
+    const message = isTerminatedError
+      ? UI_MESSAGES.import.importTerminated
+      : error?.message || UI_MESSAGES.import.importFailed;
+    if (savedItems.length > 0 && !isTerminatedError) {
+      await rollbackSavedItems(savedItems);
+    }
+    await reportProgress(
+      progressId,
+      message,
+      false,
+      "error",
+      UI_MESSAGES.import.phaseComplete,
+    );
+    throw createImportError(getImportErrorCode(error), message);
+  } finally {
+    importAbortControllerById.delete(progressId);
+    terminatedImportIds.delete(progressId);
+    if (activeImportRequestId === progressId) {
+      activeImportRequestId = "";
+    }
+  }
+}
+
 function normalizeResolvedHints(resolvedMediaUrlHint) {
   if (Array.isArray(resolvedMediaUrlHint)) {
     return [...new Set(resolvedMediaUrlHint.map((url) => normalizeHttpUrl(url)).filter(Boolean))];
@@ -315,14 +495,18 @@ async function importResolvedMedia({
         "info",
         UI_MESSAGES.import.phaseConverting,
       );
-      const convertedPayload = await convertInOffscreen({
-        url: resolvedMediaUrl,
-        requestId: progressId,
-        filename: `vault-${Date.now()}.gif`,
-        inputExtension: ext,
-        gifConversion: gifConversionConfig,
-        inputBytes,
-      });
+      const convertedPayload = await raceWithImportAbort(
+        convertInOffscreen({
+          url: resolvedMediaUrl,
+          requestId: progressId,
+          filename: `vault-${Date.now()}.gif`,
+          inputExtension: ext,
+          gifConversion: gifConversionConfig,
+          inputBytes,
+        }),
+        progressId,
+        abortController,
+      );
       ensureImportActive();
       const rebuiltBlob = blobFromConvertedPayload(convertedPayload);
       await safeLog("convert", "Offscreen conversion response received", {
@@ -392,6 +576,131 @@ async function importResolvedMedia({
   return item;
 }
 
+async function importLocalFileMedia({
+  localFile,
+  progressId,
+  abortController,
+  gifConversionConfig,
+  sourceUrlHint,
+  ensureImportActive,
+}) {
+  ensureImportActive();
+  const inputBlob = localFile.blob;
+  const maxBytes = resolveMaxDownloadBytes(gifConversionConfig);
+  if (inputBlob.size > maxBytes) {
+    throw new Error(mediaTooLargeMessage(maxBytes));
+  }
+
+  const pseudoUrl = buildLocalPseudoUrl(localFile.name);
+  const sniffBytes = await readBlobSniffBytes(inputBlob);
+  const contentType = localFile.mimeType || inputBlob.type || "";
+  if (!isSupportedMediaType(contentType, { url: pseudoUrl, sniffBytes })) {
+    await safeLog("import", "Rejected unsupported local file", {
+      fileName: localFile.name || "",
+      mimeType: contentType,
+      size: inputBlob.size,
+    });
+    throw new Error(UI_MESSAGES.import.localFileNotMedia);
+  }
+
+  const ext = extensionFromUrl(pseudoUrl, inputBlob.type || contentType);
+  const isVideoMedia =
+    (contentType || "").startsWith("video/") ||
+    ext === "mp4" ||
+    ext === "webm";
+
+  let finalBlob = inputBlob;
+  let finalMime = inputBlob.type || contentType || "image/gif";
+  let converted = false;
+
+  if (isVideoMedia) {
+    await reportProgress(
+      progressId,
+      UI_MESSAGES.import.checkingMediaSize,
+      true,
+      "info",
+      UI_MESSAGES.import.phaseChecking,
+    );
+    await safeLog("convert", "Local video detected, offscreen conversion requested", {
+      fileName: localFile.name || "",
+      extension: ext,
+      mimeType: contentType || "",
+      size: inputBlob.size,
+    });
+    try {
+      const inputBytes = new Uint8Array(await inputBlob.arrayBuffer());
+      ensureImportActive();
+      await reportProgress(
+        progressId,
+        UI_MESSAGES.import.convertingVideoToGif,
+        true,
+        "info",
+        UI_MESSAGES.import.phaseConverting,
+      );
+      const convertedPayload = await raceWithImportAbort(
+        convertInOffscreen({
+          url: pseudoUrl,
+          requestId: progressId,
+          filename: `vault-${Date.now()}.gif`,
+          inputExtension: ext,
+          gifConversion: gifConversionConfig,
+          inputBytes,
+        }),
+        progressId,
+        abortController,
+      );
+      ensureImportActive();
+      const rebuiltBlob = blobFromConvertedPayload(convertedPayload);
+      if (rebuiltBlob && rebuiltBlob.size > 0) {
+        finalBlob = rebuiltBlob;
+        finalMime = convertedPayload.mimeType || "image/gif";
+        converted = Boolean(convertedPayload.converted);
+      } else {
+        throw new Error(UI_MESSAGES.import.offscreenConversionFailed);
+      }
+    } catch (error) {
+      await safeLog("convert", "Local offscreen conversion failed", {
+        error: error?.message || "unknown",
+        extension: ext,
+      });
+      throw new Error(error?.message || UI_MESSAGES.import.offscreenConversionFailed);
+    }
+  }
+
+  await reportProgress(
+    progressId,
+    UI_MESSAGES.import.savingToVault,
+    true,
+    "info",
+    UI_MESSAGES.import.phaseSaving,
+  );
+  ensureImportActive();
+  const item = {
+    id: crypto.randomUUID(),
+    name: inferNameFromLocalFile(localFile.name),
+    sourceUrl: String(sourceUrlHint || "").trim(),
+    mediaUrl: "",
+    localPath: String(localFile.localPath || "").trim(),
+    pageUrl: "",
+    mimeType: finalMime,
+    kind: finalMime.startsWith("video/") ? "video" : "image",
+    blob: finalBlob,
+    converted,
+    savedAt: Date.now(),
+  };
+
+  await idbSave(item);
+  ensureImportActive();
+  await safeLog("save", "Local media saved to IndexedDB", {
+    id: item.id,
+    kind: item.kind,
+    mimeType: item.mimeType,
+    blobSize: item.blob?.size || 0,
+    converted: item.converted,
+  });
+  return item;
+}
+
 async function readBlobSniffBytes(blob) {
   try {
     const bytes = new Uint8Array(
@@ -426,7 +735,7 @@ async function readBlobWithMaxSize(response, maxBytes, ensureImportActive) {
       }
     } finally {
       try {
-        await reader.cancel();
+        void reader.cancel();
       } catch {
         // no-op
       }
@@ -456,8 +765,8 @@ async function terminateImport(requestId) {
     controller.abort();
   }
 
-  await safeLog("import", "Terminate import requested", { requestId: id });
-  await reportProgress(
+  void safeLog("import", "Terminate import requested", { requestId: id });
+  void reportProgress(
     id,
     UI_MESSAGES.import.importTerminated,
     false,
@@ -476,6 +785,35 @@ function throwIfTerminated(requestId, abortController = null) {
       IMPORT_ERROR_CODES.importTerminated,
       UI_MESSAGES.import.importTerminatedError,
     );
+  }
+}
+
+async function raceWithImportAbort(promise, requestId, abortController = null) {
+  if (!abortController?.signal) {
+    return promise;
+  }
+
+  throwIfTerminated(requestId, abortController);
+  let removeListener = () => {};
+  const abortPromise = new Promise((_, reject) => {
+    const onAbort = () => {
+      reject(
+        createImportError(
+          IMPORT_ERROR_CODES.importTerminated,
+          UI_MESSAGES.import.importTerminatedError,
+        ),
+      );
+    };
+    abortController.signal.addEventListener("abort", onAbort, { once: true });
+    removeListener = () => {
+      abortController.signal.removeEventListener("abort", onAbort);
+    };
+  });
+
+  try {
+    return await Promise.race([promise, abortPromise]);
+  } finally {
+    removeListener();
   }
 }
 
@@ -662,4 +1000,14 @@ function inferName(sourceUrl, mediaUrl) {
   }
 }
 
-export { importFromUrl, terminateImport };
+function inferNameFromLocalFile(fileName) {
+  const trimmed = String(fileName || "").trim();
+  if (!trimmed) {
+    return `gif-${Date.now()}`;
+  }
+
+  const baseName = trimmed.replace(/\.[a-z0-9]+$/i, "").trim();
+  return (baseName || trimmed).slice(0, 40);
+}
+
+export { importFromFiles, importFromUrl, terminateImport };

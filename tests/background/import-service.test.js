@@ -39,6 +39,7 @@ vi.mock("../../src/lib/ui.js", () => ({
 
 describe("import service long-video gate", () => {
   let importFromUrl;
+  let importFromFiles;
   let terminateImport;
   let originalFetch;
   let sendMessageMock;
@@ -108,7 +109,7 @@ describe("import service long-video gate", () => {
     mocks.originPatternFromUrl.mockReturnValue("https://video.example.com/*");
     mocks.idbDelete.mockResolvedValue(undefined);
 
-    ({ importFromUrl, terminateImport } = await import("../../src/background/import-service.js"));
+    ({ importFromUrl, importFromFiles, terminateImport } = await import("../../src/background/import-service.js"));
   });
 
   afterEach(() => {
@@ -552,5 +553,77 @@ describe("import service long-video gate", () => {
     ).rejects.toThrow(UI_MESSAGES.popup.enterValidUrl);
     expect(blobSpy).not.toHaveBeenCalled();
     expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("imports local file selections without resolver/fetch", async () => {
+    const localGif = new Blob([new Uint8Array([71, 73, 70, 56, 57, 97])], {
+      type: "image/gif",
+    });
+    Object.defineProperty(localGif, "name", {
+      value: "local-cat.gif",
+      configurable: true,
+    });
+
+    await expect(importFromFiles([localGif], "request-local-1")).resolves.toMatchObject({
+      importedCount: 1,
+      convertedCount: 0,
+    });
+    expect(mocks.resolveMediaUrls).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects empty local file selections early", async () => {
+    await expect(importFromFiles([], "request-local-empty")).rejects.toThrow(
+      UI_MESSAGES.popup.chooseFilesFirst,
+    );
+    expect(mocks.resolveMediaUrls).not.toHaveBeenCalled();
+    expect(mocks.idbSave).not.toHaveBeenCalled();
+  });
+
+  it("imports serialized local file payloads from runtime messages", async () => {
+    const bytesBase64 = "R0lGODlh";
+    await expect(
+      importFromFiles(
+        [
+          {
+            name: "from-popup.gif",
+            mimeType: "image/gif",
+            localPath: "C:\\Users\\MONSTER\\Desktop\\from-popup.gif",
+            bytesBase64,
+          },
+        ],
+        "request-local-serialized-1",
+      ),
+    ).resolves.toMatchObject({
+      importedCount: 1,
+      convertedCount: 0,
+    });
+    expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+    const savedItem = mocks.idbSave.mock.calls[0]?.[0] || {};
+    expect(savedItem.localPath).toBe("C:\\Users\\MONSTER\\Desktop\\from-popup.gif");
+  });
+
+  it("applies drop sourceUrlHint for local file imports when provided", async () => {
+    const localGif = new Blob([new Uint8Array([71, 73, 70, 56, 57, 97])], {
+      type: "image/gif",
+    });
+    Object.defineProperty(localGif, "name", {
+      value: "drop-from-web.gif",
+      configurable: true,
+    });
+
+    await expect(
+      importFromFiles(
+        [localGif],
+        "request-local-with-source-hint",
+        "https://example.com/media/drop-from-web.gif",
+      ),
+    ).resolves.toMatchObject({
+      importedCount: 1,
+    });
+
+    const savedItem = mocks.idbSave.mock.calls.at(-1)?.[0] || {};
+    expect(savedItem.sourceUrl).toBe("https://example.com/media/drop-from-web.gif");
   });
 });
