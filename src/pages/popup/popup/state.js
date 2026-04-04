@@ -16,6 +16,8 @@ function defaultPopupMenuConfig() {
 function createPopupState() {
   const state = {
     activeImportRequestId: "",
+    importTerminationRequestId: "",
+    isImportTerminationPending: false,
     currentImportState: null,
     currentPage: 1,
     currentTab: POPUP_MENU.defaultTab,
@@ -34,6 +36,16 @@ function createPopupState() {
 
   function setActiveImportRequestId(requestId) {
     state.activeImportRequestId = String(requestId || "").trim();
+  }
+
+  function setImportTerminationPending(requestId) {
+    state.isImportTerminationPending = true;
+    state.importTerminationRequestId = String(requestId || "").trim();
+  }
+
+  function clearImportTerminationPending() {
+    state.isImportTerminationPending = false;
+    state.importTerminationRequestId = "";
   }
 
   return {
@@ -62,10 +74,13 @@ function createPopupState() {
     },
     resetActiveImportSession() {
       state.activeImportRequestId = "";
+      clearImportTerminationPending();
       state.currentImportState = null;
     },
     setImportState,
     setActiveImportRequestId,
+    setImportTerminationPending,
+    clearImportTerminationPending,
     applyImportState(importState) {
       setImportState(importState);
       if (importState?.active) {
@@ -75,6 +90,16 @@ function createPopupState() {
         importState.requestId === state.activeImportRequestId
       ) {
         setActiveImportRequestId("");
+      }
+      if (!importState?.active) {
+        const requestId = String(importState?.requestId || "").trim();
+        if (
+          !state.importTerminationRequestId ||
+          !requestId ||
+          requestId === state.importTerminationRequestId
+        ) {
+          clearImportTerminationPending();
+        }
       }
     },
   };

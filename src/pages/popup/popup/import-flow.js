@@ -319,6 +319,15 @@ export function createPopupImportController({
     }
 
     try {
+      stateStore.setImportTerminationPending(requestId);
+      statusController.applyImportState({
+        requestId,
+        text: UI_MESSAGES.popup.importTerminationRequested,
+        kind: "info",
+        phase: UI_MESSAGES.import.phaseComplete,
+        active: true,
+      });
+      syncImportUiState();
       const response = await chrome.runtime.sendMessage({
         type: MESSAGE_TYPES.terminateImport,
         requestId,
@@ -326,12 +335,10 @@ export function createPopupImportController({
       if (!response?.ok) {
         throw new Error(response?.error || UI_MESSAGES.popup.terminateFailed);
       }
-      statusController.showTransientStatus(
-        UI_MESSAGES.popup.importTerminationRequested,
-        "ok",
-      );
       await clearStoredImportStatePreservingUi();
     } catch (error) {
+      stateStore.clearImportTerminationPending();
+      syncImportUiState();
       statusController.showTransientStatus(
         error?.message || UI_MESSAGES.popup.terminateFailed,
         "error",

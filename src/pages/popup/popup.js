@@ -163,7 +163,7 @@ function clearBootLoadingUiIfPresent() {
 
 function runWhenInteractive(handler) {
   return (...args) => {
-    if (state.isBootLoading) {
+    if (state.isBootLoading || state.isImportTerminationPending) {
       return;
     }
     return handler(...args);
@@ -225,7 +225,13 @@ function getDroppedSourceUrl(event) {
 }
 
 function shouldIgnoreFileDrop(event) {
-  return dragStartedInPopup || state.isBootLoading || state.currentImportState?.active || !isFileDragEvent(event);
+  return (
+    dragStartedInPopup ||
+    state.isBootLoading ||
+    state.isImportTerminationPending ||
+    state.currentImportState?.active ||
+    !isFileDragEvent(event)
+  );
 }
 
 function syncSelectionUi(selectedCount = 0) {
@@ -253,13 +259,50 @@ const gridController = createPopupGridController({
 
 function syncImportUiState() {
   const hasActiveImport = Boolean(state.currentImportState?.active);
+  const hasPendingTermination = Boolean(state.isImportTerminationPending);
+  const isGloballyLocked = state.isBootLoading || hasPendingTermination;
+
+  for (const key of INTERACTIVE_REFS) {
+    const element = refs[key];
+    if (
+      element instanceof HTMLInputElement ||
+      element instanceof HTMLButtonElement
+    ) {
+      element.disabled = isGloballyLocked;
+    }
+  }
+
   statusController.syncImportActionButton();
-  refs.importInput.disabled = state.isBootLoading || hasActiveImport;
+  refs.importBtn.disabled = isGloballyLocked;
+  refs.importInput.disabled =
+    state.isBootLoading || hasActiveImport || hasPendingTermination;
   if (refs.localImportBtn) {
-    refs.localImportBtn.disabled = state.isBootLoading || hasActiveImport;
+    refs.localImportBtn.disabled =
+      state.isBootLoading || hasActiveImport || hasPendingTermination;
   }
   if (refs.localFileInput) {
-    refs.localFileInput.disabled = state.isBootLoading || hasActiveImport;
+    refs.localFileInput.disabled =
+      state.isBootLoading || hasActiveImport || hasPendingTermination;
+  }
+
+  const gridButtons =
+    typeof refs.grid?.querySelectorAll === "function"
+      ? refs.grid.querySelectorAll("button")
+      : [];
+
+  if (!hasPendingTermination) {
+    for (const button of gridButtons) {
+      if (button instanceof HTMLButtonElement) {
+        button.disabled = false;
+      }
+    }
+    return;
+  }
+
+  for (const button of gridButtons) {
+    if (button instanceof HTMLButtonElement) {
+      button.disabled = true;
+    }
   }
 }
 
@@ -597,6 +640,19 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   ) {
     return;
   }
+  if (
+    state.isImportTerminationPending &&
+    !message.active
+  ) {
+    const requestId = String(message.requestId || "").trim();
+    if (
+      !state.importTerminationRequestId ||
+      !requestId ||
+      requestId === state.importTerminationRequestId
+    ) {
+      stateStore.clearImportTerminationPending();
+    }
+  }
   statusController.applyImportState(message);
   syncImportUiState();
 });
@@ -644,10 +700,25 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   ) {
     const nextState = changes[STORAGE_KEYS.importState].newValue || null;
     const prevState = changes[STORAGE_KEYS.importState].oldValue || null;
+    if (
+      state.isImportTerminationPending &&
+      !nextState?.active
+    ) {
+      const requestId = String(nextState?.requestId || "").trim();
+      if (
+        !state.importTerminationRequestId ||
+        !requestId ||
+        requestId === state.importTerminationRequestId
+      ) {
+        stateStore.clearImportTerminationPending();
+      }
+    }
     if (nextState) {
       statusController.applyImportState(nextState);
     } else {
       stateStore.setImportState(null);
+      stateStore.setActiveImportRequestId("");
+      stateStore.clearImportTerminationPending();
       if (state.isBootLoading) {
         syncImportUiState();
         return;

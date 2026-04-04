@@ -338,6 +338,7 @@ async function importFromFiles(files, requestId = "", sourceUrlHint = "") {
       const item = await importLocalFileMedia({
         localFile: localFiles[index],
         progressId,
+        abortController,
         gifConversionConfig,
         sourceUrlHint: normalizedSourceUrlHint,
         ensureImportActive,
@@ -494,14 +495,18 @@ async function importResolvedMedia({
         "info",
         UI_MESSAGES.import.phaseConverting,
       );
-      const convertedPayload = await convertInOffscreen({
-        url: resolvedMediaUrl,
-        requestId: progressId,
-        filename: `vault-${Date.now()}.gif`,
-        inputExtension: ext,
-        gifConversion: gifConversionConfig,
-        inputBytes,
-      });
+      const convertedPayload = await raceWithImportAbort(
+        convertInOffscreen({
+          url: resolvedMediaUrl,
+          requestId: progressId,
+          filename: `vault-${Date.now()}.gif`,
+          inputExtension: ext,
+          gifConversion: gifConversionConfig,
+          inputBytes,
+        }),
+        progressId,
+        abortController,
+      );
       ensureImportActive();
       const rebuiltBlob = blobFromConvertedPayload(convertedPayload);
       await safeLog("convert", "Offscreen conversion response received", {
@@ -574,6 +579,7 @@ async function importResolvedMedia({
 async function importLocalFileMedia({
   localFile,
   progressId,
+  abortController,
   gifConversionConfig,
   sourceUrlHint,
   ensureImportActive,
@@ -631,14 +637,18 @@ async function importLocalFileMedia({
         "info",
         UI_MESSAGES.import.phaseConverting,
       );
-      const convertedPayload = await convertInOffscreen({
-        url: pseudoUrl,
-        requestId: progressId,
-        filename: `vault-${Date.now()}.gif`,
-        inputExtension: ext,
-        gifConversion: gifConversionConfig,
-        inputBytes,
-      });
+      const convertedPayload = await raceWithImportAbort(
+        convertInOffscreen({
+          url: pseudoUrl,
+          requestId: progressId,
+          filename: `vault-${Date.now()}.gif`,
+          inputExtension: ext,
+          gifConversion: gifConversionConfig,
+          inputBytes,
+        }),
+        progressId,
+        abortController,
+      );
       ensureImportActive();
       const rebuiltBlob = blobFromConvertedPayload(convertedPayload);
       if (rebuiltBlob && rebuiltBlob.size > 0) {
@@ -725,7 +735,7 @@ async function readBlobWithMaxSize(response, maxBytes, ensureImportActive) {
       }
     } finally {
       try {
-        await reader.cancel();
+        void reader.cancel();
       } catch {
         // no-op
       }
@@ -755,8 +765,8 @@ async function terminateImport(requestId) {
     controller.abort();
   }
 
-  await safeLog("import", "Terminate import requested", { requestId: id });
-  await reportProgress(
+  void safeLog("import", "Terminate import requested", { requestId: id });
+  void reportProgress(
     id,
     UI_MESSAGES.import.importTerminated,
     false,
@@ -775,6 +785,35 @@ function throwIfTerminated(requestId, abortController = null) {
       IMPORT_ERROR_CODES.importTerminated,
       UI_MESSAGES.import.importTerminatedError,
     );
+  }
+}
+
+async function raceWithImportAbort(promise, requestId, abortController = null) {
+  if (!abortController?.signal) {
+    return promise;
+  }
+
+  throwIfTerminated(requestId, abortController);
+  let removeListener = () => {};
+  const abortPromise = new Promise((_, reject) => {
+    const onAbort = () => {
+      reject(
+        createImportError(
+          IMPORT_ERROR_CODES.importTerminated,
+          UI_MESSAGES.import.importTerminatedError,
+        ),
+      );
+    };
+    abortController.signal.addEventListener("abort", onAbort, { once: true });
+    removeListener = () => {
+      abortController.signal.removeEventListener("abort", onAbort);
+    };
+  });
+
+  try {
+    return await Promise.race([promise, abortPromise]);
+  } finally {
+    removeListener();
   }
 }
 
