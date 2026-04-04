@@ -116,6 +116,12 @@ async function findMissingOrigins(origins) {
   return missing;
 }
 
+/**
+ * Creates the popup-scoped import controller that coordinates UI state,
+ * runtime messages, permission-assist handoff, and post-import grid refresh.
+ *
+ * The returned handlers are intended to be wired by the popup page coordinator.
+ */
 export function createPopupImportController({
   refs,
   state,

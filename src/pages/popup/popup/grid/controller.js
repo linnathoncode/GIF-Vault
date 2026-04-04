@@ -7,6 +7,7 @@ import {
 import { formatBytes, hostFromUrl } from "../../../../lib/ui.js";
 import { safeLog } from "../../../../lib/log.js";
 import { UI_MESSAGES } from "../../../../lib/messages.js";
+import { POPUP_GRID } from "../../../../lib/settings.js";
 import {
   armedDeleteGlyph,
   selectionIdsChanged,
@@ -31,7 +32,12 @@ export {
   sanitizeCopyUrl,
 } from "./copy.js";
 
-// Vault filtering, rendering, and item actions.
+/**
+ * Creates the popup grid controller that coordinates filtering, rendering,
+ * selection state, card actions, and focus/preview behavior for the vault.
+ *
+ * The returned handlers are intended to be wired by the popup page coordinator.
+ */
 export function createPopupGridController({
   refs,
   state,
@@ -39,9 +45,9 @@ export function createPopupGridController({
   showTransientStatus,
   onSelectionChange,
 }) {
-  const TEMP_STATUS_DURATION_MS = 5000;
-  const ARMED_DELETE_DURATION_MS = 5000;
-  const COPY_HINT_DURATION_MS = 5000;
+  const TEMP_STATUS_DURATION_MS = POPUP_GRID.transientStatusDurationMs;
+  const ARMED_DELETE_DURATION_MS = POPUP_GRID.armedDeleteDurationMs;
+  const COPY_HINT_DURATION_MS = POPUP_GRID.copyHintDurationMs;
   const {
     countEl,
     grid,

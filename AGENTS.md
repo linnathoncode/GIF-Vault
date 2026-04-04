@@ -11,7 +11,7 @@
 
 - Branch: `test`
 - HEAD: `4cab35e`
-- Version: `1.6.2`
+- Version: `1.6.3`
 
 ## Project Purpose
 
@@ -190,6 +190,10 @@ Rules:
 - Added test coverage for host-access/progress isolation.
 
 ## Recently Added
+
+### Since v1.6.3
+
+- Internal maintenance: added controller doc comments for popup import/grid coordinators and centralized popup grid timing constants in `src/lib/settings.js`.
 
 ### Since v1.6.2
 
