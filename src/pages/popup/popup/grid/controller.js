@@ -28,8 +28,7 @@ export {
   shouldCancelArmedDeleteOnSelectionChange,
 };
 export {
-  sanitizeCopyFallbackUrl,
-  sanitizeCopyFallbackLocalPath,
+  sanitizeCopyUrl,
 } from "./copy.js";
 
 // Vault filtering, rendering, and item actions.

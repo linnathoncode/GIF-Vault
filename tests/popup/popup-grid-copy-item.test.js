@@ -19,7 +19,7 @@ describe("popup-grid copy item behavior", () => {
     });
   });
 
-  it("prefers local path when both local path and URL are present", async () => {
+  it("copies source URL when both local path and URL are present", async () => {
     const result = await copyItemUrl({
       id: "item-1",
       name: "cat.gif",
@@ -28,12 +28,12 @@ describe("popup-grid copy item behavior", () => {
     });
 
     expect(globalThis.navigator.clipboard.writeText).toHaveBeenCalledWith(
-      "C:\\Users\\MONSTER\\Desktop\\cat.gif",
+      "https://example.com/cat.gif",
     );
     expect(result).toMatchObject({
       ok: true,
-      method: "local-path",
-      copiedUrl: "C:\\Users\\MONSTER\\Desktop\\cat.gif",
+      method: "url",
+      copiedUrl: "https://example.com/cat.gif",
     });
   });
 
