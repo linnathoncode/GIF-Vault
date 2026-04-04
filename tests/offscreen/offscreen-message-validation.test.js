@@ -197,7 +197,7 @@ describe("offscreen runtime message validation", () => {
     expect(mocks.ffmpegExec).not.toHaveBeenCalled();
   });
 
-  it("uses long-edge scaling in conversion filter to avoid oversized portrait gifs", async () => {
+  it("uses long-edge scaling without upscaling in conversion filter", async () => {
     const sendResponse = vi.fn();
     mocks.ffmpegExec.mockResolvedValueOnce(undefined);
     mocks.ffmpegReadFile.mockResolvedValueOnce(new Uint8Array([71, 73, 70]));
@@ -226,6 +226,8 @@ describe("offscreen runtime message validation", () => {
     const filterIndex = ffmpegArgs.indexOf("-vf");
     expect(filterIndex).toBeGreaterThan(-1);
     const filter = ffmpegArgs[filterIndex + 1];
-    expect(filter).toContain("scale=if(gte(iw\\,ih)\\,360\\,-1):if(gte(iw\\,ih)\\,-1\\,360):flags=lanczos");
+    expect(filter).toContain("scale=if(gte(iw\\,ih)\\,min(360\\,iw)\\,-1):if(gte(iw\\,ih)\\,-1\\,min(360\\,ih)):flags=lanczos");
+    expect(filter).toContain("palettegen=max_colors=96:stats_mode=full");
+    expect(filter).toContain("paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle");
   });
 });
