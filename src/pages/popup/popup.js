@@ -464,9 +464,10 @@ window.addEventListener("dragleave", (event) => {
 });
 
 window.addEventListener("drop", (event) => {
+  const startedInPopup = dragStartedInPopup;
   dragStartedInPopup = false;
   document.body.classList.remove("drag-file-active");
-  if (shouldIgnoreFileDrop(event)) {
+  if (startedInPopup || shouldIgnoreFileDrop(event)) {
     return;
   }
   event.preventDefault();
