@@ -9,8 +9,8 @@
 
 ## Release State
 
-- Branch: `test`
-- HEAD: `4cab35e`
+- Branch: `master`
+- HEAD: `5d8a81c`
 - Version: `1.6.4`
 
 ## Project Purpose
@@ -32,18 +32,16 @@ Core capabilities:
 - Local file import support: Choose one or more local images/videos from popup and import them directly.
 - Drag-and-drop import support: Drop local files onto popup to start import without opening the file picker.
 
+Key Features:
+
 - Save from the web in one click: Right-click GIFs or images and add them to your vault instantly.
 - Paste-and-import support: Import GIF, image, video, or X/Twitter post links directly from the popup.
-- Local file import support: Choose one or more local images/videos from popup and import them directly.
-- Drag-and-drop import support: Drop local files onto popup to start import without opening the file picker.
 - Video to GIF conversion: Turn supported videos into GIFs automatically during import.
 - Privacy-first storage: Your media stays in your browser. No account, no tracking.
 - Search your collection: Find saved items by name or source link in seconds.
 - Favorites tab: Star your best GIFs and access them fast.
 - Easy library management: Rename, copy, delete, or clear your saved items anytime.
-- Shift-click multi-select: Start selection with Shift-click, then add/remove items with regular click while selection is active.
-- In-selection quick clear: A header clear button appears during multi-select and clears current selections in one click.
-- In-selection keyboard delete: Press Delete/Backspace during multi-select to remove selected items with confirmation.
+- Shift-click multi-select: Select and manage many items at once by shift clicking.
 - Clean grid layout: Browse your GIFs in a simple visual gallery with pagination.
 - Import progress status: See import steps in real time and stop an import if needed.
 - Guided permissions flow: If a site needs access, GIF Vault walks you through it.
@@ -52,14 +50,22 @@ Core capabilities:
 - Light and dark themes: Pick the look you prefer.
 - Supported languages: English and Turkish (change via options).
 
+Great for reaction GIF fans, meme collectors, social media creators, and anyone who wants a better GIF organizer.
+
 Maintenance rule:
 
+- Store listing rule: keep copy user-facing only.
 - When a worthwhile user-facing feature is added, append it to `## Recently Added` below (and update this section if store-copy should change).
-- When the app version changes, insert a clear version marker inside `## Recently Added` (for example `### Since v1.6.1`) so changes after each version are easy to spot.
+- Use `### Version Includes: <version>` markers for change tracking (not full snapshots).
+- Keep a rolling placeholder marker at the top: `### Version Includes: NEXT`.
+- Add new features/fixes under `NEXT` while work is in progress.
+- On release day:
+  1. Rename `NEXT` to the released version (for example `### Version Includes: v1.6.5`).
+  2. Immediately add a new empty top placeholder `### Version Includes: NEXT` for upcoming changes.
 - PR/release-note rule: when preparing PR text for a release train, summarize changes from the last released version marker/tag (for example `v1.6.2 -> v1.6.3`) even if the current branch has only merge/sync commits.
 - Release-summary rule: for each version marker, prefer broad net-change bullets; if a feature was added and then fixed/refined within the same version, list the feature once (not each intermediate fix).
 - README release-table rule: keep version notes as simple/high-level as possible; avoid detailed implementation breakdowns.
-- README release-table scope rule: include only user-facing features added or fixes applied.
+- README release-table scope rule: include notable features/fixes for that version (user-facing or important technical changes).
 - README release-table dedupe rule: if a feature was added and then fixed/refined in the same version, mention only the feature.
 - README release-table fix rule: mention fixes/tweaks only when they resolve issues that existed in previously listed versions in the table.
 - README release-table compare rule: do not mention or compare with previous versions unless the difference is drastic and user-significant.
@@ -175,7 +181,7 @@ Current intended flow for missing host access:
 
 Do not move permission request logic back to popup/background gesture-less paths.
 
-## Centralized Messages (New)
+## Centralized Messages
 
 User-facing hints/messages are centralized in:
 
@@ -203,15 +209,19 @@ Rules:
 
 ## Recently Added
 
-### Since v1.6.4
+### Version Includes: NEXT
+
+- (placeholder)
+
+### Version Includes: v1.6.4
 
 - Vertical-video GIF quality refinement: conversion now avoids upscaling beyond source dimensions and uses a more compression-friendly palette strategy to reduce visible dithering artifacts while keeping output size compact.
 
-### Since v1.6.3
+### Version Includes: v1.6.3
 
 - Latest release broad summary (vs `v1.6.2`): added import-cancel UX/performance improvements (faster terminate propagation with temporary popup action-button lock), popup coordinator/grid-controller maintenance cleanup (doc comments + centralized timing constants), portrait-video GIF conversion scaling improvements to reduce disproportionate output sizes, drag/drop guard consistency for in-popup drags, and a compact folder-icon local-import action inside the popup URL field.
 
-### Since v1.6.2
+### Version Includes: v1.6.2
 
 - Added local file import from popup with a compact "Choose files" action that uses the same progress/status pipeline as URL imports (including video-to-GIF conversion for supported local videos).
 - Added drag-and-drop local file import across the popup surface to start imports quickly without opening the file picker.
@@ -225,14 +235,14 @@ Rules:
 - Import cancel UX/performance: while cancellation is pending, popup action buttons are temporarily disabled to prevent conflicting actions, and cancel requests now return/propagate faster (including during conversion-heavy paths).
 - Internal maintenance: added controller doc comments for popup import/grid coordinators and centralized popup grid timing constants in `src/lib/settings.js`.
 
-### Since v1.6.1
+### Version Includes: v1.6.1
 
 - Popup UI refresh: de-pilled layout, tighter alignment, clearer divider/progress behavior, icon-only card actions, and hover-only source/size metadata row.
 - Favorites action now uses a filled star icon for stronger state clarity.
 - Options feedback flow simplified: composer is always visible with a direct "Send by email" action.
 - Empty-state layout now fills available grid space more cleanly (including scrollbar handling).
 
-### Since v1.5.0
+### Version Includes: v1.5.0
 
 - Import safety and reliability upgrades: global single-active-import guard, stricter URL/redirect/media validation, configurable max download-size limits, and atomic batch rollback behavior.
 - Multi-select workflow improvements: Shift-click range selection, selection-aware favorite/delete actions, and safer armed-delete behavior.
