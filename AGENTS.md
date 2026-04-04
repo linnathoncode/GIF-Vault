@@ -27,6 +27,11 @@ Core capabilities:
 
 ## Store Listing Features
 
+### Recently Added (Store Listing)
+
+- Local file import support: Choose one or more local images/videos from popup and import them directly.
+- Drag-and-drop import support: Drop local files onto popup to start import without opening the file picker.
+
 - Save from the web in one click: Right-click GIFs or images and add them to your vault instantly.
 - Paste-and-import support: Import GIF, image, video, or X/Twitter post links directly from the popup.
 - Local file import support: Choose one or more local images/videos from popup and import them directly.
@@ -51,6 +56,7 @@ Maintenance rule:
 
 - When a worthwhile user-facing feature is added, append it to `## Recently Added` below (and update this section if store-copy should change).
 - When the app version changes, insert a clear version marker inside `## Recently Added` (for example `### Since v1.6.1`) so changes after each version are easy to spot.
+- PR/release-note rule: when preparing PR text for a release train, summarize changes from the last released version marker/tag (for example `v1.6.2 -> v1.6.3`) even if the current branch has only merge/sync commits.
 
 ## Source Layout
 
@@ -194,6 +200,7 @@ Rules:
 ### Since v1.6.3
 
 - Internal maintenance: added controller doc comments for popup import/grid coordinators and centralized popup grid timing constants in `src/lib/settings.js`.
+- Store-listing copy alignment: explicitly included local file import support (and popup drag-and-drop local import support) in the listed user-facing capabilities.
 
 ### Since v1.6.2
 
