@@ -11,7 +11,7 @@
 
 - Branch: `test`
 - HEAD: `4cab35e`
-- Version: `1.6.3`
+- Version: `1.6.4`
 
 ## Project Purpose
 
@@ -197,6 +197,10 @@ Rules:
 - Added test coverage for host-access/progress isolation.
 
 ## Recently Added
+
+### Since v1.6.4
+
+- Vertical-video GIF quality refinement: conversion now avoids upscaling beyond source dimensions and uses a more compression-friendly palette strategy to reduce visible dithering artifacts while keeping output size compact.
 
 ### Since v1.6.3
 
