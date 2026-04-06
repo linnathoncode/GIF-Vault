@@ -22,6 +22,9 @@ const importAbortControllerById = new Map();
 const terminatedImportIds = new Set();
 let activeImportRequestId = "";
 const SNIFF_BYTES_LENGTH = 16;
+// Local-file conversion still passes bytes over runtime messaging.
+// Keep a safety ceiling below Chrome's message limit.
+const MAX_OFFSCREEN_INPUT_BYTES = 48 * 1024 * 1024;
 
 function isHttpUrl(rawUrl) {
   try {
@@ -486,8 +489,6 @@ async function importResolvedMedia({
       isTwitterSource: isTwitterUrl(sourceUrl),
     });
     try {
-      const inputBytes = new Uint8Array(await inputBlob.arrayBuffer());
-      ensureImportActive();
       await reportProgress(
         progressId,
         UI_MESSAGES.import.convertingVideoToGif,
@@ -497,12 +498,11 @@ async function importResolvedMedia({
       );
       const convertedPayload = await raceWithImportAbort(
         convertInOffscreen({
-          url: resolvedMediaUrl,
+          url: finalResponseUrl,
           requestId: progressId,
           filename: `vault-${Date.now()}.gif`,
           inputExtension: ext,
           gifConversion: gifConversionConfig,
-          inputBytes,
         }),
         progressId,
         abortController,
@@ -629,6 +629,9 @@ async function importLocalFileMedia({
     });
     try {
       const inputBytes = new Uint8Array(await inputBlob.arrayBuffer());
+      if (inputBytes.byteLength > MAX_OFFSCREEN_INPUT_BYTES) {
+        throw new Error(mediaTooLargeMessage(MAX_OFFSCREEN_INPUT_BYTES));
+      }
       ensureImportActive();
       await reportProgress(
         progressId,
@@ -863,15 +866,19 @@ async function convertInOffscreen({
 }) {
   await ensureOffscreenDocument();
 
-  const response = await chrome.runtime.sendMessage({
+  const message = {
     type: "OFFSCREEN_CONVERT_MP4",
     url,
     requestId,
     filename,
     inputExtension,
     gifConversion,
-    inputBytes,
-  });
+  };
+  if (inputBytes) {
+    message.inputBytes = inputBytes;
+  }
+
+  const response = await chrome.runtime.sendMessage(message);
   if (!response?.ok) {
     await safeLog("convert", "Offscreen conversion failed", {
       error: response?.error || "unknown",

@@ -152,6 +152,20 @@ describe("import service long-video gate", () => {
     expect(phases).toContain(UI_MESSAGES.import.phaseComplete);
   });
 
+  it("does not pass raw inputBytes to offscreen for URL video imports", async () => {
+    await expect(
+      importFromUrl("https://x.com/i/status/2", "", "request-no-bytes"),
+    ).resolves.toMatchObject({ kind: "image", converted: true });
+
+    const convertMessage = sendMessageMock.mock.calls
+      .map(([message]) => message)
+      .find((message) => message?.type === "OFFSCREEN_CONVERT_MP4");
+
+    expect(convertMessage).toBeTruthy();
+    expect(Object.prototype.hasOwnProperty.call(convertMessage, "inputBytes")).toBe(false);
+    expect(convertMessage.url).toBe("https://video.example.com/clip.mp4");
+  });
+
   it("imports all resolved media URLs from a tweet", async () => {
     globalThis.fetch = vi.fn(async (url) => ({
       ok: true,
@@ -571,6 +585,47 @@ describe("import service long-video gate", () => {
     expect(mocks.resolveMediaUrls).not.toHaveBeenCalled();
     expect(globalThis.fetch).not.toHaveBeenCalled();
     expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects local video conversion payloads that exceed runtime message safety ceiling", async () => {
+    const MB = 1024 * 1024;
+    const oversizedBytes = new Uint8Array((48 * MB) + 1);
+    const localVideo = new Blob([oversizedBytes], { type: "video/mp4" });
+    Object.defineProperty(localVideo, "name", {
+      value: "too-large-local.mp4",
+      configurable: true,
+    });
+
+    await expect(
+      importFromFiles([localVideo], "request-local-video-over-msg-limit"),
+    ).rejects.toThrow(UI_MESSAGES.import.mediaTooLarge(48));
+
+    const convertCalls = sendMessageMock.mock.calls
+      .map(([message]) => message)
+      .filter((message) => message?.type === "OFFSCREEN_CONVERT_MP4");
+    expect(convertCalls).toHaveLength(0);
+  });
+
+  it("allows local video conversion payloads at safety ceiling", async () => {
+    const MB = 1024 * 1024;
+    const boundaryBytes = new Uint8Array(48 * MB);
+    const localVideo = new Blob([boundaryBytes], { type: "video/mp4" });
+    Object.defineProperty(localVideo, "name", {
+      value: "boundary-local.mp4",
+      configurable: true,
+    });
+
+    await expect(
+      importFromFiles([localVideo], "request-local-video-boundary"),
+    ).resolves.toMatchObject({
+      importedCount: 1,
+      convertedCount: 1,
+    });
+
+    const convertCalls = sendMessageMock.mock.calls
+      .map(([message]) => message)
+      .filter((message) => message?.type === "OFFSCREEN_CONVERT_MP4");
+    expect(convertCalls.length).toBeGreaterThan(0);
   });
 
   it("rejects empty local file selections early", async () => {

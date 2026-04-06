@@ -8,6 +8,8 @@ import { fetchFile } from "../vendor/@ffmpeg/util/esm/index.js";
 
 const ffmpeg = new FFmpeg();
 let ffmpegLoadPromise = null;
+// Keep response payloads below browser runtime messaging limits.
+const MAX_CONVERTED_GIF_RESPONSE_BYTES = 48 * 1024 * 1024;
 void initializeI18n();
 ffmpeg.on("log", ({ message }) => {
   if (!message) {
@@ -278,11 +280,17 @@ async function convertMp4ToGif(message) {
   if (!(outputData instanceof Uint8Array) || outputData.length === 0) {
     throw new Error(UI_MESSAGES.offscreen.emptyGifOutput);
   }
+  if (outputData.length > MAX_CONVERTED_GIF_RESPONSE_BYTES) {
+    throw new Error(
+      UI_MESSAGES.import.mediaTooLarge(
+        Math.round(MAX_CONVERTED_GIF_RESPONSE_BYTES / (1024 * 1024)),
+      ),
+    );
+  }
 
   await safeDeleteFile(inputName);
   await safeDeleteFile(outputName);
 
-  const gifBase64 = uint8ToBase64(outputData);
   await safeLog("offscreen", "ffmpeg conversion finished", {
     outputBytes: outputData.length,
     compressionRatio: inputData.length > 0 ? Number((outputData.length / inputData.length).toFixed(3)) : 0
@@ -290,7 +298,7 @@ async function convertMp4ToGif(message) {
   return {
     converted: true,
     reason: "",
-    gifBase64,
+    gifBuffer: uint8ToArrayBuffer(outputData),
     gifByteLength: outputData.length,
     mimeType: "image/gif",
     filename: message.filename || `vault-${Date.now()}.gif`
@@ -390,14 +398,11 @@ async function safeDeleteFile(path) {
   }
 }
 
-function uint8ToBase64(bytes) {
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-  return btoa(binary);
+function uint8ToArrayBuffer(bytes) {
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  );
 }
 
 async function probeVideoDuration(inputName, probeName) {

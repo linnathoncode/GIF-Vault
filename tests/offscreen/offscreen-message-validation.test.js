@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UI_MESSAGES } from "../../src/lib/messages.js";
 
 const mocks = vi.hoisted(() => ({
   listener: null,
@@ -229,5 +230,57 @@ describe("offscreen runtime message validation", () => {
     expect(filter).toContain("scale=if(gte(iw\\,ih)\\,min(360\\,iw)\\,-1):if(gte(iw\\,ih)\\,-1\\,min(360\\,ih)):flags=lanczos");
     expect(filter).toContain("palettegen=max_colors=96:stats_mode=full");
     expect(filter).toContain("paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle");
+  });
+
+  it("returns conversion payload as binary gifBuffer instead of base64", async () => {
+    const sendResponse = vi.fn();
+    mocks.ffmpegExec.mockResolvedValueOnce(undefined);
+    mocks.ffmpegReadFile.mockResolvedValueOnce(new Uint8Array([71, 73, 70, 56]));
+
+    const handled = mocks.listener(
+      {
+        type: "OFFSCREEN_CONVERT_MP4",
+        url: "https://example.com/v.mp4",
+        inputExtension: "mp4",
+      },
+      { id: "ext-id" },
+      sendResponse,
+    );
+
+    expect(handled).toBe(true);
+    await vi.waitFor(() => {
+      expect(sendResponse).toHaveBeenCalled();
+    });
+
+    const response = sendResponse.mock.calls.at(-1)?.[0];
+    expect(response?.ok).toBe(true);
+    expect(response?.payload?.gifBuffer instanceof ArrayBuffer).toBe(true);
+    expect("gifBase64" in (response?.payload || {})).toBe(false);
+  });
+
+  it("rejects oversized converted gif payloads before runtime response", async () => {
+    const MB = 1024 * 1024;
+    const sendResponse = vi.fn();
+    mocks.ffmpegExec.mockResolvedValueOnce(undefined);
+    mocks.ffmpegReadFile.mockResolvedValueOnce(new Uint8Array((48 * MB) + 1));
+
+    const handled = mocks.listener(
+      {
+        type: "OFFSCREEN_CONVERT_MP4",
+        url: "https://example.com/v.mp4",
+        inputExtension: "mp4",
+      },
+      { id: "ext-id" },
+      sendResponse,
+    );
+
+    expect(handled).toBe(true);
+    await vi.waitFor(() => {
+      expect(sendResponse).toHaveBeenCalled();
+    });
+
+    const response = sendResponse.mock.calls.at(-1)?.[0];
+    expect(response?.ok).toBe(false);
+    expect(response?.error).toBe(UI_MESSAGES.import.mediaTooLarge(48));
   });
 });
