@@ -166,6 +166,33 @@ describe("import service long-video gate", () => {
     expect(convertMessage.url).toBe("https://video.example.com/clip.mp4");
   });
 
+  it("accepts object-serialized gifBuffer payloads from offscreen conversion", async () => {
+    sendMessageMock.mockImplementation(async (message) => {
+      if (message?.type === "OFFSCREEN_CONVERT_MP4") {
+        return {
+          ok: true,
+          payload: {
+            converted: true,
+            mimeType: "image/gif",
+            gifByteLength: 6,
+            gifBuffer: { 0: 71, 1: 73, 2: 70, 3: 56, 4: 57, 5: 97, length: 6 },
+          },
+        };
+      }
+      return { ok: true };
+    });
+
+    await expect(
+      importFromUrl("https://x.com/i/status/2", "", "request-serialized-gif-buffer"),
+    ).resolves.toMatchObject({ kind: "image", converted: true });
+
+    expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+    const savedItem = mocks.idbSave.mock.calls[0]?.[0] || {};
+    expect(savedItem.blob instanceof Blob).toBe(true);
+    expect(savedItem.blob.size).toBe(6);
+    expect(savedItem.mimeType).toBe("image/gif");
+  });
+
   it("imports all resolved media URLs from a tweet", async () => {
     globalThis.fetch = vi.fn(async (url) => ({
       ok: true,
