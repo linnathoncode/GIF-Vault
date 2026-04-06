@@ -232,7 +232,7 @@ describe("offscreen runtime message validation", () => {
     expect(filter).toContain("paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle");
   });
 
-  it("returns conversion payload as binary gifBuffer instead of base64", async () => {
+  it("returns conversion payload as base64 gif payload for runtime messaging", async () => {
     const sendResponse = vi.fn();
     mocks.ffmpegExec.mockResolvedValueOnce(undefined);
     mocks.ffmpegReadFile.mockResolvedValueOnce(new Uint8Array([71, 73, 70, 56]));
@@ -254,15 +254,15 @@ describe("offscreen runtime message validation", () => {
 
     const response = sendResponse.mock.calls.at(-1)?.[0];
     expect(response?.ok).toBe(true);
-    expect(response?.payload?.gifBuffer instanceof ArrayBuffer).toBe(true);
-    expect("gifBase64" in (response?.payload || {})).toBe(false);
+    expect(typeof response?.payload?.gifBase64).toBe("string");
+    expect(response?.payload?.gifBase64?.length).toBeGreaterThan(0);
   });
 
   it("rejects oversized converted gif payloads before runtime response", async () => {
     const MB = 1024 * 1024;
     const sendResponse = vi.fn();
     mocks.ffmpegExec.mockResolvedValueOnce(undefined);
-    mocks.ffmpegReadFile.mockResolvedValueOnce(new Uint8Array((48 * MB) + 1));
+    mocks.ffmpegReadFile.mockResolvedValueOnce(new Uint8Array((40 * MB) + 1));
 
     const handled = mocks.listener(
       {
@@ -281,6 +281,6 @@ describe("offscreen runtime message validation", () => {
 
     const response = sendResponse.mock.calls.at(-1)?.[0];
     expect(response?.ok).toBe(false);
-    expect(response?.error).toBe(UI_MESSAGES.import.mediaTooLarge(48));
+    expect(response?.error).toBe(UI_MESSAGES.import.mediaTooLarge(40));
   });
 });

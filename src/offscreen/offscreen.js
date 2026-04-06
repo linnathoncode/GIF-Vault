@@ -8,8 +8,9 @@ import { fetchFile } from "../vendor/@ffmpeg/util/esm/index.js";
 
 const ffmpeg = new FFmpeg();
 let ffmpegLoadPromise = null;
-// Keep response payloads below browser runtime messaging limits.
-const MAX_CONVERTED_GIF_RESPONSE_BYTES = 48 * 1024 * 1024;
+// Runtime messaging uses string serialization; keep raw GIF bytes lower so
+// base64 payload + JSON overhead stay below browser message size limits.
+const MAX_CONVERTED_GIF_RESPONSE_BYTES = 40 * 1024 * 1024;
 void initializeI18n();
 ffmpeg.on("log", ({ message }) => {
   if (!message) {
@@ -298,7 +299,7 @@ async function convertMp4ToGif(message) {
   return {
     converted: true,
     reason: "",
-    gifBuffer: uint8ToArrayBuffer(outputData),
+    gifBase64: uint8ToBase64(outputData),
     gifByteLength: outputData.length,
     mimeType: "image/gif",
     filename: message.filename || `vault-${Date.now()}.gif`
@@ -398,11 +399,14 @@ async function safeDeleteFile(path) {
   }
 }
 
-function uint8ToArrayBuffer(bytes) {
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  );
+function uint8ToBase64(bytes) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 }
 
 async function probeVideoDuration(inputName, probeName) {
