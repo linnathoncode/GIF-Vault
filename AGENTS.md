@@ -58,6 +58,8 @@ Maintenance rule:
 - When the app version changes, insert a clear version marker inside `## Recently Added` (for example `### Since v1.6.1`) so changes after each version are easy to spot.
 - PR/release-note rule: when preparing PR text for a release train, summarize changes from the last released version marker/tag (for example `v1.6.2 -> v1.6.3`) even if the current branch has only merge/sync commits.
 - Release-summary rule: for each version marker, prefer broad net-change bullets; if a feature was added and then fixed/refined within the same version, list the feature once (not each intermediate fix).
+- Documentation update rule: if a code change affects architecture, file responsibility, public behavior, or workflow expectations, update `AGENTS.md` in the same change.
+- Module-doc rule: when creating or substantially reshaping modules, include brief top-of-file documentation comments describing purpose and boundaries.
 
 ## Source Layout
 
@@ -140,6 +142,7 @@ PowerShell note:
 - Popup grid internals live in `src/pages/popup/popup/grid/` and should stay grouped into broader modules: `controller.js`, `card.js`, `data.js`, `interaction.js`, and `media.js`.
 - Grid modularity direction: avoid splitting into many micro-files by default; prefer these broader buckets and only split further when a module becomes difficult to reason about.
 - Within the grid buckets: keep selection/focus/action orchestration in `interaction.js`, media preview/kind detection in `media.js`, and card construction/copy wiring in `card.js`.
+- New-feature modularity rule: implement new features within the agreed broad module buckets (instead of micro-files), and include/update concise module documentation for touched files.
 
 ### Logs Page Modularity
 
