@@ -1,3 +1,5 @@
+// Logs view controller: owns DOM wiring and stateful rendering for the logs page,
+// while the page coordinator and helper modules supply data, text, and formatting rules.
 export function createLogsViewController({
   refs,
   UI_MESSAGES,

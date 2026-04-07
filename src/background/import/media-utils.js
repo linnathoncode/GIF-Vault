@@ -1,5 +1,10 @@
-import { UI_MESSAGES } from "../lib/messages.js";
-import { IMPORT_ERROR_CODES, createImportError } from "../lib/protocol.js";
+/**
+ * Shared import/media utility helpers.
+ * Provides URL normalization, local-file payload normalization, blob size/sniff
+ * helpers, converted payload rebuilding, and import item naming utilities.
+ */
+import { UI_MESSAGES } from "../../lib/messages.js";
+import { IMPORT_ERROR_CODES, createImportError } from "../../lib/protocol.js";
 
 const SNIFF_BYTES_LENGTH = 16;
 

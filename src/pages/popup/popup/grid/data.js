@@ -1,3 +1,4 @@
+// Data helpers for filtering, pagination, counts, and empty-state copy in the popup grid.
 import { UI_MESSAGES } from "../../../../lib/messages.js";
 
 function getEmptyMascotVariant({ query = "", currentTab = "all" } = {}) {
@@ -27,6 +28,7 @@ export function createGridDataController({
   let latestFavoritesCount = 0;
 
   function getFilteredItems(items) {
+    // Normalize mixed record shapes first so filtering and counts stay consistent.
     const normalized = items.map((item) => ({
       ...item,
       favorite: Boolean(item.favorite),
@@ -50,6 +52,7 @@ export function createGridDataController({
 
   function getPagedItemsMeta(items) {
     const popupMenuConfig = getPopupMenuConfig();
+    // Clamp the current page after filtering so pagination never points past the end.
     const totalPages = Math.max(
       1,
       Math.ceil(items.length / popupMenuConfig.pageSize),

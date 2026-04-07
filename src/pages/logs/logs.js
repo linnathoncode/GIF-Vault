@@ -1,3 +1,5 @@
+// Logs page coordinator: wires the view, locale/theme lifecycle, storage reads,
+// and bug-report actions while leaving formatting/rendering details to nearby modules.
 import { idbGetLogs, idbClearLogs } from "../../lib/db.js";
 import { DB } from "../../lib/settings.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
@@ -64,6 +66,7 @@ const LOGS_LOAD_TIMEOUT_MS = 4000;
 const BUG_REPORT_SUPPORT_EMAIL = "gifvault.support@gmail.com";
 
 function invalidatePendingLocaleApply() {
+  // Bumps the guard so a slower locale init cannot overwrite a newer render.
   localeApplyVersion += 1;
 }
 

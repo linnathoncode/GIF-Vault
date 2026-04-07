@@ -1,3 +1,4 @@
+// Media helpers for preview URLs, hover previews, and stored media kind detection.
 import { getWebpAnimationState } from "../../../../lib/media.js";
 import { safeLog } from "../../../../lib/log.js";
 
@@ -235,6 +236,7 @@ export function createStoredMediaKindDetector(mediaKindCacheById) {
       item?.blob instanceof Blob &&
       item.blob.size > 0
     ) {
+      // WebP needs byte sniffing because MIME type alone does not reveal animation.
       try {
         const primaryBytes = new Uint8Array(
           await item.blob.slice(0, WEBP_ANIMATION_SNIFF_BYTES).arrayBuffer(),

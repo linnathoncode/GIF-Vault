@@ -1,3 +1,5 @@
+// Logs report helpers: package the current log snapshot into an attachment and
+// launch the user's bug-report draft without coupling the page coordinator to email details.
 const BUG_REPORT_SUPPORT_EMAIL = "gifvault.support@gmail.com";
 
 function buildReportLogsAttachmentText({ logs, extensionVersion, formatLogExportLine }) {
@@ -41,6 +43,7 @@ function openBugReportDraft({
   UI_MESSAGES,
   supportEmail = BUG_REPORT_SUPPORT_EMAIL,
 }) {
+  // Build a prefilled Gmail compose link so the page can hand off reporting in one step.
   const safeDescription = description || UI_MESSAGES.logs.reportDescriptionDefault;
   const subject = UI_MESSAGES.logs.reportEmailSubject;
   const body = UI_MESSAGES.logs.reportEmailBody(

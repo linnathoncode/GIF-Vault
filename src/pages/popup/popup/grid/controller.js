@@ -1,3 +1,4 @@
+// Popup grid controller that composes the card, data, interaction, and media helpers.
 import {
   idbDelete,
   idbGetAllMedia,
@@ -148,6 +149,7 @@ export function createPopupGridController({
   }
 
   function updateSelectionForRender() {
+    // Keep only selections that are still visible on the current page.
     const next = new Set();
     for (const id of selectedItemIds) {
       if (latestVisiblePageIds.has(id)) {
@@ -244,6 +246,7 @@ export function createPopupGridController({
     clearArmedDelete();
     armedDeleteItemId = String(actionKey);
 
+    // Batch delete confirmation needs to arm every matching card action, not just one button.
     const armedLabel =
       count > 1
         ? UI_MESSAGES.grid.confirmDeleteTitleMany(count)
@@ -454,6 +457,7 @@ export function createPopupGridController({
   }
 
   async function render() {
+    // Rerenders can be superseded, so guard with a sequence id and restore UI state afterward.
     previewController.hideHoverPreview();
     clearArmedDelete();
     const gridFocusSnapshot =

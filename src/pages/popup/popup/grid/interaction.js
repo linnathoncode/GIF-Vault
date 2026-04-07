@@ -1,4 +1,6 @@
+// Focus, selection, and destructive-action helpers for popup grid cards.
 export function selectionIdsChanged(previousIds, nextIds) {
+  // Compare as sorted strings so selection changes are detected regardless of set order.
   const before = [...previousIds].map((id) => String(id)).sort();
   const after = [...nextIds].map((id) => String(id)).sort();
   if (before.length !== after.length) {
@@ -117,6 +119,7 @@ export function createGridFocusController({ grid, importInput, searchInput, stat
     const focusState = state.pendingFocusRestore;
     state.pendingFocusRestore = null;
 
+    // Prefer the original action target, then fall back to a nearby card action.
     const cards = Array.from(grid.querySelectorAll(".item"));
     if (cards.length === 0) {
       importInput.focus({ preventScroll: true });
@@ -158,6 +161,7 @@ export function createGridFocusController({ grid, importInput, searchInput, stat
       return;
     }
 
+    // Re-find the old action or a nearby action after rerendering replaces the DOM.
     const cards = Array.from(grid.querySelectorAll(".item"));
     if (cards.length === 0) {
       return;

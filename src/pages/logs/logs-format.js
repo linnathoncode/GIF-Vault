@@ -1,3 +1,5 @@
+// Logs formatting helpers: turn raw log records into the compact, exportable,
+// or status-friendly text variants consumed by the logs page and bug-report flow.
 const LOG_ERROR_HINT_REGEX = /\b(failed|error|rejected|denied|invalid|missing|timeout|aborted|abort|unable|could not)\b/i;
 
 function isErrorLikeLog(log) {
@@ -60,6 +62,8 @@ function buildRenderedLogLines(logs, safeStringifyLogValue) {
       j += 1;
     }
 
+    // Bundle adjacent matching entries unless they look error-like, which keeps
+    // repeated success chatter compact without hiding important failure details.
     const canBundle =
       group.length > 1 && group.every((log) => !isErrorLikeLog(log));
     if (canBundle) {

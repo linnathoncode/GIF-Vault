@@ -1,3 +1,4 @@
+// Card helpers for popup grid items, actions, hover metadata, and copy behavior.
 import { safeLog } from "../../../../lib/log.js";
 
 const SHARED_ICON_BASE = "../../assets/shared";
@@ -160,6 +161,7 @@ export function attachCardSelectionHandlers({
   toggleCardSelection,
   removeCardFromSelection,
 }) {
+  // Keep nested action buttons from turning a card click into a selection change.
   card.addEventListener("mousedown", (event) => {
     const rawTarget = event.target;
     if (!(rawTarget instanceof Element)) {

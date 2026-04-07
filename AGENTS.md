@@ -63,9 +63,17 @@ Maintenance rule:
 
 - `src/manifest.json`: MV3 manifest.
 - `src/background/service-worker.js`: Chrome event/message routing.
-- `src/background/import-service.js`: Import orchestration, permission checks, progress reporting.
-- `src/background/import-media-utils.js`: Shared import/media normalization and payload utility helpers used by import service flows.
-- `src/background/media-resolver.js`: URL/media resolution.
+- `src/background/import/`: Import subsystem folder.
+- `src/background/import/service.js`: Import composition root (wires control/runner/pipeline/runtime/media/offscreen modules).
+- `src/background/import/runner.js`: High-level URL/local import runners and phase/error orchestration.
+- `src/background/import/pipeline.js`: Media processing pipeline (fetch/validate/convert/save + rollback).
+- `src/background/import/control.js`: Import lifecycle control (single-active-import guard, abort/terminate state).
+- `src/background/import/runtime.js`: Runtime integration (host permission checks, progress/runtime messaging).
+- `src/background/import/offscreen.js`: Offscreen conversion bridge.
+- `src/background/import/media-utils.js`: Shared import/media utility helpers.
+- `src/background/import/media-resolver.js`: URL/media resolution implementation.
+- `src/background/import-service.js`: Backward-compatible shim that re-exports import API from `src/background/import/service.js`.
+- `src/background/media-resolver.js`: Backward-compatible shim that re-exports resolver API from `src/background/import/media-resolver.js`.
 - `src/background/action-icon.js`: Toolbar icon/badge helpers.
 - `src/offscreen/offscreen.js`: FFmpeg offscreen conversion path.
 - `src/pages/popup/`: Popup entry files (`popup.js`, `popup.css`, `popup.html`) plus the popup subsystem folder `popup/`.
@@ -104,7 +112,14 @@ PowerShell note:
 - Pipeline order: permission check -> media resolve -> fetch -> optional convert -> save -> notify.
 - Progress updates are written to `chrome.storage.local` and sent as runtime messages.
 - Import/runtime error flow now uses shared protocol error codes (`src/lib/protocol.js`) in addition to localized user text.
-- `import-service.js` should remain the orchestration layer, while lower-level media/url/blob helper logic belongs in `import-media-utils.js`.
+- Import subsystem modularity:
+  - `import/service.js`: composition root
+  - `import/runner.js`: entry-point orchestration for URL/local imports
+  - `import/pipeline.js`: media-processing operations
+  - `import/control.js`: active-import + abort/terminate control
+  - `import/runtime.js`: runtime/storage progress + permission interactions
+  - `import/media-utils.js`: shared payload/media helper utilities
+  - `import/offscreen.js`: offscreen document + conversion bridge
 
 ### Storage
 
