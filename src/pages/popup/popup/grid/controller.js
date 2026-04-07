@@ -18,10 +18,17 @@ import {
   resolveMediaCopyKind,
 } from "./copy.js";
 import { createStoredMediaKindDetector } from "./media-kind.js";
-import { createButton, setButtonIcon } from "./dom.js";
 import { createGridDataController } from "./data.js";
 import { createGridPreviewController } from "./preview.js";
 import { createGridFocusController } from "./focus.js";
+import {
+  attachCardSelectionHandlers,
+  createButton,
+  createHoverInfoRow,
+  createInvalidCard,
+  createPreviewMedia,
+  setButtonIcon,
+} from "./card-dom.js";
 
 export {
   armedDeleteGlyph,
@@ -421,82 +428,40 @@ export function createPopupGridController({
     await render();
   }
 
-  // Card and media element construction for the grid.
-  function createInvalidCard(item) {
-    const card = document.createElement("article");
-    card.className = "item";
-    card.dataset.itemId = String(item.id);
-    const meta = document.createElement("div");
-    meta.className = "meta";
-
-    const urlText = document.createElement("div");
-    urlText.className = "url";
-    urlText.textContent =
-      item.kind === "video"
-        ? UI_MESSAGES.grid.invalidLegacyVideo
-        : UI_MESSAGES.grid.invalidMediaEntry;
-
-    const actions = document.createElement("div");
-    actions.className = "actions";
-    actions.append(
-      createButton({
-        className: "btn",
-        text: UI_MESSAGES.grid.remove,
-        actionKey: "delete",
-        title: deleteButtonLabelWithBatchHint(),
-        onClick: () => removeItems([item.id], item.id),
-      }),
-    );
-
-    meta.append(urlText, actions);
-    card.append(meta);
-    return card;
-  }
-
-  function createPreviewMedia(item, previewUrl) {
-    const media = document.createElement("img");
-    media.className = "thumb";
-    media.src = previewUrl;
-    media.alt = UI_MESSAGES.grid.savedGifAlt;
-    media.loading = "lazy";
-    media.addEventListener("error", () => {
-      void safeLog("popup", "Image preview failed", {
-        id: item.id,
-        mimeType: item.mimeType || "",
-      });
-    });
-    media.addEventListener("pointerenter", (event) => {
-      previewController.scheduleHoverPreview(previewUrl, event);
-    });
-    media.addEventListener("pointermove", (event) => {
-      previewController.updateHoverPointerPosition(event);
-      if (hoverPreviewEl?.classList.contains("visible")) {
-        previewController.positionHoverPreview(
-          event?.clientX ?? 0,
-          event?.clientY ?? 0,
-        );
-      }
-    });
-    media.addEventListener("pointerleave", previewController.hideHoverPreview);
-    media.addEventListener("pointercancel", previewController.hideHoverPreview);
-    return media;
-  }
-
   function buildCard(item) {
     if (item.kind === "video") {
-      return createInvalidCard(item);
+      return createInvalidCard({
+        item,
+        createButton,
+        UI_MESSAGES,
+        deleteButtonLabelWithBatchHint,
+        onDelete: () => removeItems([item.id], item.id),
+      });
     }
 
     const previewUrl = previewController.buildPreviewUrl(item);
     if (!previewUrl) {
-      return createInvalidCard(item);
+      return createInvalidCard({
+        item,
+        createButton,
+        UI_MESSAGES,
+        deleteButtonLabelWithBatchHint,
+        onDelete: () => removeItems([item.id], item.id),
+      });
     }
 
     const card = document.createElement("article");
     card.className = "item";
     card.dataset.itemId = String(item.id);
     setCardSelected(card, selectedItemIds.has(String(item.id)));
-    const media = createPreviewMedia(item, previewUrl);
+    const media = createPreviewMedia({
+      item,
+      previewUrl,
+      previewController,
+      hoverPreviewEl,
+      safeLog,
+      UI_MESSAGES,
+    });
 
     const meta = document.createElement("div");
     meta.className = "meta";
@@ -520,23 +485,12 @@ export function createPopupGridController({
 
     nameRow.append(nameText);
 
-    const hoverInfoText = document.createElement("div");
-    hoverInfoText.className = "meta-hover-row";
-    const sourceHost =
-      hostFromUrl(item.sourceUrl || item.mediaUrl || "") ||
-      UI_MESSAGES.grid.sourceLocal;
-    const sizeLabel = UI_MESSAGES.grid.sizeLabel(
-      formatBytes(item.blob?.size || 0),
-    );
-    const hoverSourceText = document.createElement("span");
-    hoverSourceText.className = "meta-hover-source";
-    hoverSourceText.textContent = sourceHost;
-
-    const hoverSizeText = document.createElement("span");
-    hoverSizeText.className = "meta-hover-size";
-    hoverSizeText.textContent = sizeLabel;
-
-    hoverInfoText.append(hoverSourceText, hoverSizeText);
+    const hoverInfoText = createHoverInfoRow({
+      item,
+      hostFromUrl,
+      formatBytes,
+      UI_MESSAGES,
+    });
 
     const actions = document.createElement("div");
     actions.className = "actions";
@@ -613,40 +567,13 @@ export function createPopupGridController({
     actions.append(renameBtn, copyBtn, favoriteBtn, removeBtn);
     meta.append(nameRow, actions, hoverInfoText);
     card.append(media, meta);
-    card.addEventListener("mousedown", (event) => {
-      const rawTarget = event.target;
-      if (!(rawTarget instanceof Element)) {
-        return;
-      }
-      if (rawTarget.closest(".btn, .name-btn")) {
-        return;
-      }
-      if (event.button !== 0) {
-        return;
-      }
-      focusController.blurSelectionResetInputs();
-      if (event.shiftKey || selectedItemIds.size > 0) {
-        event.preventDefault();
-      }
-    });
-    card.addEventListener("click", (event) => {
-      const rawTarget = event.target;
-      if (!(rawTarget instanceof Element)) {
-        return;
-      }
-      if (rawTarget.closest(".btn, .name-btn")) {
-        return;
-      }
-      if (event.button !== 0) {
-        return;
-      }
-      focusController.blurSelectionResetInputs();
-      event.preventDefault();
-      if (event.shiftKey || selectedItemIds.size > 0) {
-        toggleCardSelection(item.id, card);
-        return;
-      }
-      removeCardFromSelection(item.id, card);
+    attachCardSelectionHandlers({
+      card,
+      itemId: item.id,
+      selectedItemIds,
+      focusController,
+      toggleCardSelection,
+      removeCardFromSelection,
     });
     return card;
   }
