@@ -1,3 +1,5 @@
+import { safeLog } from "../../../../lib/log.js";
+
 const SHARED_ICON_BASE = "../../assets/shared";
 
 function buildSharedIconPath(fileName) {
@@ -94,7 +96,6 @@ export function createPreviewMedia({
   previewUrl,
   previewController,
   hoverPreviewEl,
-  safeLog,
   UI_MESSAGES,
 }) {
   const media = document.createElement("img");
@@ -194,4 +195,68 @@ export function attachCardSelectionHandlers({
     }
     removeCardFromSelection(itemId, card);
   });
+}
+
+export function sanitizeCopyUrl(candidateUrl) {
+  const normalized = String(candidateUrl || "")
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .trim();
+  if (!normalized) {
+    return "";
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(normalized);
+  } catch {
+    return "";
+  }
+
+  const protocol = parsedUrl.protocol.toLowerCase();
+  if (protocol !== "http:" && protocol !== "https:") {
+    return "";
+  }
+
+  return parsedUrl.toString();
+}
+
+export async function copyItemUrl(item) {
+  const canWriteText =
+    navigator.clipboard && typeof navigator.clipboard.writeText === "function";
+  if (canWriteText) {
+    const copiedUrl = sanitizeCopyUrl(
+      item.mediaUrl || item.sourceUrl || "",
+    );
+    if (!copiedUrl) {
+      const hasNoSourceUrl = !String(item?.mediaUrl || item?.sourceUrl || "").trim();
+      if (hasNoSourceUrl) {
+        await safeLog("popup", "Copy failed (local path does not have URL)", {
+          id: item.id,
+        });
+        return { ok: false, method: "none", reason: "no-source-url" };
+      }
+      await safeLog("popup", "Copy failed (local path does not have URL)", {
+        id: item.id,
+      });
+      return { ok: false, method: "none", reason: "blocked" };
+    }
+
+    try {
+      await navigator.clipboard.writeText(copiedUrl);
+      await safeLog("popup", "Copy succeeded (url text)", { id: item.id });
+      return {
+        ok: true,
+        method: "url",
+        copiedUrl,
+      };
+    } catch (error) {
+      await safeLog("popup", "Copy url failed", {
+        id: item.id,
+        error: error?.message || "unknown",
+      });
+    }
+  }
+
+  return { ok: false, method: "none" };
 }

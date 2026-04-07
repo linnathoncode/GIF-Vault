@@ -12,23 +12,24 @@ import {
   armedDeleteGlyph,
   selectionIdsChanged,
   shouldCancelArmedDeleteOnSelectionChange,
-} from "./selection.js";
-import {
-  copyItemUrl,
-  resolveMediaCopyKind,
-} from "./copy.js";
-import { createStoredMediaKindDetector } from "./media-kind.js";
+  createGridFocusController,
+} from "./interaction.js";
 import { createGridDataController } from "./data.js";
-import { createGridPreviewController } from "./preview.js";
-import { createGridFocusController } from "./focus.js";
+import {
+  createGridPreviewController,
+  createStoredMediaKindDetector,
+  resolveMediaCopyKind,
+} from "./media.js";
 import {
   attachCardSelectionHandlers,
+  copyItemUrl,
   createButton,
   createHoverInfoRow,
   createInvalidCard,
   createPreviewMedia,
+  sanitizeCopyUrl,
   setButtonIcon,
-} from "./card-dom.js";
+} from "./card.js";
 
 export {
   armedDeleteGlyph,
@@ -37,7 +38,7 @@ export {
 };
 export {
   sanitizeCopyUrl,
-} from "./copy.js";
+} from "./card.js";
 
 /**
  * Creates the popup grid controller that coordinates filtering, rendering,
@@ -459,7 +460,6 @@ export function createPopupGridController({
       previewUrl,
       previewController,
       hoverPreviewEl,
-      safeLog,
       UI_MESSAGES,
     });
 

@@ -3,7 +3,7 @@ export {
   armedDeleteGlyph,
   selectionIdsChanged,
   shouldCancelArmedDeleteOnSelectionChange,
-} from "./grid/selection.js";
+} from "./grid/interaction.js";
 export {
   sanitizeCopyUrl,
-} from "./grid/copy.js";
+} from "./grid/card.js";

@@ -120,7 +120,8 @@ PowerShell note:
 - Popup tab persistence/default-tab resolution lives in `src/pages/popup/popup/tab.js`.
 - Popup import orchestration, permission precheck, and popup-owned import request handling live in `src/pages/popup/popup/import-flow.js`.
 - Popup grid item actions and selection hints are handled by `src/pages/popup/popup/grid.js`.
-- Popup grid internals live in `src/pages/popup/popup/grid/` with focused modules (`controller.js`, `data.js`, `preview.js`, `focus.js`, `copy.js`, `selection.js`, `media-kind.js`, `dom.js`).
+- Popup grid internals live in `src/pages/popup/popup/grid/` and should stay grouped into broader modules: `controller.js`, `card.js`, `data.js`, `interaction.js`, and `media.js`.
+- Grid modularity direction: avoid splitting into many micro-files by default; prefer these broader buckets and only split further when a module becomes difficult to reason about.
 
 ### Popup Card UI Rules (Current)
 
