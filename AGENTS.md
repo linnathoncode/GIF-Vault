@@ -10,7 +10,7 @@
 ## Release State
 
 - Branch: `test`
-- HEAD: `4cab35e`
+- HEAD: `5510c2a`
 - Version: `1.6.4`
 
 ## Project Purpose
@@ -64,13 +64,14 @@ Maintenance rule:
 - `src/manifest.json`: MV3 manifest.
 - `src/background/service-worker.js`: Chrome event/message routing.
 - `src/background/import-service.js`: Import orchestration, permission checks, progress reporting.
+- `src/background/import-media-utils.js`: Shared import/media normalization and payload utility helpers used by import service flows.
 - `src/background/media-resolver.js`: URL/media resolution.
 - `src/background/action-icon.js`: Toolbar icon/badge helpers.
 - `src/offscreen/offscreen.js`: FFmpeg offscreen conversion path.
 - `src/pages/popup/`: Popup entry files (`popup.js`, `popup.css`, `popup.html`) plus the popup subsystem folder `popup/`.
 - `src/pages/popup/popup/`: Popup internal modules (`state.js`, `status.js`, `tab.js`, `import-flow.js`, `import-state.js`, `grid.js`, `grid/`).
 - `src/pages/assist/`: Permission assist page.
-- `src/pages/logs/`: Logs page.
+- `src/pages/logs/`: Logs page (`logs.js` coordinator + `logs-format.js` formatting + `logs-report.js` report helpers + `logs-view.js` view controller).
 - `src/pages/options/`: Settings/options page.
 - `src/lib/`: Shared helpers (`async.js`, `db.js`, `theme.js`, `ui.js`, `log.js`, `runtime-config.js`, `messages.js`, `protocol.js`, `page-lifecycle.js`).
 - `src/assets/icons/app/`: Manifest/action PNG icon sizes.
@@ -103,6 +104,7 @@ PowerShell note:
 - Pipeline order: permission check -> media resolve -> fetch -> optional convert -> save -> notify.
 - Progress updates are written to `chrome.storage.local` and sent as runtime messages.
 - Import/runtime error flow now uses shared protocol error codes (`src/lib/protocol.js`) in addition to localized user text.
+- `import-service.js` should remain the orchestration layer, while lower-level media/url/blob helper logic belongs in `import-media-utils.js`.
 
 ### Storage
 
@@ -122,6 +124,14 @@ PowerShell note:
 - Popup grid item actions and selection hints are handled by `src/pages/popup/popup/grid.js`.
 - Popup grid internals live in `src/pages/popup/popup/grid/` and should stay grouped into broader modules: `controller.js`, `card.js`, `data.js`, `interaction.js`, and `media.js`.
 - Grid modularity direction: avoid splitting into many micro-files by default; prefer these broader buckets and only split further when a module becomes difficult to reason about.
+- Within the grid buckets: keep selection/focus/action orchestration in `interaction.js`, media preview/kind detection in `media.js`, and card construction/copy wiring in `card.js`.
+
+### Logs Page Modularity
+
+- Keep `src/pages/logs/logs.js` as the page coordinator (wiring lifecycle, storage listeners, and async orchestration).
+- Keep view rendering/state in `src/pages/logs/logs-view.js`.
+- Keep log line formatting/bundling in `src/pages/logs/logs-format.js`.
+- Keep bug-report/attachment helpers in `src/pages/logs/logs-report.js`.
 
 ### Popup Card UI Rules (Current)
 

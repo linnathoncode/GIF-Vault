@@ -17,115 +17,24 @@ import {
   isTwitterUrl,
   resolveMediaUrls,
 } from "./media-resolver.js";
+import {
+  blobFromConvertedPayload,
+  buildLocalPseudoUrl,
+  inferName,
+  inferNameFromLocalFile,
+  mediaTooLargeMessage,
+  normalizeHttpUrl,
+  normalizeLocalFiles,
+  normalizeOptionalHttpUrl,
+  normalizeResolvedHints,
+  readBlobSniffBytes,
+  readBlobWithMaxSize,
+  resolveMaxDownloadBytes,
+} from "./import-media-utils.js";
 
 const importAbortControllerById = new Map();
 const terminatedImportIds = new Set();
 let activeImportRequestId = "";
-const SNIFF_BYTES_LENGTH = 16;
-
-function isHttpUrl(rawUrl) {
-  try {
-    const parsed = new URL(String(rawUrl || "").trim());
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function normalizeHttpUrl(rawUrl, fallbackError = UI_MESSAGES.popup.enterValidUrl) {
-  const value = String(rawUrl || "").trim();
-  if (!isHttpUrl(value)) {
-    throw createImportError(IMPORT_ERROR_CODES.invalidUrl, fallbackError);
-  }
-  return new URL(value).toString();
-}
-
-function normalizeOptionalHttpUrl(rawUrl) {
-  const value = String(rawUrl || "").trim();
-  if (!value) {
-    return "";
-  }
-  try {
-    return normalizeHttpUrl(value);
-  } catch {
-    return "";
-  }
-}
-
-function buildLocalPseudoUrl(fileName = "") {
-  const safeName = String(fileName || "").trim() || `local-${Date.now()}.bin`;
-  return `https://local.file/${encodeURIComponent(safeName)}`;
-}
-
-function normalizeLocalFiles(files) {
-  if (!Array.isArray(files)) {
-    return [];
-  }
-
-  return files
-    .map((file) => normalizeSingleLocalFile(file))
-    .filter(Boolean);
-}
-
-function isBlobLike(value) {
-  return (
-    value instanceof Blob ||
-    (
-      Boolean(value) &&
-      typeof value === "object" &&
-      typeof value.arrayBuffer === "function" &&
-      typeof value.size === "number"
-    )
-  );
-}
-
-function normalizeSingleLocalFile(file) {
-  if (isBlobLike(file)) {
-    return {
-      blob: file,
-      name: String(file?.name || "").trim(),
-      mimeType: String(file?.type || "").trim().toLowerCase(),
-      localPath: String(file?.path || file?.webkitRelativePath || "").trim(),
-    };
-  }
-
-  if (
-    !file ||
-    typeof file !== "object" ||
-    typeof file.bytesBase64 !== "string"
-  ) {
-    return null;
-  }
-
-  const bytes = base64ToUint8(file.bytesBase64);
-  if (bytes.length === 0) {
-    return null;
-  }
-
-  const mimeType = String(file.mimeType || "").trim().toLowerCase();
-  const blob = new Blob([bytes], {
-    type: mimeType || "application/octet-stream",
-  });
-  return {
-    blob,
-    name: String(file.name || "").trim(),
-    mimeType,
-    localPath: String(file.localPath || file.path || file.webkitRelativePath || "").trim(),
-  };
-}
-
-function resolveMaxDownloadBytes(gifConversionConfig) {
-  const mb = Number(gifConversionConfig?.maxDownloadSizeMb);
-  if (!Number.isFinite(mb) || mb <= 0) {
-    return 50 * 1024 * 1024;
-  }
-  return Math.round(mb * 1024 * 1024);
-}
-
-function mediaTooLargeMessage(maxBytes) {
-  const maxMb = Math.max(1, Math.round(maxBytes / (1024 * 1024)));
-  return UI_MESSAGES.import.mediaTooLarge(maxMb);
-}
 
 function isUserTerminatedImport(requestId, abortController, error) {
   if (
@@ -391,15 +300,6 @@ async function importFromFiles(files, requestId = "", sourceUrlHint = "") {
       activeImportRequestId = "";
     }
   }
-}
-
-function normalizeResolvedHints(resolvedMediaUrlHint) {
-  if (Array.isArray(resolvedMediaUrlHint)) {
-    return [...new Set(resolvedMediaUrlHint.map((url) => normalizeHttpUrl(url)).filter(Boolean))];
-  }
-
-  const single = String(resolvedMediaUrlHint || "").trim();
-  return single ? [normalizeHttpUrl(single)] : [];
 }
 
 async function importResolvedMedia({
@@ -701,57 +601,6 @@ async function importLocalFileMedia({
   return item;
 }
 
-async function readBlobSniffBytes(blob) {
-  try {
-    const bytes = new Uint8Array(
-      await blob.slice(0, SNIFF_BYTES_LENGTH).arrayBuffer(),
-    );
-    return bytes;
-  } catch {
-    return new Uint8Array();
-  }
-}
-
-async function readBlobWithMaxSize(response, maxBytes, ensureImportActive) {
-  if (response?.body?.getReader) {
-    const reader = response.body.getReader();
-    const chunks = [];
-    let totalBytes = 0;
-
-    try {
-      while (true) {
-        ensureImportActive();
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
-        }
-
-        const chunk = value instanceof Uint8Array ? value : new Uint8Array(value || []);
-        totalBytes += chunk.byteLength;
-        if (totalBytes > maxBytes) {
-          throw new Error(mediaTooLargeMessage(maxBytes));
-        }
-        chunks.push(chunk);
-      }
-    } finally {
-      try {
-        void reader.cancel();
-      } catch {
-        // no-op
-      }
-    }
-
-    const mimeType = response.headers.get("content-type") || "application/octet-stream";
-    return new Blob(chunks, { type: mimeType });
-  }
-
-  const blob = await response.blob();
-  ensureImportActive();
-  if (blob.size > maxBytes) {
-    throw new Error(mediaTooLargeMessage(maxBytes));
-  }
-  return blob;
-}
 
 async function terminateImport(requestId) {
   const id = String(requestId || "").trim();
@@ -882,43 +731,6 @@ async function convertInOffscreen({
   return response.payload;
 }
 
-function blobFromConvertedPayload(payload) {
-  if (!payload) {
-    return null;
-  }
-  if (payload.blob instanceof Blob) {
-    return payload.blob;
-  }
-
-  const mimeType = payload.mimeType || "image/gif";
-  if (typeof payload.gifBase64 === "string" && payload.gifBase64.length > 0) {
-    const bytes = base64ToUint8(payload.gifBase64);
-    if (bytes.length > 0) {
-      return new Blob([bytes], { type: mimeType });
-    }
-  }
-  if (payload.gifBuffer instanceof ArrayBuffer) {
-    return new Blob([payload.gifBuffer], { type: mimeType });
-  }
-  if (ArrayBuffer.isView(payload.gifBuffer)) {
-    return new Blob([payload.gifBuffer.buffer], { type: mimeType });
-  }
-  return null;
-}
-
-function base64ToUint8(base64) {
-  try {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
-  } catch {
-    return new Uint8Array();
-  }
-}
-
 // Permission checks and runtime updates.
 async function ensureOriginAccess(rawUrl) {
   const originPattern = originPatternFromUrl(rawUrl);
@@ -983,31 +795,6 @@ async function notifyVaultUpdated(itemId) {
   } catch {
     // Popup may be closed; ignore.
   }
-}
-
-function inferName(sourceUrl, mediaUrl) {
-  const candidate = mediaUrl || sourceUrl || "";
-  try {
-    const url = new URL(candidate);
-    const file = url.pathname.split("/").filter(Boolean).pop() || "";
-    const noExt = file.replace(/\.[a-z0-9]+$/i, "").trim();
-    if (noExt) {
-      return noExt.slice(0, 40);
-    }
-    return `gif-${Date.now()}`;
-  } catch {
-    return `gif-${Date.now()}`;
-  }
-}
-
-function inferNameFromLocalFile(fileName) {
-  const trimmed = String(fileName || "").trim();
-  if (!trimmed) {
-    return `gif-${Date.now()}`;
-  }
-
-  const baseName = trimmed.replace(/\.[a-z0-9]+$/i, "").trim();
-  return (baseName || trimmed).slice(0, 40);
 }
 
 export { importFromFiles, importFromUrl, terminateImport };
