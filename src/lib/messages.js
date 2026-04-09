@@ -258,6 +258,9 @@ function createEnMessages() {
       failedToFetchMedia: "Couldn't fetch media",
       checkingMediaSize: "Checking media size...",
       convertingVideoToGif: "Converting video to GIF...",
+      convertingVideoToGifAttempt: "Converting video to GIF...",
+      convertingVideoToGifDowngrade:
+        "Output too large. Attempting again with lower quality...",
       savingToVault: "Saving to vault...",
       hostAccessRequired: "This site needs extra access first.",
       offscreenConversionFailed: "Couldn't convert video to GIF.",
@@ -528,6 +531,9 @@ function createTrMessages() {
       failedToFetchMedia: "Medya alınamadı",
       checkingMediaSize: "Medya boyutu kontrol ediliyor...",
       convertingVideoToGif: "Video GIF'e dönüştürülüyor...",
+      convertingVideoToGifAttempt: "Video GIF'e dönüştürülüyor...",
+      convertingVideoToGifDowngrade:
+        "Çıktı çok büyük. Daha düşük kalite ile tekrar deneniyor...",
       savingToVault: "Vault'a aktarılıyor...",
       hostAccessRequired: "Önce bu site için ek erişim izni gerekiyor.",
       offscreenConversionFailed: "Video GIF'e dönüştürülemedi.",

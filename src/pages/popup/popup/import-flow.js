@@ -97,6 +97,14 @@ function mediaTooLargeMessage(maxBytes) {
   return UI_MESSAGES.import.mediaTooLarge(maxMb);
 }
 
+function isMessageSizeExceededError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("message exceeded maximum allowed size") ||
+    message.includes("64mib")
+  );
+}
+
 function shouldRetrySerializedLocalImport(response, fileCount) {
   if (!response || response.ok || fileCount <= 0) {
     return false;
@@ -265,7 +273,12 @@ export function createPopupImportController({
     }
   }
 
-  async function runPopupImportFilesRequest(files, requestId, sourceUrlHint = "") {
+  async function runPopupImportFilesRequest(
+    files,
+    requestId,
+    sourceUrlHint = "",
+    maxBytes = 50 * 1024 * 1024,
+  ) {
     try {
       let response = null;
       try {
@@ -277,7 +290,10 @@ export function createPopupImportController({
           requestId,
           sourceUrlHint: String(sourceUrlHint || ""),
         });
-      } catch {
+      } catch (error) {
+        if (isMessageSizeExceededError(error)) {
+          throw new Error(mediaTooLargeMessage(maxBytes));
+        }
         const serializedFiles = await serializeLocalFilesForMessage(files);
         if (serializedFiles.length === 0) {
           throw new Error(UI_MESSAGES.popup.chooseFilesFirst);
@@ -527,6 +543,7 @@ export function createPopupImportController({
       files,
       requestId,
       String(options?.sourceUrlHint || ""),
+      maxBytes,
     );
   }
 

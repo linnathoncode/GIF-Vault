@@ -183,15 +183,7 @@ function isLikelyTweetImageUrl(rawUrl) {
 
 function mediaSortScore(url) {
   if (isLikelyTweetVideoUrl(url)) {
-    const sizeMatch = (() => {
-      try {
-        return new URL(url).pathname.match(/\/(\d+)x(\d+)\//);
-      } catch {
-        return null;
-      }
-    })();
-    const area = sizeMatch ? Number(sizeMatch[1]) * Number(sizeMatch[2]) : 0;
-    return 1_000_000 + area;
+    return 1_000_000 + videoQualityPreferenceScore(url);
   }
 
   if (isLikelyTweetImageUrl(url)) {
@@ -216,6 +208,42 @@ function mediaSortScore(url) {
   }
 
   return 0;
+}
+
+function parseVideoResolution(rawUrl) {
+  try {
+    const match = new URL(rawUrl).pathname.match(/\/(\d+)x(\d+)\//);
+    if (!match) {
+      return null;
+    }
+    const width = Number(match[1]);
+    const height = Number(match[2]);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return null;
+    }
+    return { width, height };
+  } catch {
+    return null;
+  }
+}
+
+function videoQualityPreferenceScore(rawUrl) {
+  const size = parseVideoResolution(rawUrl);
+  if (!size) {
+    return 0;
+  }
+
+  // Prefer 720-quality streams from X/Twitter variants when available.
+  // We use the short edge so landscape/portrait both map consistently.
+  const shortEdge = Math.min(size.width, size.height);
+  const area = size.width * size.height;
+  if (shortEdge === 720) {
+    return 500_000 + area;
+  }
+  if (shortEdge < 720) {
+    return 300_000 + shortEdge * 100 + area / 1_000_000;
+  }
+  return 100_000 - (shortEdge - 720) * 100 + area / 1_000_000;
 }
 
 function sortMediaUrls(urls) {

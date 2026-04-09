@@ -153,4 +153,38 @@ describe("popup import flow local file path", () => {
     expect(harness.state.activeImportRequestId).toBe("");
     expect(harness.syncImportUiState).toHaveBeenCalledTimes(2);
   });
+
+  it("maps native runtime payload size errors to media-too-large message", async () => {
+    const { createPopupImportController } = await import(
+      "../../src/pages/popup/popup/import-flow.js"
+    );
+    const harness = createHarness();
+    const file = new Blob([new Uint8Array([1, 2, 3, 4])], {
+      type: "video/mp4",
+    });
+
+    globalThis.chrome = {
+      runtime: {
+        sendMessage: vi.fn(async () => {
+          throw new Error(
+            "Message exceeded maximum allowed size of 64MiB.",
+          );
+        }),
+      },
+      permissions: {
+        contains: vi.fn(async () => true),
+      },
+      tabs: {
+        create: vi.fn(async () => {}),
+      },
+    };
+    vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue("req-local-3");
+
+    const controller = createPopupImportController(harness);
+    await controller.importFiles([file]);
+
+    expect(harness.statusController.setImportErrorState).toHaveBeenCalledWith(
+      UI_MESSAGES.import.mediaTooLarge(50),
+    );
+  });
 });

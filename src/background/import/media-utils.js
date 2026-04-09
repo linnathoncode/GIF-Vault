@@ -67,6 +67,79 @@ function base64ToUint8(base64) {
   }
 }
 
+function parseSerializedByteObjectMeta(value) {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    value instanceof Blob
+  ) {
+    return null;
+  }
+
+  const hasExplicitLength = Object.prototype.hasOwnProperty.call(value, "length");
+  const explicitLength = hasExplicitLength ? Number(value.length) : -1;
+  if (hasExplicitLength && (!Number.isInteger(explicitLength) || explicitLength < 0)) {
+    return null;
+  }
+
+  const allowedMetaKeys = new Set([
+    "length",
+    "byteLength",
+    "byteOffset",
+    "BYTES_PER_ELEMENT",
+    "buffer",
+  ]);
+  let byteEntryCount = 0;
+  let maxIndex = -1;
+  for (const [key, byteValue] of Object.entries(value)) {
+    if (allowedMetaKeys.has(key)) {
+      continue;
+    }
+    if (!/^(0|[1-9]\d*)$/.test(key)) {
+      return null;
+    }
+    const index = Number(key);
+    if (!Number.isInteger(byteValue) || byteValue < 0 || byteValue > 255) {
+      return null;
+    }
+    byteEntryCount += 1;
+    maxIndex = Math.max(maxIndex, index);
+  }
+
+  if (hasExplicitLength) {
+    if (explicitLength === 0) {
+      return byteEntryCount === 0 ? { length: 0 } : null;
+    }
+    if (byteEntryCount !== explicitLength || maxIndex !== explicitLength - 1) {
+      return null;
+    }
+    return { length: explicitLength };
+  }
+
+  if (byteEntryCount === 0) {
+    return null;
+  }
+  const inferredLength = maxIndex + 1;
+  if (byteEntryCount !== inferredLength) {
+    return null;
+  }
+  return { length: inferredLength };
+}
+
+function deserializeSerializedByteObject(value) {
+  const meta = parseSerializedByteObjectMeta(value);
+  if (!meta) {
+    return null;
+  }
+
+  const bytes = new Uint8Array(meta.length);
+  for (let i = 0; i < meta.length; i += 1) {
+    bytes[i] = Number(value[i] || 0);
+  }
+  return bytes;
+}
+
 function normalizeSingleLocalFile(file) {
   if (isBlobLike(file)) {
     return {
@@ -252,6 +325,10 @@ function blobFromConvertedPayload(payload) {
   }
   if (ArrayBuffer.isView(payload.gifBuffer)) {
     return new Blob([payload.gifBuffer.buffer], { type: mimeType });
+  }
+  const serializedBufferBytes = deserializeSerializedByteObject(payload.gifBuffer);
+  if (serializedBufferBytes && serializedBufferBytes.byteLength > 0) {
+    return new Blob([serializedBufferBytes], { type: mimeType });
   }
   return null;
 }
