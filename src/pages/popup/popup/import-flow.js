@@ -1,5 +1,6 @@
 import { safeLog } from "../../../lib/log.js";
 import { UI_MESSAGES } from "../../../lib/messages.js";
+import { getRuntimeConfig, normalizeRuntimeConfig } from "../../../lib/runtime-config.js";
 import {
   MESSAGE_TYPES,
   IMPORT_ERROR_CODES,
@@ -83,6 +84,19 @@ function getLocalPathHint(file) {
   return "";
 }
 
+function resolveMaxDownloadBytes(gifConversionConfig) {
+  const mb = Number(gifConversionConfig?.maxDownloadSizeMb);
+  if (!Number.isFinite(mb) || mb <= 0) {
+    return 50 * 1024 * 1024;
+  }
+  return Math.round(mb * 1024 * 1024);
+}
+
+function mediaTooLargeMessage(maxBytes) {
+  const maxMb = Math.max(1, Math.round(maxBytes / (1024 * 1024)));
+  return UI_MESSAGES.import.mediaTooLarge(maxMb);
+}
+
 async function serializeLocalFilesForMessage(files) {
   const payloads = [];
   for (const file of files) {
@@ -93,6 +107,7 @@ async function serializeLocalFilesForMessage(files) {
     payloads.push({
       name: String(file?.name || ""),
       mimeType: String(file?.type || ""),
+      byteLength: Number(file?.size || 0),
       localPath: getLocalPathHint(file),
       bytesBase64: uint8ToBase64(bytes),
     });
@@ -424,6 +439,24 @@ export function createPopupImportController({
         UI_MESSAGES.popup.chooseFilesFirst,
         "error",
       );
+      if (refs.localFileInput) {
+        refs.localFileInput.value = "";
+      }
+      return;
+    }
+
+    const runtimeConfig = await getRuntimeConfig()
+      .then((value) => normalizeRuntimeConfig(value || {}))
+      .catch(() => normalizeRuntimeConfig({}));
+    const maxBytes = resolveMaxDownloadBytes(runtimeConfig.gifConversion);
+    const tooLargeFile = files.find((file) => Number(file?.size || 0) > maxBytes);
+    if (tooLargeFile) {
+      statusController.showTransientStatus(mediaTooLargeMessage(maxBytes), "error");
+      await safeLog("popup", "Local file import blocked by preflight size check", {
+        fileName: String(tooLargeFile?.name || ""),
+        size: Number(tooLargeFile?.size || 0),
+        maxBytes,
+      });
       if (refs.localFileInput) {
         refs.localFileInput.value = "";
       }

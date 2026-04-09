@@ -17,6 +17,8 @@ function createImportPipeline({
   buildLocalPseudoUrl,
   inferName,
   inferNameFromLocalFile,
+  getLocalFileByteLength,
+  materializeLocalFileBlob,
   mediaTooLargeMessage,
   normalizeHttpUrl,
   readBlobSniffBytes,
@@ -210,11 +212,12 @@ function createImportPipeline({
     ensureImportActive,
   }) {
     ensureImportActive();
-    const inputBlob = localFile.blob;
     const maxBytes = resolveMaxDownloadBytes(gifConversionConfig);
-    if (inputBlob.size > maxBytes) {
+    const localFileBytes = getLocalFileByteLength(localFile);
+    if (localFileBytes > maxBytes) {
       throw new Error(mediaTooLargeMessage(maxBytes));
     }
+    const inputBlob = materializeLocalFileBlob(localFile, maxBytes);
 
     const pseudoUrl = buildLocalPseudoUrl(localFile.name);
     const sniffBytes = await readBlobSniffBytes(inputBlob);

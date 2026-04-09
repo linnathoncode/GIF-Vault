@@ -85,17 +85,14 @@ function normalizeSingleLocalFile(file) {
     return null;
   }
 
-  const bytes = base64ToUint8(file.bytesBase64);
-  if (bytes.length === 0) {
+  const bytesBase64 = String(file.bytesBase64 || "");
+  if (!bytesBase64) {
     return null;
   }
-
   const mimeType = String(file.mimeType || "").trim().toLowerCase();
-  const blob = new Blob([bytes], {
-    type: mimeType || "application/octet-stream",
-  });
   return {
-    blob,
+    bytesBase64,
+    byteLength: Number(file.byteLength || estimateBase64ByteLength(bytesBase64) || 0),
     name: String(file.name || "").trim(),
     mimeType,
     localPath: String(file.localPath || file.path || file.webkitRelativePath || "").trim(),
@@ -110,6 +107,55 @@ function normalizeLocalFiles(files) {
   return files
     .map((file) => normalizeSingleLocalFile(file))
     .filter(Boolean);
+}
+
+function estimateBase64ByteLength(base64) {
+  const value = String(base64 || "").trim();
+  if (!value) {
+    return 0;
+  }
+  const normalized = value.replace(/\s+/g, "");
+  const paddingMatch = normalized.match(/=+$/);
+  const padding = paddingMatch ? paddingMatch[0].length : 0;
+  return Math.max(0, Math.floor((normalized.length * 3) / 4) - padding);
+}
+
+function getLocalFileByteLength(localFile) {
+  if (localFile?.blob instanceof Blob) {
+    return localFile.blob.size;
+  }
+  const declaredLength = Number(localFile?.byteLength);
+  if (Number.isFinite(declaredLength) && declaredLength >= 0) {
+    return declaredLength;
+  }
+  return estimateBase64ByteLength(localFile?.bytesBase64 || "");
+}
+
+function materializeLocalFileBlob(localFile, maxBytes) {
+  if (localFile?.blob instanceof Blob) {
+    if (localFile.blob.size > maxBytes) {
+      throw new Error(mediaTooLargeMessage(maxBytes));
+    }
+    return localFile.blob;
+  }
+
+  const approxBytes = getLocalFileByteLength(localFile);
+  if (approxBytes > maxBytes) {
+    throw new Error(mediaTooLargeMessage(maxBytes));
+  }
+
+  const bytes = base64ToUint8(localFile?.bytesBase64 || "");
+  if (bytes.length === 0) {
+    throw new Error(UI_MESSAGES.popup.chooseFilesFirst);
+  }
+  if (bytes.length > maxBytes) {
+    throw new Error(mediaTooLargeMessage(maxBytes));
+  }
+
+  const mimeType = String(localFile?.mimeType || "").trim().toLowerCase();
+  return new Blob([bytes], {
+    type: mimeType || "application/octet-stream",
+  });
 }
 
 function resolveMaxDownloadBytes(gifConversionConfig) {
@@ -240,6 +286,8 @@ export {
   buildLocalPseudoUrl,
   inferName,
   inferNameFromLocalFile,
+  getLocalFileByteLength,
+  materializeLocalFileBlob,
   mediaTooLargeMessage,
   normalizeHttpUrl,
   normalizeLocalFiles,
