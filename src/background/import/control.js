@@ -114,14 +114,9 @@ function createImportControl({
     }
 
     void safeLog("import", "Terminate import requested", { requestId: id });
-    void reportProgress(
-      id,
-      UI_MESSAGES.import.importTerminated,
-      false,
-      "error",
-      UI_MESSAGES.import.phaseComplete,
-      { messageKey: "importTerminated" },
-    );
+    // Do not emit a terminal progress state here. The runner/pipeline flow emits
+    // the final inactive progress update when in-flight work actually unwinds.
+    // This keeps popup termination-pending feedback active until true completion.
     return Boolean(controller);
   }
 

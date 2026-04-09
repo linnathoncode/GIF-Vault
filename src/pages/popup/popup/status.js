@@ -10,6 +10,8 @@ export function createPopupStatusController({
   getPopupMenuConfig,
 }) {
   const TRANSIENT_STATUS_DURATION_MS = 5000;
+  const TERMINATION_DOT_ANIMATION_INTERVAL_MS = 450;
+  const TERMINATION_DOT_FRAMES = [".", "..", "..."];
   const {
     statusEl,
     statusTextEl,
@@ -25,6 +27,9 @@ export function createPopupStatusController({
   let transientStatusActive = false;
   let transientProgressSnapshot = null;
   let transientDisplayMode = "below";
+  let terminationDotTimer = 0;
+  let terminationDotFrame = 0;
+  let terminationDotBaseText = "";
   const readState =
     typeof getState === "function"
       ? getState
@@ -57,6 +62,63 @@ export function createPopupStatusController({
           }
         };
 
+  function normalizeTerminationBaseText(text) {
+    const value = String(text || "").replace(/\u2026/g, ".").trim();
+    if (!value) {
+      return UI_MESSAGES.popup.importTerminationRequested.replace(/\.+$/, "");
+    }
+    return value.replace(/\.+$/, "").trim() || UI_MESSAGES.popup.importTerminationRequested.replace(/\.+$/, "");
+  }
+
+  function stopTerminationDotAnimation() {
+    if (!terminationDotTimer) {
+      return;
+    }
+    clearInterval(terminationDotTimer);
+    terminationDotTimer = 0;
+    terminationDotFrame = 0;
+    terminationDotBaseText = "";
+  }
+
+  function isTerminationPendingState(importState) {
+    const state = readState();
+    return Boolean(state?.isImportTerminationPending && importState?.active);
+  }
+
+  function startTerminationDotAnimation(baseText) {
+    const normalizedBaseText = normalizeTerminationBaseText(baseText);
+    if (terminationDotTimer && terminationDotBaseText === normalizedBaseText) {
+      return;
+    }
+
+    stopTerminationDotAnimation();
+    terminationDotBaseText = normalizedBaseText;
+
+    const renderFrame = () => {
+      if (!progressLabelEl) {
+        return;
+      }
+
+      if (!readState()?.isImportTerminationPending) {
+        stopTerminationDotAnimation();
+        return;
+      }
+
+      const frameSuffix =
+        TERMINATION_DOT_FRAMES[
+          terminationDotFrame % TERMINATION_DOT_FRAMES.length
+        ];
+      progressLabelEl.textContent = `${terminationDotBaseText}${frameSuffix}`;
+      terminationDotFrame += 1;
+    };
+
+    renderFrame();
+    terminationDotTimer = setInterval(
+      renderFrame,
+      TERMINATION_DOT_ANIMATION_INTERVAL_MS,
+    );
+  }
+
   function getImportProgressPercent(importState) {
     if (!importState?.text && !importState?.phase) {
       return 0;
@@ -84,6 +146,7 @@ export function createPopupStatusController({
   }
 
   function clearProgressVisuals(options = {}) {
+    stopTerminationDotAnimation();
     if (!progressTrackEl || !progressBarEl || !progressLabelEl) {
       return;
     }
@@ -116,6 +179,13 @@ export function createPopupStatusController({
     progressTrackEl.classList.toggle("error", kind === "error");
     progressBarEl.style.width = `${percent}%`;
     progressLabelEl.textContent = importState?.text || "";
+
+    if (isTerminationPendingState(importState)) {
+      startTerminationDotAnimation(importState?.text);
+      return;
+    }
+
+    stopTerminationDotAnimation();
   }
 
   function captureProgressVisuals() {
@@ -205,6 +275,7 @@ export function createPopupStatusController({
     clearTransientStatusTimer();
     transientProgressSnapshot = null;
     transientDisplayMode = "below";
+    stopTerminationDotAnimation();
   }
 
   function showTransientStatus(

@@ -55,6 +55,21 @@ body.boot-loading .input {
   cursor: wait;
 }
 
+body.import-active .input:disabled,
+body.import-active .btn:disabled,
+body.import-active .icon-btn:disabled,
+body.import-active .danger-btn:disabled,
+body.import-active .name-btn:disabled,
+body.import-active .inline-input-icon-btn:disabled {
+  opacity: 0.48;
+  filter: saturate(0.55);
+  cursor: not-allowed;
+}
+
+body.import-active .input:disabled {
+  border-style: dashed;
+}
+
 .container {
   height: 100%;
   min-height: 0;

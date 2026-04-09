@@ -253,16 +253,28 @@ export function createPopupImportController({
 
   async function runPopupImportFilesRequest(files, requestId, sourceUrlHint = "") {
     try {
-      const serializedFiles = await serializeLocalFilesForMessage(files);
-      if (serializedFiles.length === 0) {
-        throw new Error(UI_MESSAGES.popup.chooseFilesFirst);
+      let response = null;
+      try {
+        // Prefer sending native File/Blob objects to avoid expensive popup-side
+        // base64 serialization that can stall hover/interaction responsiveness.
+        response = await chrome.runtime.sendMessage({
+          type: MESSAGE_TYPES.importFiles,
+          files,
+          requestId,
+          sourceUrlHint: String(sourceUrlHint || ""),
+        });
+      } catch {
+        const serializedFiles = await serializeLocalFilesForMessage(files);
+        if (serializedFiles.length === 0) {
+          throw new Error(UI_MESSAGES.popup.chooseFilesFirst);
+        }
+        response = await chrome.runtime.sendMessage({
+          type: MESSAGE_TYPES.importFiles,
+          files: serializedFiles,
+          requestId,
+          sourceUrlHint: String(sourceUrlHint || ""),
+        });
       }
-      const response = await chrome.runtime.sendMessage({
-        type: MESSAGE_TYPES.importFiles,
-        files: serializedFiles,
-        requestId,
-        sourceUrlHint: String(sourceUrlHint || ""),
-      });
       if (!response?.ok) {
         await safeLog("popup", "Popup local file import request was rejected", {
           fileCount: files.length,
@@ -350,7 +362,8 @@ export function createPopupImportController({
       if (!response?.ok) {
         throw new Error(response?.error || UI_MESSAGES.popup.terminateFailed);
       }
-      await clearStoredImportStatePreservingUi();
+      // Keep popup termination-pending state alive until the import pipeline
+      // emits its real terminal progress update.
     } catch (error) {
       stateStore.clearImportTerminationPending();
       syncImportUiState();
