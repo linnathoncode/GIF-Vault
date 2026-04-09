@@ -98,6 +98,7 @@ function createImportPipeline({
     let converted = false;
 
     if (isVideoMedia) {
+      const checkingPhaseStartedAtMs = Date.now();
       await reportProgress(
         progressId,
         UI_MESSAGES.import.checkingMediaSize,
@@ -116,6 +117,17 @@ function createImportPipeline({
       try {
         const inputBytes = new Uint8Array(await inputBlob.arrayBuffer());
         ensureImportActive();
+        await safeLog("import", "Phase transition: checking -> converting", {
+          progressId,
+          flow: "remote",
+          elapsedMsSinceCheckingPhase: Math.max(
+            0,
+            Date.now() - checkingPhaseStartedAtMs,
+          ),
+          mediaUrl: resolvedMediaUrl,
+          sourceUrl,
+          inputBytes: inputBytes.byteLength,
+        });
         await reportProgress(
           progressId,
           UI_MESSAGES.import.convertingVideoToGif,
@@ -245,6 +257,7 @@ function createImportPipeline({
     let converted = false;
 
     if (isVideoMedia) {
+      const checkingPhaseStartedAtMs = Date.now();
       await reportProgress(
         progressId,
         UI_MESSAGES.import.checkingMediaSize,
@@ -262,6 +275,16 @@ function createImportPipeline({
       try {
         const inputBytes = new Uint8Array(await inputBlob.arrayBuffer());
         ensureImportActive();
+        await safeLog("import", "Phase transition: checking -> converting", {
+          progressId,
+          flow: "local",
+          elapsedMsSinceCheckingPhase: Math.max(
+            0,
+            Date.now() - checkingPhaseStartedAtMs,
+          ),
+          fileName: localFile.name || "",
+          inputBytes: inputBytes.byteLength,
+        });
         await reportProgress(
           progressId,
           UI_MESSAGES.import.convertingVideoToGif,

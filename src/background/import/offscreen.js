@@ -12,9 +12,11 @@ const RUNTIME_MESSAGE_MAX_BYTES = 64 * 1024 * 1024;
 const RUNTIME_MESSAGE_OVERHEAD_BYTES = 512 * 1024;
 const RUNTIME_MESSAGE_SAFE_MAX_BYTES =
   RUNTIME_MESSAGE_MAX_BYTES - RUNTIME_MESSAGE_OVERHEAD_BYTES;
+let offscreenPrewarmIssued = false;
 
 async function ensureOffscreenDocument() {
   if (await chrome.offscreen.hasDocument()) {
+    kickOffOffscreenPrewarm();
     return;
   }
 
@@ -23,6 +25,22 @@ async function ensureOffscreenDocument() {
     reasons: ["BLOBS"],
     justification: "Convert imported MP4 media into GIF in background",
   });
+  kickOffOffscreenPrewarm();
+}
+
+function kickOffOffscreenPrewarm() {
+  if (offscreenPrewarmIssued) {
+    return;
+  }
+  offscreenPrewarmIssued = true;
+  void chrome.runtime
+    .sendMessage({
+      type: "OFFSCREEN_PREWARM",
+    })
+    .catch(() => {
+      // Offscreen document may still be spinning up; conversion path lazily
+      // initializes FFmpeg again if prewarm did not complete yet.
+    });
 }
 
 async function convertInOffscreen({

@@ -179,6 +179,13 @@ function isConvertMessage(message) {
   return true;
 }
 
+function isPrewarmMessage(message) {
+  return (
+    isRuntimeMessage(message) &&
+    message.type === "OFFSCREEN_PREWARM"
+  );
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!isTrustedRuntimeSender(sender) || !isRuntimeMessage(message)) {
     return;
@@ -235,11 +242,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     return true;
   }
+
+  if (isPrewarmMessage(message)) {
+    ensureFfmpegLoaded()
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) =>
+        sendResponse({
+          ok: false,
+          error: error?.message || "OFFSCREEN_PREWARM_FAILED",
+        }),
+      );
+    return true;
+  }
 });
 
 async function convertMp4ToGif(message) {
   await initializeI18n();
+  const ffmpegReadyStartedAtMs = Date.now();
   await ensureFfmpegLoaded();
+  const ffmpegReadyWaitMs = Math.max(0, Date.now() - ffmpegReadyStartedAtMs);
   const gifConversionBase = resolveGifConversionConfig(message?.gifConversion);
   const conversionProfiles = buildGifConversionProfiles(gifConversionBase);
   const maxOutputBytes = resolveEffectiveMaxOutputBytes(gifConversionBase);
@@ -256,6 +277,8 @@ async function convertMp4ToGif(message) {
     throw new Error(UI_MESSAGES.offscreen.inputMediaBytesEmpty);
   }
   await safeLog("offscreen", "Starting ffmpeg conversion", {
+    requestId: String(message?.requestId || ""),
+    ffmpegReadyWaitMs,
     inputBytes: inputData.length,
     profileCount: conversionProfiles.length,
     maxOutputBytes,

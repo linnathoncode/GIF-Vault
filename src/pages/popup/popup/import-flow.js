@@ -405,6 +405,20 @@ export function createPopupImportController({
       if (!response?.ok) {
         throw new Error(response?.error || UI_MESSAGES.popup.terminateFailed);
       }
+      if (response.terminated === false) {
+        statusController.setProgressState(null);
+        stateStore.resetActiveImportSession();
+        syncImportUiState();
+        await clearStoredImportStatePreservingUi();
+        statusController.showTransientStatus(
+          UI_MESSAGES.popup.noActiveImportToTerminate,
+          "error",
+        );
+        await safeLog("popup", "Terminate requested with no active background import", {
+          requestId,
+        });
+        return;
+      }
       // Keep popup termination-pending state alive until the import pipeline
       // emits its real terminal progress update.
     } catch (error) {

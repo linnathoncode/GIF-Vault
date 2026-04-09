@@ -187,4 +187,45 @@ describe("popup import flow local file path", () => {
       UI_MESSAGES.import.mediaTooLarge(50),
     );
   });
+
+  it("clears stale active import state when terminate reports no active background import", async () => {
+    const { createPopupImportController } = await import(
+      "../../src/pages/popup/popup/import-flow.js"
+    );
+    const harness = createHarness();
+    harness.state.activeImportRequestId = "req-stale-1";
+    harness.state.currentImportState = {
+      requestId: "req-stale-1",
+      text: UI_MESSAGES.import.convertingVideoToGif,
+      kind: "info",
+      active: true,
+      phase: UI_MESSAGES.import.phaseConverting,
+    };
+
+    globalThis.chrome = {
+      runtime: {
+        sendMessage: vi.fn(async () => ({
+          ok: true,
+          terminated: false,
+        })),
+      },
+      permissions: {
+        contains: vi.fn(async () => true),
+      },
+      tabs: {
+        create: vi.fn(async () => {}),
+      },
+    };
+
+    const controller = createPopupImportController(harness);
+    await controller.terminateImport();
+
+    expect(harness.statusController.setProgressState).toHaveBeenCalledWith(null);
+    expect(harness.stateStore.resetActiveImportSession).toHaveBeenCalledTimes(1);
+    expect(harness.clearStoredImportStatePreservingUi).toHaveBeenCalledTimes(1);
+    expect(harness.statusController.showTransientStatus).toHaveBeenCalledWith(
+      UI_MESSAGES.popup.noActiveImportToTerminate,
+      "error",
+    );
+  });
 });
