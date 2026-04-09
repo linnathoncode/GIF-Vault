@@ -29,9 +29,10 @@ async function convertInOffscreen({
 }) {
   await ensureOffscreenDocument();
 
+  const hasInputBytes = isNonEmptyBinaryPayload(inputBytes);
   const response = await chrome.runtime.sendMessage({
     type: "OFFSCREEN_CONVERT_MP4",
-    url,
+    ...(hasInputBytes ? {} : { url }),
     requestId,
     filename,
     inputExtension,
@@ -46,6 +47,19 @@ async function convertInOffscreen({
   }
 
   return response.payload;
+}
+
+function isNonEmptyBinaryPayload(inputBytes) {
+  if (inputBytes instanceof Uint8Array) {
+    return inputBytes.byteLength > 0;
+  }
+  if (inputBytes instanceof ArrayBuffer) {
+    return inputBytes.byteLength > 0;
+  }
+  if (ArrayBuffer.isView(inputBytes)) {
+    return inputBytes.byteLength > 0;
+  }
+  return false;
 }
 
 export { convertInOffscreen };
