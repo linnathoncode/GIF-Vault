@@ -254,47 +254,48 @@ async function convertMp4ToGif(message) {
   });
 
   await ffmpeg.writeFile(inputName, inputData);
+  try {
+    // Keep the configured width as the target long-edge without upscaling.
+    // This avoids portrait size blow-ups and prevents low-res inputs from being
+    // enlarged into noisier GIF outputs.
+    const scaleFilter = [
+      `if(gte(iw\\,ih)\\,min(${gifConversion.width}\\,iw)\\,-1)`,
+      `if(gte(iw\\,ih)\\,-1\\,min(${gifConversion.width}\\,ih))`,
+      "flags=lanczos",
+    ].join(":");
 
-  // Keep the configured width as the target long-edge without upscaling.
-  // This avoids portrait size blow-ups and prevents low-res inputs from being
-  // enlarged into noisier GIF outputs.
-  const scaleFilter = [
-    `if(gte(iw\\,ih)\\,min(${gifConversion.width}\\,iw)\\,-1)`,
-    `if(gte(iw\\,ih)\\,-1\\,min(${gifConversion.width}\\,ih))`,
-    "flags=lanczos",
-  ].join(":");
+    await ffmpeg.exec([
+      "-i",
+      inputName,
+      "-vf",
+      `fps=${gifConversion.fps},scale=${scaleFilter},split[s0][s1];[s0]palettegen=max_colors=${gifConversion.maxColors}:stats_mode=full[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle`,
+      "-loop",
+      "0",
+      outputName
+    ]);
 
-  await ffmpeg.exec([
-    "-i",
-    inputName,
-    "-vf",
-    `fps=${gifConversion.fps},scale=${scaleFilter},split[s0][s1];[s0]palettegen=max_colors=${gifConversion.maxColors}:stats_mode=full[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle`,
-    "-loop",
-    "0",
-    outputName
-  ]);
+    const outputData = await ffmpeg.readFile(outputName);
+    if (!(outputData instanceof Uint8Array) || outputData.length === 0) {
+      throw new Error(UI_MESSAGES.offscreen.emptyGifOutput);
+    }
 
-  const outputData = await ffmpeg.readFile(outputName);
-  if (!(outputData instanceof Uint8Array) || outputData.length === 0) {
-    throw new Error(UI_MESSAGES.offscreen.emptyGifOutput);
+    const gifBase64 = uint8ToBase64(outputData);
+    await safeLog("offscreen", "ffmpeg conversion finished", {
+      outputBytes: outputData.length,
+      compressionRatio: inputData.length > 0 ? Number((outputData.length / inputData.length).toFixed(3)) : 0
+    });
+    return {
+      converted: true,
+      reason: "",
+      gifBase64,
+      gifByteLength: outputData.length,
+      mimeType: "image/gif",
+      filename: message.filename || `vault-${Date.now()}.gif`
+    };
+  } finally {
+    await safeDeleteFile(inputName);
+    await safeDeleteFile(outputName);
   }
-
-  await safeDeleteFile(inputName);
-  await safeDeleteFile(outputName);
-
-  const gifBase64 = uint8ToBase64(outputData);
-  await safeLog("offscreen", "ffmpeg conversion finished", {
-    outputBytes: outputData.length,
-    compressionRatio: inputData.length > 0 ? Number((outputData.length / inputData.length).toFixed(3)) : 0
-  });
-  return {
-    converted: true,
-    reason: "",
-    gifBase64,
-    gifByteLength: outputData.length,
-    mimeType: "image/gif",
-    filename: message.filename || `vault-${Date.now()}.gif`
-  };
 }
 
 async function probeDuration(message) {
