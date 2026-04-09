@@ -97,6 +97,18 @@ function mediaTooLargeMessage(maxBytes) {
   return UI_MESSAGES.import.mediaTooLarge(maxMb);
 }
 
+function shouldRetrySerializedLocalImport(response, fileCount) {
+  if (!response || response.ok || fileCount <= 0) {
+    return false;
+  }
+  const errorCode = String(response.errorCode || "").trim();
+  const errorMessage = String(response.error || "").trim();
+  return (
+    errorCode === IMPORT_ERROR_CODES.invalidUrl &&
+    errorMessage === UI_MESSAGES.popup.chooseFilesFirst
+  );
+}
+
 async function serializeLocalFilesForMessage(files) {
   const payloads = [];
   for (const file of files) {
@@ -224,6 +236,7 @@ export function createPopupImportController({
       statusController.setImportSuccessState(successMessage);
       stateStore.setActiveImportRequestId("");
       await clearStoredImportStatePreservingUi();
+      syncImportUiState();
       await gridController.render();
     } catch (error) {
       if (
@@ -242,6 +255,7 @@ export function createPopupImportController({
       );
       stateStore.setActiveImportRequestId("");
       await clearStoredImportStatePreservingUi();
+      syncImportUiState();
       await safeLog("popup", "Import failed in popup", {
         url,
         requestId,
@@ -275,6 +289,17 @@ export function createPopupImportController({
           sourceUrlHint: String(sourceUrlHint || ""),
         });
       }
+      if (shouldRetrySerializedLocalImport(response, files.length)) {
+        const serializedFiles = await serializeLocalFilesForMessage(files);
+        if (serializedFiles.length > 0) {
+          response = await chrome.runtime.sendMessage({
+            type: MESSAGE_TYPES.importFiles,
+            files: serializedFiles,
+            requestId,
+            sourceUrlHint: String(sourceUrlHint || ""),
+          });
+        }
+      }
       if (!response?.ok) {
         await safeLog("popup", "Popup local file import request was rejected", {
           fileCount: files.length,
@@ -307,6 +332,7 @@ export function createPopupImportController({
       }
       stateStore.setActiveImportRequestId("");
       await clearStoredImportStatePreservingUi();
+      syncImportUiState();
       await gridController.render();
     } catch (error) {
       const hasTerminalProgressFeedback =
@@ -321,6 +347,7 @@ export function createPopupImportController({
       }
       stateStore.setActiveImportRequestId("");
       await clearStoredImportStatePreservingUi();
+      syncImportUiState();
       await safeLog("popup", "Local file import failed in popup", {
         requestId,
         fileCount: files.length,
