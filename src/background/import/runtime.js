@@ -41,15 +41,22 @@ async function reportProgress(
   active = true,
   kind = "info",
   phase = "",
+  messageMeta = null,
 ) {
   try {
     const normalizedPhase = String(phase || "").trim();
+    const messageKey = String(messageMeta?.messageKey || "").trim();
+    const messageArgs = Array.isArray(messageMeta?.messageArgs)
+      ? messageMeta.messageArgs
+      : [];
     await chrome.storage.local.set({
       [STORAGE_KEYS.importState]: {
         requestId,
         text,
         kind,
         phase: normalizedPhase,
+        messageKey,
+        messageArgs,
         active: Boolean(active),
         updatedAt: Date.now(),
       },
@@ -60,6 +67,8 @@ async function reportProgress(
       text,
       kind,
       phase: normalizedPhase,
+      messageKey,
+      messageArgs,
       active: Boolean(active),
     });
   } catch {

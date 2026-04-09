@@ -104,6 +104,7 @@ function createImportPipeline({
         true,
         "info",
         UI_MESSAGES.import.phaseChecking,
+        { messageKey: "checkingMediaSize" },
       );
       await safeLog("convert", "Video detected, offscreen conversion requested", {
         resolvedMediaUrl,
@@ -121,6 +122,7 @@ function createImportPipeline({
           true,
           "info",
           UI_MESSAGES.import.phaseConverting,
+          { messageKey: "convertingVideoToGif" },
         );
         const convertedPayload = await raceWithImportAbort(
           convertInOffscreen({
@@ -176,6 +178,7 @@ function createImportPipeline({
       true,
       "info",
       UI_MESSAGES.import.phaseSaving,
+      { messageKey: "savingToVault" },
     );
     ensureImportActive();
     const item = {
@@ -248,6 +251,7 @@ function createImportPipeline({
         true,
         "info",
         UI_MESSAGES.import.phaseChecking,
+        { messageKey: "checkingMediaSize" },
       );
       await safeLog("convert", "Local video detected, offscreen conversion requested", {
         fileName: localFile.name || "",
@@ -264,6 +268,7 @@ function createImportPipeline({
           true,
           "info",
           UI_MESSAGES.import.phaseConverting,
+          { messageKey: "convertingVideoToGif" },
         );
         const convertedPayload = await raceWithImportAbort(
           convertInOffscreen({
@@ -301,6 +306,7 @@ function createImportPipeline({
       true,
       "info",
       UI_MESSAGES.import.phaseSaving,
+      { messageKey: "savingToVault" },
     );
     ensureImportActive();
     const item = {

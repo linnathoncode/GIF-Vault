@@ -48,6 +48,7 @@ function createImportRunner({
         true,
         "info",
         UI_MESSAGES.import.phaseResolving,
+        { messageKey: "resolvingMediaUrl" },
       );
 
       ensureImportActive();
@@ -83,6 +84,7 @@ function createImportRunner({
           true,
           "info",
           UI_MESSAGES.import.phaseFetching,
+          { messageKey: "fetchingMedia", messageArgs: [suffix] },
         );
         const item = await pipeline.importResolvedMedia({
           sourceUrl: normalizedUrl,
@@ -106,6 +108,9 @@ function createImportRunner({
         false,
         "success",
         UI_MESSAGES.import.phaseComplete,
+        savedItems.length > 1
+          ? { messageKey: "importedMany", messageArgs: [savedItems.length] }
+          : { messageKey: "importedSingle" },
       );
       return {
         id: savedItems[0]?.id || "",
@@ -134,6 +139,7 @@ function createImportRunner({
           false,
           "info",
           UI_MESSAGES.import.phaseIdle,
+          null,
         );
       } else {
         await reportProgress(
@@ -142,6 +148,7 @@ function createImportRunner({
           false,
           "error",
           UI_MESSAGES.import.phaseComplete,
+          isTerminatedError ? { messageKey: "importTerminated" } : null,
         );
       }
       throw createImportError(getImportErrorCode(error), message);
@@ -170,6 +177,7 @@ function createImportRunner({
         true,
         "info",
         UI_MESSAGES.import.phaseFetching,
+        { messageKey: "readingLocalFiles", messageArgs: [""] },
       );
       await safeLog("import", "Local file import started", {
         fileCount: localFiles.length,
@@ -186,6 +194,7 @@ function createImportRunner({
           true,
           "info",
           UI_MESSAGES.import.phaseFetching,
+          { messageKey: "readingLocalFiles", messageArgs: [suffix] },
         );
 
         const item = await pipeline.importLocalFileMedia({
@@ -209,6 +218,9 @@ function createImportRunner({
         false,
         "success",
         UI_MESSAGES.import.phaseComplete,
+        savedItems.length > 1
+          ? { messageKey: "importedMany", messageArgs: [savedItems.length] }
+          : { messageKey: "importedSingle" },
       );
       return {
         id: savedItems[0]?.id || "",
@@ -235,6 +247,7 @@ function createImportRunner({
         false,
         "error",
         UI_MESSAGES.import.phaseComplete,
+        isTerminatedError ? { messageKey: "importTerminated" } : null,
       );
       throw createImportError(getImportErrorCode(error), message);
     } finally {

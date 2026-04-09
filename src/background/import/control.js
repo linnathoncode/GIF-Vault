@@ -120,6 +120,7 @@ function createImportControl({
       false,
       "error",
       UI_MESSAGES.import.phaseComplete,
+      { messageKey: "importTerminated" },
     );
     return Boolean(controller);
   }

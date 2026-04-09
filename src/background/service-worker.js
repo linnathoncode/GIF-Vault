@@ -18,19 +18,18 @@ let localeReadyPromise = null;
 const CONTEXT_MENU_DUPLICATE_ID_FRAGMENT = "duplicate id";
 
 function ensureLocaleReady(localeHint = "") {
-  if (!localeHint && localeReadyPromise) {
-    return localeReadyPromise;
-  }
+  const initOptions = localeHint
+    ? {
+        localeHint,
+        useStoredLocale: false,
+        persistDetectedLocale: false,
+      }
+    : {};
 
-  localeReadyPromise = initializeI18n(
-    localeHint
-      ? {
-          localeHint,
-          useStoredLocale: false,
-          persistDetectedLocale: false,
-        }
-      : {},
-  ).catch(() => null);
+  localeReadyPromise = (localeReadyPromise || Promise.resolve())
+    .catch(() => null)
+    .then(() => initializeI18n(initOptions))
+    .catch(() => null);
   return localeReadyPromise;
 }
 

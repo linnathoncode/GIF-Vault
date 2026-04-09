@@ -115,8 +115,46 @@ function isImportProgressMessage(message) {
   if ("active" in message && typeof message.active !== "boolean") {
     return false;
   }
+  if ("messageKey" in message && typeof message.messageKey !== "string") {
+    return false;
+  }
+  if ("messageArgs" in message && !Array.isArray(message.messageArgs)) {
+    return false;
+  }
 
   return true;
+}
+
+function resolveImportProgressText(importState) {
+  const messageKey = String(importState?.messageKey || "").trim();
+  if (!messageKey) {
+    return String(importState?.text || "");
+  }
+  const template = UI_MESSAGES.import?.[messageKey];
+  const messageArgs = Array.isArray(importState?.messageArgs)
+    ? importState.messageArgs
+    : [];
+  if (typeof template === "function") {
+    try {
+      return String(template(...messageArgs));
+    } catch {
+      return String(importState?.text || "");
+    }
+  }
+  if (typeof template === "string") {
+    return template;
+  }
+  return String(importState?.text || "");
+}
+
+function localizeImportState(importState) {
+  if (!importState || typeof importState !== "object") {
+    return importState;
+  }
+  return {
+    ...importState,
+    text: resolveImportProgressText(importState),
+  };
 }
 
 function getPopupMenuConfig() {
@@ -337,6 +375,9 @@ async function applyLocale(localeHint = "") {
     return;
   }
   applyStaticI18n();
+  if (state.currentImportState?.text || state.currentImportState?.messageKey) {
+    statusController.applyImportState(localizeImportState(state.currentImportState));
+  }
 }
 
 function invalidatePendingLocaleApply() {
@@ -660,7 +701,7 @@ chrome.runtime.onMessage.addListener((message, sender) => {
       stateStore.clearImportTerminationPending();
     }
   }
-  statusController.applyImportState(message);
+  statusController.applyImportState(localizeImportState(message));
   syncImportUiState();
 });
 
@@ -721,7 +762,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
       }
     }
     if (nextState) {
-      statusController.applyImportState(nextState);
+      statusController.applyImportState(localizeImportState(nextState));
     } else {
       stateStore.setImportState(null);
       stateStore.setActiveImportRequestId("");
@@ -819,13 +860,14 @@ async function init() {
       INIT_STEP_TIMEOUT_MS,
       "IMPORT_STATE_TIMEOUT",
     ).catch(() => null);
-    if (importState?.text) {
+    if (importState?.text || importState?.messageKey) {
+      const localizedImportState = localizeImportState(importState);
       if (importState.active) {
-        statusController.applyImportState(importState);
+        statusController.applyImportState(localizedImportState);
       } else {
         stateStore.setImportState(null);
         await restoreInactiveImportState({
-          importState,
+          importState: localizedImportState,
           statusController,
           clearStoredImportState,
         });
