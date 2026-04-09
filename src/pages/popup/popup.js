@@ -437,18 +437,22 @@ window.addEventListener("dragend", () => {
 });
 
 window.addEventListener("dragenter", (event) => {
+  if (isFileDragEvent(event)) {
+    event.preventDefault();
+  }
   if (shouldIgnoreFileDrop(event)) {
     return;
   }
-  event.preventDefault();
   document.body.classList.add("drag-file-active");
 });
 
 window.addEventListener("dragover", (event) => {
+  if (isFileDragEvent(event)) {
+    event.preventDefault();
+  }
   if (shouldIgnoreFileDrop(event)) {
     return;
   }
-  event.preventDefault();
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = "copy";
   }
@@ -464,13 +468,15 @@ window.addEventListener("dragleave", (event) => {
 });
 
 window.addEventListener("drop", (event) => {
+  if (isFileDragEvent(event)) {
+    event.preventDefault();
+  }
   const startedInPopup = dragStartedInPopup;
   dragStartedInPopup = false;
   document.body.classList.remove("drag-file-active");
   if (startedInPopup || shouldIgnoreFileDrop(event)) {
     return;
   }
-  event.preventDefault();
   const files = getDroppedFiles(event);
   if (files.length === 0) {
     return;

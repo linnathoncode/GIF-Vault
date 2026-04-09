@@ -273,7 +273,7 @@ describe("popup file-drop guard", () => {
       preventDefault,
     });
 
-    expect(preventDefault).not.toHaveBeenCalled();
+    expect(preventDefault).toHaveBeenCalledTimes(1);
     expect(mocks.importFiles).not.toHaveBeenCalled();
   });
 
