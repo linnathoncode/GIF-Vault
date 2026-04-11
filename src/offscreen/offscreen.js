@@ -258,9 +258,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function convertMp4ToGif(message) {
   await initializeI18n();
-  const ffmpegReadyStartedAtMs = Date.now();
   await ensureFfmpegLoaded();
-  const ffmpegReadyWaitMs = Math.max(0, Date.now() - ffmpegReadyStartedAtMs);
   const gifConversionBase = resolveGifConversionConfig(message?.gifConversion);
   const conversionProfiles = buildGifConversionProfiles(gifConversionBase);
   const maxOutputBytes = resolveEffectiveMaxOutputBytes(gifConversionBase);
@@ -273,13 +271,13 @@ async function convertMp4ToGif(message) {
   const outputName = `output-${Date.now()}.gif`;
 
   const inputData = await getInputData(message);
-  if (!(inputData instanceof Uint8Array) || inputData.length === 0) {
+  const inputByteLength = inputData instanceof Uint8Array ? inputData.byteLength : 0;
+  if (inputByteLength === 0) {
     throw new Error(UI_MESSAGES.offscreen.inputMediaBytesEmpty);
   }
   await safeLog("offscreen", "Starting ffmpeg conversion", {
     requestId: String(message?.requestId || ""),
-    ffmpegReadyWaitMs,
-    inputBytes: inputData.length,
+    inputBytes: inputByteLength,
     profileCount: conversionProfiles.length,
     maxOutputBytes,
     maxDownloadSizeMb: gifConversionBase.maxDownloadSizeMb,
@@ -293,6 +291,7 @@ async function convertMp4ToGif(message) {
       const attempt = index + 1;
       const total = conversionProfiles.length;
       await safeLog("offscreen", "Conversion attempt started", {
+        requestId: String(message?.requestId || ""),
         attempt,
         total,
         profile,
@@ -336,19 +335,21 @@ async function convertMp4ToGif(message) {
         throw new Error(mediaTooLargeMessage(maxOutputBytes));
       }
 
+      const gifBase64 = uint8ToBase64(outputData);
       await safeLog("offscreen", "ffmpeg conversion finished", {
+        requestId: String(message?.requestId || ""),
         attempt,
         profile,
         outputBytes: outputData.length,
         compressionRatio:
-          inputData.length > 0
-            ? Number((outputData.length / inputData.length).toFixed(3))
+          inputByteLength > 0
+            ? Number((outputData.length / inputByteLength).toFixed(3))
             : 0,
       });
       return {
         converted: true,
         reason: "",
-        gifBase64: uint8ToBase64(outputData),
+        gifBase64,
         gifByteLength: outputData.length,
         mimeType: "image/gif",
         filename: message.filename || `vault-${Date.now()}.gif`,
@@ -373,13 +374,20 @@ async function probeDuration(message) {
   const inputName = `input-${Date.now()}.${inputExtension}`;
   const probeName = `probe-${Date.now()}.txt`;
   const inputData = await getInputData(message);
-  if (!(inputData instanceof Uint8Array) || inputData.length === 0) {
+  const inputByteLength = inputData instanceof Uint8Array ? inputData.byteLength : 0;
+  if (inputByteLength === 0) {
     throw new Error(UI_MESSAGES.offscreen.inputMediaBytesEmpty);
   }
 
   await ffmpeg.writeFile(inputName, inputData);
   try {
-    return await probeVideoDuration(inputName, probeName);
+    const durationSeconds = await probeVideoDuration(inputName, probeName);
+    await safeLog("offscreen", "Video duration probe completed", {
+      requestId: String(message?.requestId || ""),
+      inputBytes: inputByteLength,
+      durationSeconds,
+    });
+    return durationSeconds;
   } finally {
     await safeDeleteFile(inputName);
     await safeDeleteFile(probeName);

@@ -59,7 +59,17 @@ async function convertInOffscreen({
   const exceedsMessageBudget =
     inputBytesLength > 0 && inputBytesLength > RUNTIME_MESSAGE_SAFE_MAX_BYTES;
 
-  let includeInputBytes = hasInputBytes && !(exceedsMessageBudget && canUseUrlFallback);
+  const preferUrlTransport = canUseUrlFallback;
+  let includeInputBytes =
+    hasInputBytes &&
+    !preferUrlTransport &&
+    !(exceedsMessageBudget && canUseUrlFallback);
+  if (preferUrlTransport && hasInputBytes) {
+    await safeLog("convert", "Using URL transport for offscreen conversion", {
+      inputBytesLength,
+      reason: "avoid_runtime_message_binary_serialization",
+    });
+  }
   if (hasInputBytes && exceedsMessageBudget && canUseUrlFallback) {
     await safeLog("convert", "Skipping input bytes payload for offscreen conversion", {
       inputBytesLength,
@@ -123,6 +133,22 @@ async function convertInOffscreen({
       );
     } else {
       throw error;
+    }
+  }
+  if (!response?.ok) {
+    if (!includeInputBytes && hasInputBytes) {
+      await safeLog("convert", "URL-based offscreen conversion failed; retrying with bytes", {
+        inputBytesLength,
+        error: response?.error || "unknown",
+      });
+      response = await chrome.runtime.sendMessage({
+        type: "OFFSCREEN_CONVERT_MP4",
+        requestId,
+        filename,
+        inputExtension,
+        gifConversion,
+        inputBytes,
+      });
     }
   }
   if (!response?.ok) {
