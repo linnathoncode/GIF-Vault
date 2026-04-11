@@ -105,7 +105,7 @@ describe("media resolver", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("resolves tweet URLs from syndication and picks highest resolution", async () => {
+  it("resolves tweet URLs from syndication and prefers 720-quality resolution", async () => {
     // Arrange: syndication returns multiple MP4 variants.
     const statusUrl = "https://x.com/user/status/1234567890";
     globalThis.fetch = vi.fn(async (url) => {
@@ -127,7 +127,7 @@ describe("media resolver", () => {
 
     // Act
     const resolved = await resolveMediaUrl(statusUrl);
-    // Assert: highest resolution variant should be selected.
+    // Assert: 720-quality variant should be selected.
     expect(resolved).toBe("https://video.twimg.com/ext_tw_video/1/pu/vid/1280x720/a.mp4");
     // Regression check: avoid extra direct-status expansion fetch roundtrip.
     expect(globalThis.fetch).not.toHaveBeenCalledWith(statusUrl);
@@ -163,7 +163,7 @@ describe("media resolver", () => {
     ]);
   });
 
-  it("collapses codec-qualified video variants to the highest resolution only", async () => {
+  it("collapses codec-qualified video variants to one preferred quality variant", async () => {
     globalThis.fetch = vi.fn(async (url) => {
       if (String(url).includes("cdn.syndication.twimg.com")) {
         return makeResponse({
@@ -188,6 +188,31 @@ describe("media resolver", () => {
     expect(resolved).toEqual([
       "https://video.twimg.com/ext_tw_video/42/pu/vid/avc1/1280x720/clip.mp4?tag=12",
     ]);
+  });
+
+  it("prefers 720-quality video over higher-than-720 variants", async () => {
+    globalThis.fetch = vi.fn(async (url) => {
+      if (String(url).includes("cdn.syndication.twimg.com")) {
+        return makeResponse({
+          ok: true,
+          json: {
+            mediaDetails: [
+              {
+                variants: [
+                  "https://video.twimg.com/ext_tw_video/7/pu/vid/640x360/preferred.mp4",
+                  "https://video.twimg.com/ext_tw_video/7/pu/vid/1280x720/preferred.mp4",
+                  "https://video.twimg.com/ext_tw_video/7/pu/vid/1920x1080/preferred.mp4",
+                ],
+              },
+            ],
+          },
+        });
+      }
+      return makeResponse({ ok: false });
+    });
+
+    const resolved = await resolveMediaUrl("https://x.com/user/status/7777777");
+    expect(resolved).toBe("https://video.twimg.com/ext_tw_video/7/pu/vid/1280x720/preferred.mp4");
   });
 
   it("excludes quoted-tweet media from syndication results", async () => {

@@ -115,8 +115,75 @@ function isImportProgressMessage(message) {
   if ("active" in message && typeof message.active !== "boolean") {
     return false;
   }
+  if ("messageKey" in message && typeof message.messageKey !== "string") {
+    return false;
+  }
+  if ("messageArgs" in message && !Array.isArray(message.messageArgs)) {
+    return false;
+  }
 
   return true;
+}
+
+function resolveImportProgressText(importState) {
+  const messageKey = String(importState?.messageKey || "").trim();
+  if (!messageKey) {
+    return String(importState?.text || "");
+  }
+  const template = UI_MESSAGES.import?.[messageKey];
+  const messageArgs = Array.isArray(importState?.messageArgs)
+    ? importState.messageArgs
+    : [];
+  if (typeof template === "function") {
+    try {
+      return String(template(...messageArgs));
+    } catch {
+      return String(importState?.text || "");
+    }
+  }
+  if (typeof template === "string") {
+    return template;
+  }
+  return String(importState?.text || "");
+}
+
+function localizeImportState(importState) {
+  if (!importState || typeof importState !== "object") {
+    return importState;
+  }
+  return {
+    ...importState,
+    text: resolveImportProgressText(importState),
+  };
+}
+
+function normalizedMessageArgs(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((item) => String(item ?? ""));
+}
+
+function areImportStatesEquivalent(a, b) {
+  if (!a && !b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
+
+  const aArgs = normalizedMessageArgs(a.messageArgs);
+  const bArgs = normalizedMessageArgs(b.messageArgs);
+  return (
+    String(a.requestId || "") === String(b.requestId || "") &&
+    String(a.text || "") === String(b.text || "") &&
+    String(a.kind || "") === String(b.kind || "") &&
+    String(a.phase || "") === String(b.phase || "") &&
+    Boolean(a.active) === Boolean(b.active) &&
+    String(a.messageKey || "") === String(b.messageKey || "") &&
+    aArgs.length === bArgs.length &&
+    aArgs.every((arg, index) => arg === bArgs[index])
+  );
 }
 
 function getPopupMenuConfig() {
@@ -163,7 +230,7 @@ function clearBootLoadingUiIfPresent() {
 
 function runWhenInteractive(handler) {
   return (...args) => {
-    if (state.isBootLoading || state.isImportTerminationPending) {
+    if (state.isBootLoading) {
       return;
     }
     return handler(...args);
@@ -259,8 +326,12 @@ const gridController = createPopupGridController({
 
 function syncImportUiState() {
   const hasActiveImport = Boolean(state.currentImportState?.active);
-  const hasPendingTermination = Boolean(state.isImportTerminationPending);
-  const isGloballyLocked = state.isBootLoading || hasPendingTermination;
+  const isGloballyLocked = state.isBootLoading;
+  document.body.classList.toggle("import-active", hasActiveImport);
+  refs.grid.setAttribute(
+    "aria-busy",
+    state.isBootLoading || hasActiveImport ? "true" : "false",
+  );
 
   for (const key of INTERACTIVE_REFS) {
     const element = refs[key];
@@ -275,34 +346,14 @@ function syncImportUiState() {
   statusController.syncImportActionButton();
   refs.importBtn.disabled = isGloballyLocked;
   refs.importInput.disabled =
-    state.isBootLoading || hasActiveImport || hasPendingTermination;
+    state.isBootLoading || hasActiveImport;
   if (refs.localImportBtn) {
     refs.localImportBtn.disabled =
-      state.isBootLoading || hasActiveImport || hasPendingTermination;
+      state.isBootLoading || hasActiveImport;
   }
   if (refs.localFileInput) {
     refs.localFileInput.disabled =
-      state.isBootLoading || hasActiveImport || hasPendingTermination;
-  }
-
-  const gridButtons =
-    typeof refs.grid?.querySelectorAll === "function"
-      ? refs.grid.querySelectorAll("button")
-      : [];
-
-  if (!hasPendingTermination) {
-    for (const button of gridButtons) {
-      if (button instanceof HTMLButtonElement) {
-        button.disabled = false;
-      }
-    }
-    return;
-  }
-
-  for (const button of gridButtons) {
-    if (button instanceof HTMLButtonElement) {
-      button.disabled = true;
-    }
+      state.isBootLoading || hasActiveImport;
   }
 }
 
@@ -337,6 +388,9 @@ async function applyLocale(localeHint = "") {
     return;
   }
   applyStaticI18n();
+  if (state.currentImportState?.text || state.currentImportState?.messageKey) {
+    statusController.applyImportState(localizeImportState(state.currentImportState));
+  }
 }
 
 function invalidatePendingLocaleApply() {
@@ -437,18 +491,22 @@ window.addEventListener("dragend", () => {
 });
 
 window.addEventListener("dragenter", (event) => {
+  if (isFileDragEvent(event)) {
+    event.preventDefault();
+  }
   if (shouldIgnoreFileDrop(event)) {
     return;
   }
-  event.preventDefault();
   document.body.classList.add("drag-file-active");
 });
 
 window.addEventListener("dragover", (event) => {
+  if (isFileDragEvent(event)) {
+    event.preventDefault();
+  }
   if (shouldIgnoreFileDrop(event)) {
     return;
   }
-  event.preventDefault();
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = "copy";
   }
@@ -464,13 +522,15 @@ window.addEventListener("dragleave", (event) => {
 });
 
 window.addEventListener("drop", (event) => {
+  if (isFileDragEvent(event)) {
+    event.preventDefault();
+  }
   const startedInPopup = dragStartedInPopup;
   dragStartedInPopup = false;
   document.body.classList.remove("drag-file-active");
   if (startedInPopup || shouldIgnoreFileDrop(event)) {
     return;
   }
-  event.preventDefault();
   const files = getDroppedFiles(event);
   if (files.length === 0) {
     return;
@@ -654,7 +714,11 @@ chrome.runtime.onMessage.addListener((message, sender) => {
       stateStore.clearImportTerminationPending();
     }
   }
-  statusController.applyImportState(message);
+  const localizedMessage = localizeImportState(message);
+  if (areImportStatesEquivalent(localizedMessage, state.currentImportState)) {
+    return;
+  }
+  statusController.applyImportState(localizedMessage);
   syncImportUiState();
 });
 
@@ -701,6 +765,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   ) {
     const nextState = changes[STORAGE_KEYS.importState].newValue || null;
     const prevState = changes[STORAGE_KEYS.importState].oldValue || null;
+    let didMutateImportUiState = false;
     if (
       state.isImportTerminationPending &&
       !nextState?.active
@@ -712,14 +777,22 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         requestId === state.importTerminationRequestId
       ) {
         stateStore.clearImportTerminationPending();
+        didMutateImportUiState = true;
       }
     }
     if (nextState) {
-      statusController.applyImportState(nextState);
+      const localizedNextState = localizeImportState(nextState);
+      if (
+        !areImportStatesEquivalent(localizedNextState, state.currentImportState)
+      ) {
+        statusController.applyImportState(localizedNextState);
+        didMutateImportUiState = true;
+      }
     } else {
       stateStore.setImportState(null);
       stateStore.setActiveImportRequestId("");
       stateStore.clearImportTerminationPending();
+      didMutateImportUiState = true;
       if (state.isBootLoading) {
         syncImportUiState();
         return;
@@ -733,7 +806,9 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         statusController.setProgressState(null);
       }
     }
-    syncImportUiState();
+    if (didMutateImportUiState) {
+      syncImportUiState();
+    }
     if (
       (prevState?.active || false) &&
       !nextState?.active &&
@@ -813,13 +888,14 @@ async function init() {
       INIT_STEP_TIMEOUT_MS,
       "IMPORT_STATE_TIMEOUT",
     ).catch(() => null);
-    if (importState?.text) {
+    if (importState?.text || importState?.messageKey) {
+      const localizedImportState = localizeImportState(importState);
       if (importState.active) {
-        statusController.applyImportState(importState);
+        statusController.applyImportState(localizedImportState);
       } else {
         stateStore.setImportState(null);
         await restoreInactiveImportState({
-          importState,
+          importState: localizedImportState,
           statusController,
           clearStoredImportState,
         });

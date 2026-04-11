@@ -8,6 +8,8 @@ import {
   setUiLocale,
 } from "./messages.js";
 
+let initializeRequestVersion = 0;
+
 function detectSystemLocale() {
   try {
     if (chrome?.i18n && typeof chrome.i18n.getUILanguage === "function") {
@@ -68,6 +70,7 @@ function applyLocaleToDocument(locale) {
 }
 
 async function initializeI18n(options = {}) {
+  const requestVersion = ++initializeRequestVersion;
   const localeHint = String(options.localeHint || "").trim();
   const useStoredLocale = options.useStoredLocale !== false;
   const persistDetectedLocale = options.persistDetectedLocale !== false;
@@ -84,8 +87,17 @@ async function initializeI18n(options = {}) {
   if (!nextLocale) {
     nextLocale = normalizeLocale(detectSystemLocale());
     if (persistDetectedLocale && useStoredLocale && !hadStoredLocale) {
-      await writeLocaleToStorage(nextLocale);
+      if (requestVersion === initializeRequestVersion) {
+        await writeLocaleToStorage(nextLocale);
+      }
     }
+  }
+
+  if (requestVersion !== initializeRequestVersion) {
+    return {
+      locale: getUiLocale(),
+      messages: UI_MESSAGES,
+    };
   }
 
   setUiLocale(nextLocale);

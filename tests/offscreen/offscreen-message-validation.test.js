@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UI_MESSAGES } from "../../src/lib/messages.js";
 
 const mocks = vi.hoisted(() => ({
   listener: null,
   safeLog: vi.fn(async () => {}),
+  runtimeSendMessage: vi.fn(async () => undefined),
+  storageSet: vi.fn(async () => undefined),
   initializeI18n: vi.fn(async () => ({ locale: "en" })),
   fetchFile: vi.fn(async () => new Uint8Array([1, 2, 3])),
   ffmpegOn: vi.fn(),
@@ -51,10 +54,16 @@ describe("offscreen runtime message validation", () => {
       runtime: {
         id: "ext-id",
         getURL: vi.fn((path = "") => `chrome-extension://ext-id/${path}`),
+        sendMessage: mocks.runtimeSendMessage,
         onMessage: {
           addListener: vi.fn((handler) => {
             mocks.listener = handler;
           }),
+        },
+      },
+      storage: {
+        local: {
+          set: mocks.storageSet,
         },
       },
     };
@@ -229,5 +238,84 @@ describe("offscreen runtime message validation", () => {
     expect(filter).toContain("scale=if(gte(iw\\,ih)\\,min(360\\,iw)\\,-1):if(gte(iw\\,ih)\\,-1\\,min(360\\,ih)):flags=lanczos");
     expect(filter).toContain("palettegen=max_colors=96:stats_mode=full");
     expect(filter).toContain("paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle");
+  });
+
+  it("retries conversion with lowered quality profile when output exceeds size budget", async () => {
+    const sendResponse = vi.fn();
+    const bigGif = new Uint8Array(6 * 1024 * 1024);
+    const smallGif = new Uint8Array([71, 73, 70, 56, 57, 97]);
+    mocks.ffmpegExec.mockResolvedValue(undefined);
+    mocks.ffmpegReadFile
+      .mockResolvedValueOnce(bigGif)
+      .mockResolvedValueOnce(smallGif);
+
+    const handled = mocks.listener(
+      {
+        type: "OFFSCREEN_CONVERT_MP4",
+        url: "https://example.com/too-big.mp4",
+        inputExtension: "mp4",
+        gifConversion: {
+          fps: 30,
+          width: 1200,
+          maxColors: 256,
+          maxDownloadSizeMb: 1,
+        },
+      },
+      { id: "ext-id" },
+      sendResponse,
+    );
+
+    expect(handled).toBe(true);
+    await vi.waitFor(() => {
+      expect(sendResponse).toHaveBeenCalled();
+    });
+    expect(sendResponse.mock.calls[0]?.[0]?.ok).toBe(true);
+    expect(mocks.ffmpegExec).toHaveBeenCalledTimes(2);
+    const progressCalls = mocks.runtimeSendMessage.mock.calls
+      .map(([payload]) => payload)
+      .filter((payload) => payload?.type === "IMPORT_PROGRESS");
+    expect(progressCalls.some((payload) => payload.messageKey === "convertingVideoToGifDowngrade")).toBe(true);
+    const firstFilter =
+      mocks.ffmpegExec.mock.calls[0][0][
+        mocks.ffmpegExec.mock.calls[0][0].indexOf("-vf") + 1
+      ];
+    const secondFilter =
+      mocks.ffmpegExec.mock.calls[1][0][
+        mocks.ffmpegExec.mock.calls[1][0].indexOf("-vf") + 1
+      ];
+    expect(firstFilter).toContain("fps=30");
+    expect(secondFilter).toContain("fps=26");
+  });
+
+  it("returns media-too-large error when every quality profile exceeds size budget", async () => {
+    const sendResponse = vi.fn();
+    mocks.ffmpegExec.mockResolvedValue(undefined);
+    mocks.ffmpegReadFile.mockResolvedValue(new Uint8Array(6 * 1024 * 1024));
+
+    const handled = mocks.listener(
+      {
+        type: "OFFSCREEN_CONVERT_MP4",
+        url: "https://example.com/always-big.mp4",
+        inputExtension: "mp4",
+        gifConversion: {
+          fps: 10,
+          width: 360,
+          maxColors: 96,
+          maxDownloadSizeMb: 1,
+        },
+      },
+      { id: "ext-id" },
+      sendResponse,
+    );
+
+    expect(handled).toBe(true);
+    await vi.waitFor(() => {
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ok: false,
+          error: UI_MESSAGES.import.mediaTooLarge(5),
+        }),
+      );
+    });
   });
 });

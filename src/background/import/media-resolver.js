@@ -1,0 +1,529 @@
+/**
+ * Media resolver implementation for import flows.
+ * Expands supported URLs (including X/Twitter post URLs) into concrete media
+ * URLs and provides content-type/media validation helpers for import pipeline use.
+ */
+import { safeLog } from "../../lib/log.js";
+import { UI_MESSAGES } from "../../lib/messages.js";
+
+// URL resolution and media detection.
+function hostMatches(rawHost, expectedHost) {
+  const host = String(rawHost || "").toLowerCase();
+  const expected = String(expectedHost || "").toLowerCase();
+  return host === expected || host.endsWith(`.${expected}`);
+}
+
+function isTwitterUrl(url) {
+  try {
+    const host = new URL(url).host.toLowerCase();
+    return (
+      hostMatches(host, "twitter.com") ||
+      hostMatches(host, "x.com") ||
+      hostMatches(host, "twimg.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function resolveMediaUrl(rawUrl) {
+  const urls = await resolveMediaUrls(rawUrl);
+  return urls[0] || String(rawUrl || "");
+}
+
+async function resolveMediaUrls(rawUrl) {
+  if (looksDirectMedia(rawUrl)) {
+    return [rawUrl];
+  }
+
+  const directTweetId = extractTweetId(rawUrl);
+  const baseUrl = directTweetId ? rawUrl : await expandUrl(rawUrl);
+  if (looksDirectMedia(baseUrl)) {
+    return [baseUrl];
+  }
+
+  const tweetId = directTweetId || extractTweetId(baseUrl);
+  if (!tweetId) {
+    return [baseUrl];
+  }
+
+  const fromSyndicationPromise = resolveFromSyndication(tweetId);
+  const fromPagesPromise = resolveFromPages(tweetId, baseUrl);
+
+  const fromSyndication = await fromSyndicationPromise;
+  if (fromSyndication.length > 0) {
+    return fromSyndication;
+  }
+
+  const fromPages = await fromPagesPromise;
+  if (fromPages.length > 0) {
+    return fromPages;
+  }
+
+  return [baseUrl];
+}
+
+function looksDirectMedia(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.host.toLowerCase();
+    if (hostMatches(host, "video.twimg.com") || hostMatches(host, "pbs.twimg.com")) {
+      return true;
+    }
+
+    const path = url.pathname.toLowerCase();
+    return (
+      path.endsWith(".gif") ||
+      path.endsWith(".mp4") ||
+      path.endsWith(".webm") ||
+      path.endsWith(".png") ||
+      path.endsWith(".jpg") ||
+      path.endsWith(".jpeg")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function extractTweetId(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const match = url.pathname.match(/\/status\/(\d+)/i);
+    return match ? match[1] : "";
+  } catch {
+    return "";
+  }
+}
+
+function isQuotedTweetBranchKey(key) {
+  const normalized = String(key || "").toLowerCase();
+  return (
+    normalized === "qrt" ||
+    normalized === "quote" ||
+    normalized === "quoted" ||
+    normalized === "quoted_status" ||
+    normalized === "quotedstatus" ||
+    normalized === "quoted_tweet" ||
+    normalized === "quotedtweet" ||
+    normalized === "quoted_tweet_result" ||
+    normalized === "quotedtweetresult"
+  );
+}
+
+function collectMediaUrls(value, acc = [], options = {}) {
+  const includeQuoted = options.includeQuoted !== false;
+  if (!value) {
+    return acc;
+  }
+  if (typeof value === "string") {
+    if (isLikelyTweetVideoUrl(value) || isLikelyTweetImageUrl(value)) {
+      acc.push(value);
+    }
+    return acc;
+  }
+  if (Array.isArray(value)) {
+    for (const part of value) {
+      collectMediaUrls(part, acc, options);
+    }
+    return acc;
+  }
+  if (typeof value === "object") {
+    for (const [key, part] of Object.entries(value)) {
+      if (!includeQuoted && isQuotedTweetBranchKey(key)) {
+        continue;
+      }
+      collectMediaUrls(part, acc, options);
+    }
+  }
+  return acc;
+}
+
+function isLikelyTweetVideoUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.host.toLowerCase();
+    if (!hostMatches(host, "video.twimg.com")) {
+      return false;
+    }
+    return url.pathname.toLowerCase().includes(".mp4");
+  } catch {
+    return false;
+  }
+}
+
+function isLikelyTweetImageUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.host.toLowerCase();
+    if (!hostMatches(host, "pbs.twimg.com")) {
+      return false;
+    }
+
+    const path = url.pathname.toLowerCase();
+    if (!path.includes("/media/")) {
+      return false;
+    }
+
+    if (
+      path.endsWith(".gif") ||
+      path.endsWith(".png") ||
+      path.endsWith(".jpg") ||
+      path.endsWith(".jpeg") ||
+      path.endsWith(".webp")
+    ) {
+      return true;
+    }
+
+    const format = (url.searchParams.get("format") || "").toLowerCase();
+    return ["gif", "png", "jpg", "jpeg", "webp"].includes(format);
+  } catch {
+    return false;
+  }
+}
+
+function mediaSortScore(url) {
+  if (isLikelyTweetVideoUrl(url)) {
+    return 1_000_000 + videoQualityPreferenceScore(url);
+  }
+
+  if (isLikelyTweetImageUrl(url)) {
+    const name = (() => {
+      try {
+        return new URL(url).searchParams.get("name") || "";
+      } catch {
+        return "";
+      }
+    })();
+
+    if (name === "orig") {
+      return 500_000;
+    }
+    if (name === "4096x4096" || name === "large") {
+      return 400_000;
+    }
+    if (name === "medium") {
+      return 300_000;
+    }
+    return 200_000;
+  }
+
+  return 0;
+}
+
+function parseVideoResolution(rawUrl) {
+  try {
+    const match = new URL(rawUrl).pathname.match(/\/(\d+)x(\d+)\//);
+    if (!match) {
+      return null;
+    }
+    const width = Number(match[1]);
+    const height = Number(match[2]);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return null;
+    }
+    return { width, height };
+  } catch {
+    return null;
+  }
+}
+
+function videoQualityPreferenceScore(rawUrl) {
+  const size = parseVideoResolution(rawUrl);
+  if (!size) {
+    return 0;
+  }
+
+  // Prefer 720-quality streams from X/Twitter variants when available.
+  // We use the short edge so landscape/portrait both map consistently.
+  const shortEdge = Math.min(size.width, size.height);
+  const area = size.width * size.height;
+  if (shortEdge === 720) {
+    return 500_000 + area;
+  }
+  if (shortEdge < 720) {
+    return 300_000 + shortEdge * 100 + area / 1_000_000;
+  }
+  return 100_000 - (shortEdge - 720) * 100 + area / 1_000_000;
+}
+
+function sortMediaUrls(urls) {
+  if (!urls.length) {
+    return [];
+  }
+
+  const unique = [...new Set(urls)];
+  unique.sort((a, b) => mediaSortScore(b) - mediaSortScore(a));
+  return collapseVariantUrls(unique);
+}
+
+function collapseVariantUrls(sortedUrls) {
+  const seenKeys = new Set();
+  const collapsed = [];
+
+  for (const rawUrl of sortedUrls) {
+    const key = getVariantCollapseKey(rawUrl);
+    if (seenKeys.has(key)) {
+      continue;
+    }
+    seenKeys.add(key);
+    collapsed.push(rawUrl);
+  }
+
+  return collapsed;
+}
+
+function getVariantCollapseKey(rawUrl) {
+  if (isLikelyTweetVideoUrl(rawUrl)) {
+    return getVideoVariantKey(rawUrl);
+  }
+  if (isLikelyTweetImageUrl(rawUrl)) {
+    return getImageVariantKey(rawUrl);
+  }
+  return `other:${rawUrl}`;
+}
+
+function getVideoVariantKey(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.host.toLowerCase();
+    let normalizedPath = url.pathname.toLowerCase();
+
+    // Normalize any resolution segment so quality variants collapse.
+    normalizedPath = normalizedPath.replace(/\/\d+x\d+(?=\/)/g, "/*");
+
+    // Collapse codec-qualified vid paths:
+    // /vid/avc1/1280x720/... and /vid/h264/640x360/... -> /vid/*/...
+    normalizedPath = normalizedPath.replace(/\/vid\/[^/]+\/\*(?=\/)/, "/vid/*");
+
+    // Ignore filename differences for the same media bucket.
+    normalizedPath = normalizedPath.replace(/\/[^/]+\.mp4$/i, "");
+
+    return `video:${host}${normalizedPath}`;
+  } catch {
+    return `video:${rawUrl}`;
+  }
+}
+
+function getImageVariantKey(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.host.toLowerCase();
+    const path = url.pathname.toLowerCase();
+    const format = (url.searchParams.get("format") || "").toLowerCase();
+    const normalizedPath = format && !/\.(png|jpe?g|gif|webp)$/i.test(path)
+      ? `${path}.${format}`
+      : path;
+    return `image:${host}${normalizedPath}`;
+  } catch {
+    return `image:${rawUrl}`;
+  }
+}
+
+async function resolveFromSyndication(tweetId) {
+  try {
+    const endpoint = `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en`;
+    const response = await fetch(endpoint);
+    if (!response.ok) {
+      return "";
+    }
+
+    const data = await response.json();
+    const urls = sortMediaUrls(collectMediaUrls(data, [], { includeQuoted: false }));
+    await safeLog("resolve", "Syndication lookup finished", {
+      tweetId,
+      foundCount: urls.length,
+      picked: urls[0] || "",
+    });
+    return urls;
+  } catch {
+    await safeLog("resolve", "Syndication lookup failed", { tweetId });
+    return [];
+  }
+}
+
+async function resolveFromPages(tweetId, originalUrl) {
+  const candidates = [
+    `https://api.fxtwitter.com/status/${tweetId}`,
+    `https://api.vxtwitter.com/status/${tweetId}`,
+    `https://d.fxtwitter.com/i/status/${tweetId}`,
+    `https://fxtwitter.com/i/status/${tweetId}`,
+    `https://vxtwitter.com/i/status/${tweetId}`,
+    `https://fixupx.com/i/status/${tweetId}`,
+    originalUrl,
+    `https://x.com/i/status/${tweetId}`,
+    `https://twitter.com/i/status/${tweetId}`,
+  ];
+
+  for (const candidate of candidates) {
+    const text = await fetchText(candidate);
+    if (!text) {
+      continue;
+    }
+
+    const urls = extractMediaUrlsFromResponseText(text);
+    if (urls.length > 0) {
+      await safeLog("resolve", "Resolved from page fallback", {
+        tweetId,
+        candidate,
+        picked: urls[0],
+        foundCount: urls.length,
+      });
+      return urls;
+    }
+  }
+
+  await safeLog("resolve", "Page fallback failed", { tweetId });
+  return [];
+}
+
+async function fetchText(url) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      return "";
+    }
+    return await response.text();
+  } catch {
+    return "";
+  }
+}
+
+function extractMediaUrlsFromText(text) {
+  const normalized = text.replace(/\\u0026/gi, "&").replace(/\\\//g, "/");
+  const videoMatches =
+    normalized.match(
+      /https:\/\/video\.twimg\.com\/[^"'\\\s<>()]+\.mp4[^"'\\\s<>()]*/gi,
+    ) || [];
+  const imageMatches =
+    normalized.match(/https:\/\/pbs\.twimg\.com\/media\/[^"'\\\s<>()]+/gi) || [];
+  const merged = [...videoMatches, ...imageMatches];
+  return [...new Set(merged)].filter(
+    (rawUrl) => isLikelyTweetVideoUrl(rawUrl) || isLikelyTweetImageUrl(rawUrl),
+  );
+}
+
+function extractMediaUrlsFromResponseText(text) {
+  const normalizedText = String(text || "");
+  const structuredUrls = collectMediaUrls(
+    tryParseJson(normalizedText),
+    [],
+    { includeQuoted: false },
+  );
+  if (structuredUrls.length > 0) {
+    return sortMediaUrls(structuredUrls);
+  }
+  return sortMediaUrls(extractMediaUrlsFromText(normalizedText));
+}
+
+function tryParseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function expandUrl(rawUrl) {
+  try {
+    const response = await fetch(rawUrl);
+    return response.url || rawUrl;
+  } catch {
+    return rawUrl;
+  }
+}
+
+function hasLikelyMediaUrlHint(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    const path = url.pathname.toLowerCase();
+    if (/\.(gif|png|jpe?g|webp|bmp|avif|mp4|webm|mov|m4v)$/i.test(path)) {
+      return true;
+    }
+    const format = (url.searchParams.get("format") || "").toLowerCase();
+    return ["gif", "png", "jpg", "jpeg", "webp", "bmp", "avif"].includes(format);
+  } catch {
+    return false;
+  }
+}
+
+function inferMediaTypeFromMagicBytes(sniffBytes) {
+  const bytes = sniffBytes instanceof Uint8Array ? sniffBytes : new Uint8Array();
+  if (bytes.length < 4) {
+    return "";
+  }
+
+  const asciiAt = (offset, text) => {
+    if (offset + text.length > bytes.length) {
+      return false;
+    }
+    for (let i = 0; i < text.length; i += 1) {
+      if (bytes[offset + i] !== text.charCodeAt(i)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  if (asciiAt(0, "GIF8")) {
+    return "image/gif";
+  }
+  if (bytes[0] === 0x89 && asciiAt(1, "PNG")) {
+    return "image/png";
+  }
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (asciiAt(0, "RIFF") && asciiAt(8, "WEBP")) {
+    return "image/webp";
+  }
+  if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) {
+    return "video/webm";
+  }
+  if (asciiAt(4, "ftyp")) {
+    return "video/mp4";
+  }
+
+  return "";
+}
+
+function isSupportedMediaType(contentType, options = {}) {
+  const normalizedType = String(contentType || "").trim().toLowerCase();
+  if (
+    normalizedType.startsWith("image/") ||
+    normalizedType.startsWith("video/")
+  ) {
+    return true;
+  }
+
+  const isBinaryFallback =
+    !normalizedType || normalizedType.includes("octet-stream");
+  if (!isBinaryFallback) {
+    return false;
+  }
+
+  if (hasLikelyMediaUrlHint(options.url || "")) {
+    return true;
+  }
+
+  const inferredType = inferMediaTypeFromMagicBytes(options.sniffBytes);
+  return inferredType.startsWith("image/") || inferredType.startsWith("video/");
+}
+
+function getReadableImportError(url, contentType) {
+  const normalizedType = (contentType || "").toLowerCase();
+  if (normalizedType.startsWith("text/html")) {
+    return UI_MESSAGES.popup.enterValidUrl;
+  }
+  if (isTwitterUrl(url)) {
+    return UI_MESSAGES.import.couldNotResolveMediaFromPost;
+  }
+  return UI_MESSAGES.import.resolvedUrlNotMedia(contentType);
+}
+
+export {
+  getReadableImportError,
+  isSupportedMediaType,
+  isTwitterUrl,
+  resolveMediaUrl,
+  resolveMediaUrls,
+};

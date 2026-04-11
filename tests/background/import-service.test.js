@@ -152,6 +152,28 @@ describe("import service long-video gate", () => {
     expect(phases).toContain(UI_MESSAGES.import.phaseComplete);
   });
 
+  it("accepts serialized gifBuffer payloads returned from offscreen conversion", async () => {
+    sendMessageMock.mockImplementation(async (message) => {
+      if (message?.type === "OFFSCREEN_CONVERT_MP4") {
+        return {
+          ok: true,
+          payload: {
+            converted: true,
+            mimeType: "image/gif",
+            gifBuffer: { 0: 71, 1: 73, 2: 70, 3: 56, 4: 57, 5: 97, length: 6 },
+          },
+        };
+      }
+      return { ok: true };
+    });
+
+    await expect(
+      importFromUrl("https://x.com/i/status/serialized-buffer", "", "request-serialized-buffer"),
+    ).resolves.toMatchObject({ kind: "image", converted: true });
+
+    expect(mocks.idbSave).toHaveBeenCalledTimes(1);
+  });
+
   it("imports all resolved media URLs from a tweet", async () => {
     globalThis.fetch = vi.fn(async (url) => ({
       ok: true,
@@ -205,6 +227,22 @@ describe("import service long-video gate", () => {
     });
 
     expect(mocks.idbSave).toHaveBeenCalledTimes(2);
+  });
+
+  it("maps offscreen runtime message-size failures to media-too-large message", async () => {
+    sendMessageMock.mockImplementation(async (message) => {
+      if (message?.type === "OFFSCREEN_CONVERT_MP4") {
+        throw new Error(
+          "Message exceeded maximum allowed size of 64MiB.",
+        );
+      }
+      return { ok: true };
+    });
+
+    await expect(
+      importFromUrl("https://x.com/i/status/size-limit", "", "request-size-limit"),
+    ).rejects.toThrow(UI_MESSAGES.import.mediaTooLarge(50));
+    expect(mocks.idbSave).not.toHaveBeenCalled();
   });
 
   it("does not push host-access hint text into import progress updates", async () => {

@@ -3,15 +3,15 @@
 ## Workspace Context
 
 - Date snapshot: 2026-03-17
-- Workspace: `c:\Users\MONSTER\Desktop\GIF_Manager`
+- Workspace: `c:\Users\MONSTER\Desktop\projects\GIF_Manager`
 - Shell: `powershell`
 - Timezone: `Europe/Istanbul`
 
 ## Release State
 
 - Branch: `test`
-- HEAD: `4cab35e`
-- Version: `1.6.4`
+- HEAD: `5510c2a`
+- Version: `1.6.5`
 
 ## Project Purpose
 
@@ -28,9 +28,6 @@ Core capabilities:
 ## Store Listing Features
 
 ### Recently Added (Store Listing)
-
-- Local file import support: Choose one or more local images/videos from popup and import them directly.
-- Drag-and-drop import support: Drop local files onto popup to start import without opening the file picker.
 
 - Save from the web in one click: Right-click GIFs or images and add them to your vault instantly.
 - Paste-and-import support: Import GIF, image, video, or X/Twitter post links directly from the popup.
@@ -54,8 +51,8 @@ Core capabilities:
 
 Maintenance rule:
 
-- When a worthwhile user-facing feature is added, append it to `## Recently Added` below (and update this section if store-copy should change).
-- When the app version changes, insert a clear version marker inside `## Recently Added` (for example `### Since v1.6.1`) so changes after each version are easy to spot.
+- Keep user-facing store copy in this section only (no detailed per-version history in `AGENTS.md`).
+- Track release/version changes in `CHANGELOG.md` under `## Version Includes: ...` markers (keep a `NEXT` placeholder at the top).
 - PR/release-note rule: when preparing PR text for a release train, summarize changes from the last released version marker/tag (for example `v1.6.2 -> v1.6.3`) even if the current branch has only merge/sync commits.
 - Release-summary rule: for each version marker, prefer broad net-change bullets; if a feature was added and then fixed/refined within the same version, list the feature once (not each intermediate fix).
 - README release-table rule: keep version notes as simple/high-level as possible; avoid detailed implementation breakdowns.
@@ -63,19 +60,30 @@ Maintenance rule:
 - README release-table dedupe rule: if a feature was added and then fixed/refined in the same version, mention only the feature.
 - README release-table fix rule: mention fixes/tweaks only when they resolve issues that existed in previously listed versions in the table.
 - README release-table compare rule: do not mention or compare with previous versions unless the difference is drastic and user-significant.
+- Documentation update rule: if a code change affects architecture, file responsibility, public behavior, or workflow expectations, update `AGENTS.md` in the same change.
+- Module-doc rule: when creating or substantially reshaping modules, include brief top-of-file documentation comments describing purpose and boundaries.
 
 ## Source Layout
 
 - `src/manifest.json`: MV3 manifest.
 - `src/background/service-worker.js`: Chrome event/message routing.
-- `src/background/import-service.js`: Import orchestration, permission checks, progress reporting.
-- `src/background/media-resolver.js`: URL/media resolution.
+- `src/background/import/`: Import subsystem folder.
+- `src/background/import/service.js`: Import composition root (wires control/runner/pipeline/runtime/media/offscreen modules).
+- `src/background/import/runner.js`: High-level URL/local import runners and phase/error orchestration.
+- `src/background/import/pipeline.js`: Media processing pipeline (fetch/validate/convert/save + rollback).
+- `src/background/import/control.js`: Import lifecycle control (single-active-import guard, abort/terminate state).
+- `src/background/import/runtime.js`: Runtime integration (host permission checks, progress/runtime messaging).
+- `src/background/import/offscreen.js`: Offscreen conversion bridge.
+- `src/background/import/media-utils.js`: Shared import/media utility helpers.
+- `src/background/import/media-resolver.js`: URL/media resolution implementation.
+- `src/background/import-service.js`: Backward-compatible shim that re-exports import API from `src/background/import/service.js`.
+- `src/background/media-resolver.js`: Backward-compatible shim that re-exports resolver API from `src/background/import/media-resolver.js`.
 - `src/background/action-icon.js`: Toolbar icon/badge helpers.
 - `src/offscreen/offscreen.js`: FFmpeg offscreen conversion path.
 - `src/pages/popup/`: Popup entry files (`popup.js`, `popup.css`, `popup.html`) plus the popup subsystem folder `popup/`.
 - `src/pages/popup/popup/`: Popup internal modules (`state.js`, `status.js`, `tab.js`, `import-flow.js`, `import-state.js`, `grid.js`, `grid/`).
 - `src/pages/assist/`: Permission assist page.
-- `src/pages/logs/`: Logs page.
+- `src/pages/logs/`: Logs page (`logs.js` coordinator + `logs-format.js` formatting + `logs-report.js` report helpers + `logs-view.js` view controller).
 - `src/pages/options/`: Settings/options page.
 - `src/lib/`: Shared helpers (`async.js`, `db.js`, `theme.js`, `ui.js`, `log.js`, `runtime-config.js`, `messages.js`, `protocol.js`, `page-lifecycle.js`).
 - `src/assets/icons/app/`: Manifest/action PNG icon sizes.
@@ -108,6 +116,14 @@ PowerShell note:
 - Pipeline order: permission check -> media resolve -> fetch -> optional convert -> save -> notify.
 - Progress updates are written to `chrome.storage.local` and sent as runtime messages.
 - Import/runtime error flow now uses shared protocol error codes (`src/lib/protocol.js`) in addition to localized user text.
+- Import subsystem modularity:
+  - `import/service.js`: composition root
+  - `import/runner.js`: entry-point orchestration for URL/local imports
+  - `import/pipeline.js`: media-processing operations
+  - `import/control.js`: active-import + abort/terminate control
+  - `import/runtime.js`: runtime/storage progress + permission interactions
+  - `import/media-utils.js`: shared payload/media helper utilities
+  - `import/offscreen.js`: offscreen document + conversion bridge
 
 ### Storage
 
@@ -125,7 +141,26 @@ PowerShell note:
 - Popup tab persistence/default-tab resolution lives in `src/pages/popup/popup/tab.js`.
 - Popup import orchestration, permission precheck, and popup-owned import request handling live in `src/pages/popup/popup/import-flow.js`.
 - Popup grid item actions and selection hints are handled by `src/pages/popup/popup/grid.js`.
-- Popup grid internals live in `src/pages/popup/popup/grid/` with focused modules (`controller.js`, `data.js`, `preview.js`, `focus.js`, `copy.js`, `selection.js`, `media-kind.js`, `dom.js`).
+- Popup grid internals live in `src/pages/popup/popup/grid/` and should stay grouped into broader modules: `controller.js`, `card.js`, `data.js`, `interaction.js`, and `media.js`.
+- Grid modularity direction: avoid splitting into many micro-files by default; prefer these broader buckets and only split further when a module becomes difficult to reason about.
+- Within the grid buckets: keep selection/focus/action orchestration in `interaction.js`, media preview/kind detection in `media.js`, and card construction/copy wiring in `card.js`.
+- New-feature modularity rule: implement new features within the agreed broad module buckets (instead of micro-files), and include/update concise module documentation for touched files.
+
+### Logs Page Modularity
+
+- Keep `src/pages/logs/logs.js` as the page coordinator (wiring lifecycle, storage listeners, and async orchestration).
+- Keep view rendering/state in `src/pages/logs/logs-view.js`.
+- Keep log line formatting/bundling in `src/pages/logs/logs-format.js`.
+- Keep bug-report/attachment helpers in `src/pages/logs/logs-report.js`.
+
+### Modularity Directive (Agent Rule)
+
+- Prefer broad, concern-based modules over micro-files.
+- New feature work should fit existing module buckets before creating new files.
+- Target module buckets in popup grid work: `card`, `data`, `interaction`, `media`, coordinated by `controller`.
+- Keep page entry files as coordinators/composition roots; push detailed behavior into concern modules.
+- Split files only when readability/ownership genuinely degrades; avoid speculative fragmentation.
+- If responsibility boundaries change, update `AGENTS.md` and top-of-file module docs in the same change.
 
 ### Popup Card UI Rules (Current)
 
@@ -194,51 +229,10 @@ Rules:
 - In `import-service.js`, host-access failures clear progress state without pushing the access hint into `IMPORT_PROGRESS` text.
 - Regression coverage exists in `tests/import-service.test.js` to ensure host-access hint text is not sent to popup progress messages.
 
-## Recent Key Changes
+## Change History
 
-- Added `src/lib/messages.js` and moved popup/import/assist/grid text into it.
-- Fixed progress-bar overflow handling for long messages.
-- Removed duplicate feedback by preventing permission-access hints from being injected into popup progress updates.
-- Added test coverage for host-access/progress isolation.
-
-## Recently Added
-
-### Since v1.6.4
-
-- Vertical-video GIF quality refinement: conversion now avoids upscaling beyond source dimensions and uses a more compression-friendly palette strategy to reduce visible dithering artifacts while keeping output size compact.
-
-### Since v1.6.3
-
-- Latest release broad summary (vs `v1.6.2`): added import-cancel UX/performance improvements (faster terminate propagation with temporary popup action-button lock), popup coordinator/grid-controller maintenance cleanup (doc comments + centralized timing constants), portrait-video GIF conversion scaling improvements to reduce disproportionate output sizes, drag/drop guard consistency for in-popup drags, and a compact folder-icon local-import action inside the popup URL field.
-
-### Since v1.6.2
-
-- Added local file import from popup with a compact "Choose files" action that uses the same progress/status pipeline as URL imports (including video-to-GIF conversion for supported local videos).
-- Added drag-and-drop local file import across the popup surface to start imports quickly without opening the file picker.
-- Store-listing copy alignment: explicitly included local file import support (and popup drag-and-drop local import support) in the listed user-facing capabilities.
-- Improved local/dragged item metadata and copy behavior: cards now show `local` as source when no web source exists, copy action clearly reports when no source URL is available for local-origin items, and drag-dropped web media now preserves source URL when the browser exposes it via drop data.
-- Updated popup multi-select flow so after the first selection, regular left-click can add/remove cards without requiring Shift on every click.
-- Added a header-level clear control that appears during multi-select and clears current selections immediately.
-- Refined header actions to prevent overflow: clear-selection and clear-all controls now use compact labels/icon hints.
-- Refined selection-clear affordance: multi-select header control now uses a short "Clear" label to make non-destructive behavior more obvious.
-- Added keyboard delete support for multi-select mode: Delete/Backspace removes selected items after confirmation.
-- Import cancel UX/performance: while cancellation is pending, popup action buttons are temporarily disabled to prevent conflicting actions, and cancel requests now return/propagate faster (including during conversion-heavy paths).
-- Internal maintenance: added controller doc comments for popup import/grid coordinators and centralized popup grid timing constants in `src/lib/settings.js`.
-
-### Since v1.6.1
-
-- Popup UI refresh: de-pilled layout, tighter alignment, clearer divider/progress behavior, icon-only card actions, and hover-only source/size metadata row.
-- Favorites action now uses a filled star icon for stronger state clarity.
-- Options feedback flow simplified: composer is always visible with a direct "Send by email" action.
-- Empty-state layout now fills available grid space more cleanly (including scrollbar handling).
-
-### Since v1.5.0
-
-- Import safety and reliability upgrades: global single-active-import guard, stricter URL/redirect/media validation, configurable max download-size limits, and atomic batch rollback behavior.
-- Multi-select workflow improvements: Shift-click range selection, selection-aware favorite/delete actions, and safer armed-delete behavior.
-- Logs upgrades: bundled/unbundled views, grouped repeated-success entries, increased retention cap (500), and built-in bug-report email flow with downloadable log attachment.
-- Localization and messaging infrastructure: centralized `UI_MESSAGES`, Turkish locale support, locale-safe import progress phase metadata, and shared theme/locale lifecycle wiring.
-- Popup resilience improvements: startup loading lock, progress ghost-replay fix, and clearer permission-vs-progress feedback separation.
+- Versioned release and feature history lives in `CHANGELOG.md` (use it only for release notes/history lookups).
+- Keep `AGENTS.md` focused on current architecture, behavior contracts, and working rules.
 
 ## Operational Notes
 
@@ -251,3 +245,4 @@ Rules:
 ## Known Issues
 
 - Local-only issue tracking has been moved to `LOCAL_KNOWN_ISSUES.md` (gitignored via `.gitignore`).
+

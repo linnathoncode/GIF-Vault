@@ -1,3 +1,4 @@
+// Popup grid controller that composes the card, data, interaction, and media helpers.
 import {
   idbDelete,
   idbGetAllMedia,
@@ -10,18 +11,27 @@ import { UI_MESSAGES } from "../../../../lib/messages.js";
 import { POPUP_GRID } from "../../../../lib/settings.js";
 import {
   armedDeleteGlyph,
+  createGridActionController,
   selectionIdsChanged,
   shouldCancelArmedDeleteOnSelectionChange,
-} from "./selection.js";
-import {
-  copyItemUrl,
-  resolveMediaCopyKind,
-} from "./copy.js";
-import { createStoredMediaKindDetector } from "./media-kind.js";
-import { createButton, setButtonIcon } from "./dom.js";
+  createGridFocusController,
+} from "./interaction.js";
 import { createGridDataController } from "./data.js";
-import { createGridPreviewController } from "./preview.js";
-import { createGridFocusController } from "./focus.js";
+import {
+  createGridPreviewController,
+  createStoredMediaKindDetector,
+  resolveMediaCopyKind,
+} from "./media.js";
+import {
+  attachCardSelectionHandlers,
+  copyItemUrl,
+  createButton,
+  createHoverInfoRow,
+  createInvalidCard,
+  createPreviewMedia,
+  sanitizeCopyUrl,
+  setButtonIcon,
+} from "./card.js";
 
 export {
   armedDeleteGlyph,
@@ -30,7 +40,7 @@ export {
 };
 export {
   sanitizeCopyUrl,
-} from "./copy.js";
+} from "./card.js";
 
 /**
  * Creates the popup grid controller that coordinates filtering, rendering,
@@ -139,6 +149,7 @@ export function createPopupGridController({
   }
 
   function updateSelectionForRender() {
+    // Keep only selections that are still visible on the current page.
     const next = new Set();
     for (const id of selectedItemIds) {
       if (latestVisiblePageIds.has(id)) {
@@ -231,22 +242,11 @@ export function createPopupGridController({
     return selectedItemIds.size;
   }
 
-  function resolveTargetIdsForAction(fallbackItemId) {
-    const fallbackId = String(fallbackItemId || "");
-    if (
-      fallbackId &&
-      selectedItemIds.size > 1 &&
-      selectedItemIds.has(fallbackId)
-    ) {
-      return [...selectedItemIds];
-    }
-    return fallbackId ? [fallbackId] : [];
-  }
-
   function armDeleteButton(button, actionKey, count = 1, targetIds = []) {
     clearArmedDelete();
     armedDeleteItemId = String(actionKey);
 
+    // Batch delete confirmation needs to arm every matching card action, not just one button.
     const armedLabel =
       count > 1
         ? UI_MESSAGES.grid.confirmDeleteTitleMany(count)
@@ -289,214 +289,57 @@ export function createPopupGridController({
     }, ARMED_DELETE_DURATION_MS);
   }
 
-  function deletedStatusTextForIds(ids) {
-    const targetIds = [...new Set((ids || []).map((id) => String(id)).filter(Boolean))];
-    if (targetIds.length > 1) {
-      return UI_MESSAGES.grid.deletedMany(targetIds.length);
-    }
-
-    const item = latestItemById.get(targetIds[0]);
-    const mediaKind = resolveMediaCopyKind(
-      item,
-      item?.mediaUrl || item?.sourceUrl || "",
-    );
-    if (mediaKind === "image") {
-      return UI_MESSAGES.grid.deletedImageSingle || UI_MESSAGES.grid.deletedSingle;
-    }
-    if (mediaKind === "video") {
-      return UI_MESSAGES.grid.deletedVideoSingle || UI_MESSAGES.grid.deletedSingle;
-    }
-    if (mediaKind === "gif") {
-      return UI_MESSAGES.grid.deletedGifSingle || UI_MESSAGES.grid.deletedSingle;
-    }
-    if (mediaKind === "animated-webp") {
-      return UI_MESSAGES.grid.deletedAnimatedWebpSingle || UI_MESSAGES.grid.deletedSingle;
-    }
-    return UI_MESSAGES.grid.deletedSingle;
-  }
-
-  function setCopyStatus(item, result) {
-    if (!result?.ok) {
-      if (result?.reason === "no-source-url") {
-        showTransientStatus(UI_MESSAGES.grid.copyNoSourceUrlForLocal, "error");
-        return;
-      }
-      showTransientStatus(UI_MESSAGES.grid.copyFailed, "error");
-      return;
-    }
-
-    const copiedUrl = String(result.copiedUrl || "");
-    const mediaKind = resolveMediaCopyKind(item, copiedUrl);
-
-    const label = mediaKind === "video"
-      ? UI_MESSAGES.grid.copiedVideoLink
-      : mediaKind === "animated-webp"
-        ? UI_MESSAGES.grid.copiedAnimatedWebpLink
-      : mediaKind === "image"
-        ? UI_MESSAGES.grid.copiedImageLink
-        : UI_MESSAGES.grid.copiedGifLink;
-    const hint = mediaKind === "video"
-      ? UI_MESSAGES.grid.copiedVideoLinkTip
-      : mediaKind === "animated-webp"
-        ? UI_MESSAGES.grid.copiedLinkTip
-      : mediaKind === "image"
-        ? UI_MESSAGES.grid.copiedImageLinkTip
-        : UI_MESSAGES.grid.copiedGifLinkTip;
-    showTransientStatus(
-      hint ? `${label}\n${hint}` : label,
-      "ok",
-      COPY_HINT_DURATION_MS,
-      {
-        forceTemporary: true,
-        preserveProgress: false,
-      },
-    );
-  }
-
-  async function removeItems(ids, focusItemId = "") {
-    const targetIds = [...new Set((ids || []).map((id) => String(id)).filter(Boolean))];
-    if (!targetIds.length) {
-      return;
-    }
-
-    clearAllSelections();
-    focusController.queueRemovalFocusRestore(focusItemId || targetIds[0]);
-    await Promise.all(targetIds.map((id) => idbDelete(id)));
-
-    for (const id of targetIds) {
-      const objectUrl = objectUrlById.get(id);
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-        objectUrlById.delete(id);
-      }
-      mediaKindCacheById.delete(String(id));
-      selectedItemIds.delete(id);
-    }
-    await render();
-  }
-
-  async function setFavoriteForItems(ids, favorite) {
-    const targetIds = [...new Set((ids || []).map((id) => String(id)).filter(Boolean))];
-    if (!targetIds.length) {
-      return;
-    }
-
-    clearAllSelections();
-
-    const updates = targetIds
-      .map((id) => latestItemById.get(id))
-      .filter(Boolean)
-      .map((item) => ({
-        ...item,
-        favorite: Boolean(favorite),
-      }));
-    if (!updates.length) {
-      return;
-    }
-
-    await Promise.all(updates.map((item) => idbSave(item)));
-    await safeLog("popup", "Favorite toggled", {
-      ids: updates.map((item) => item.id),
-      favorite: Boolean(favorite),
-      count: updates.length,
-    });
-    await render();
-  }
-
-  async function renameItem(item) {
-    const currentName = item.name || "";
-    const nextName = window.prompt(UI_MESSAGES.grid.renamePrompt, currentName);
-    if (nextName === null) {
-      return;
-    }
-
-    clearAllSelections();
-    const normalized = nextName.trim();
-    const updated = {
-      ...item,
-      name: normalized,
-    };
-    await idbSave(updated);
-    await safeLog("popup", "Item renamed", { id: item.id, name: normalized });
-    await render();
-  }
-
-  // Card and media element construction for the grid.
-  function createInvalidCard(item) {
-    const card = document.createElement("article");
-    card.className = "item";
-    card.dataset.itemId = String(item.id);
-    const meta = document.createElement("div");
-    meta.className = "meta";
-
-    const urlText = document.createElement("div");
-    urlText.className = "url";
-    urlText.textContent =
-      item.kind === "video"
-        ? UI_MESSAGES.grid.invalidLegacyVideo
-        : UI_MESSAGES.grid.invalidMediaEntry;
-
-    const actions = document.createElement("div");
-    actions.className = "actions";
-    actions.append(
-      createButton({
-        className: "btn",
-        text: UI_MESSAGES.grid.remove,
-        actionKey: "delete",
-        title: deleteButtonLabelWithBatchHint(),
-        onClick: () => removeItems([item.id], item.id),
-      }),
-    );
-
-    meta.append(urlText, actions);
-    card.append(meta);
-    return card;
-  }
-
-  function createPreviewMedia(item, previewUrl) {
-    const media = document.createElement("img");
-    media.className = "thumb";
-    media.src = previewUrl;
-    media.alt = UI_MESSAGES.grid.savedGifAlt;
-    media.loading = "lazy";
-    media.addEventListener("error", () => {
-      void safeLog("popup", "Image preview failed", {
-        id: item.id,
-        mimeType: item.mimeType || "",
-      });
-    });
-    media.addEventListener("pointerenter", (event) => {
-      previewController.scheduleHoverPreview(previewUrl, event);
-    });
-    media.addEventListener("pointermove", (event) => {
-      previewController.updateHoverPointerPosition(event);
-      if (hoverPreviewEl?.classList.contains("visible")) {
-        previewController.positionHoverPreview(
-          event?.clientX ?? 0,
-          event?.clientY ?? 0,
-        );
-      }
-    });
-    media.addEventListener("pointerleave", previewController.hideHoverPreview);
-    media.addEventListener("pointercancel", previewController.hideHoverPreview);
-    return media;
-  }
+  const actionController = createGridActionController({
+    UI_MESSAGES,
+    TEMP_STATUS_DURATION_MS,
+    COPY_HINT_DURATION_MS,
+    idbDelete,
+    idbSave,
+    safeLog,
+    resolveMediaCopyKind,
+    latestItemByIdRef: () => latestItemById,
+    objectUrlById,
+    mediaKindCacheById,
+    selectedItemIds,
+    clearAllSelections,
+    focusController,
+    render,
+    showTransientStatus,
+  });
 
   function buildCard(item) {
     if (item.kind === "video") {
-      return createInvalidCard(item);
+      return createInvalidCard({
+        item,
+        createButton,
+        UI_MESSAGES,
+        deleteButtonLabelWithBatchHint,
+        onDelete: () => actionController.removeItems([item.id], item.id),
+      });
     }
 
     const previewUrl = previewController.buildPreviewUrl(item);
     if (!previewUrl) {
-      return createInvalidCard(item);
+      return createInvalidCard({
+        item,
+        createButton,
+        UI_MESSAGES,
+        deleteButtonLabelWithBatchHint,
+        onDelete: () => actionController.removeItems([item.id], item.id),
+      });
     }
 
     const card = document.createElement("article");
     card.className = "item";
     card.dataset.itemId = String(item.id);
     setCardSelected(card, selectedItemIds.has(String(item.id)));
-    const media = createPreviewMedia(item, previewUrl);
+    const media = createPreviewMedia({
+      item,
+      previewUrl,
+      previewController,
+      hoverPreviewEl,
+      UI_MESSAGES,
+    });
 
     const meta = document.createElement("div");
     meta.className = "meta";
@@ -514,29 +357,18 @@ export function createPopupGridController({
       actionKey: "rename",
       title: UI_MESSAGES.grid.rename,
       label: UI_MESSAGES.grid.rename,
-      onClick: () => renameItem(item),
+      onClick: () => actionController.renameItem(item),
     });
     setButtonIcon(renameBtn, "icon-rename.svg");
 
     nameRow.append(nameText);
 
-    const hoverInfoText = document.createElement("div");
-    hoverInfoText.className = "meta-hover-row";
-    const sourceHost =
-      hostFromUrl(item.sourceUrl || item.mediaUrl || "") ||
-      UI_MESSAGES.grid.sourceLocal;
-    const sizeLabel = UI_MESSAGES.grid.sizeLabel(
-      formatBytes(item.blob?.size || 0),
-    );
-    const hoverSourceText = document.createElement("span");
-    hoverSourceText.className = "meta-hover-source";
-    hoverSourceText.textContent = sourceHost;
-
-    const hoverSizeText = document.createElement("span");
-    hoverSizeText.className = "meta-hover-size";
-    hoverSizeText.textContent = sizeLabel;
-
-    hoverInfoText.append(hoverSourceText, hoverSizeText);
+    const hoverInfoText = createHoverInfoRow({
+      item,
+      hostFromUrl,
+      formatBytes,
+      UI_MESSAGES,
+    });
 
     const actions = document.createElement("div");
     actions.className = "actions";
@@ -554,7 +386,7 @@ export function createPopupGridController({
       const feedbackIcon = result.ok ? "icon-copy-success.svg" : "icon-warning.svg";
       const feedbackGlyph = result.ok ? "\u2713" : "!";
       setButtonIcon(copyBtn, feedbackIcon, feedbackGlyph);
-      setCopyStatus(item, result);
+      actionController.setCopyStatus(item, result);
       setTimeout(() => {
         setButtonIcon(copyBtn, "icon-copy.svg");
       }, getPopupMenuConfig().copyFeedbackResetDelayMs);
@@ -566,10 +398,10 @@ export function createPopupGridController({
       title: `${item.favorite ? UI_MESSAGES.grid.unfavorite : UI_MESSAGES.grid.favorite} ${UI_MESSAGES.grid.favoriteBatchHint}`,
       label: `${item.favorite ? UI_MESSAGES.grid.unfavorite : UI_MESSAGES.grid.favorite} ${UI_MESSAGES.grid.favoriteBatchHint}`,
       onClick: () => {
-        const targetIds = resolveTargetIdsForAction(item.id);
+        const targetIds = actionController.resolveTargetIdsForAction(item.id);
         const nextFavorite = !Boolean(item.favorite);
         focusController.queueActionFocusRestore(item.id, "favorite");
-        void setFavoriteForItems(targetIds, nextFavorite);
+        void actionController.setFavoriteForItems(targetIds, nextFavorite);
       },
     });
     setButtonIcon(
@@ -588,7 +420,7 @@ export function createPopupGridController({
     });
     setButtonIcon(removeBtn, "icon-delete.svg");
     removeBtn.addEventListener("click", () => {
-      const targetIds = resolveTargetIdsForAction(item.id);
+      const targetIds = actionController.resolveTargetIdsForAction(item.id);
       const actionKey = targetIds.length > 1
         ? `batch:${[...targetIds].sort().join(",")}`
         : String(item.id);
@@ -596,7 +428,7 @@ export function createPopupGridController({
       if (armedDeleteItemId === actionKey) {
         clearArmedDelete();
         showTransientStatus(
-          deletedStatusTextForIds(targetIds),
+          actionController.deletedStatusTextForIds(targetIds),
           "ok",
           TEMP_STATUS_DURATION_MS,
           {
@@ -604,7 +436,7 @@ export function createPopupGridController({
             preserveProgress: false,
           },
         );
-        void removeItems(targetIds, item.id);
+        void actionController.removeItems(targetIds, item.id);
         return;
       }
       armDeleteButton(removeBtn, actionKey, targetIds.length, targetIds);
@@ -613,45 +445,19 @@ export function createPopupGridController({
     actions.append(renameBtn, copyBtn, favoriteBtn, removeBtn);
     meta.append(nameRow, actions, hoverInfoText);
     card.append(media, meta);
-    card.addEventListener("mousedown", (event) => {
-      const rawTarget = event.target;
-      if (!(rawTarget instanceof Element)) {
-        return;
-      }
-      if (rawTarget.closest(".btn, .name-btn")) {
-        return;
-      }
-      if (event.button !== 0) {
-        return;
-      }
-      focusController.blurSelectionResetInputs();
-      if (event.shiftKey || selectedItemIds.size > 0) {
-        event.preventDefault();
-      }
-    });
-    card.addEventListener("click", (event) => {
-      const rawTarget = event.target;
-      if (!(rawTarget instanceof Element)) {
-        return;
-      }
-      if (rawTarget.closest(".btn, .name-btn")) {
-        return;
-      }
-      if (event.button !== 0) {
-        return;
-      }
-      focusController.blurSelectionResetInputs();
-      event.preventDefault();
-      if (event.shiftKey || selectedItemIds.size > 0) {
-        toggleCardSelection(item.id, card);
-        return;
-      }
-      removeCardFromSelection(item.id, card);
+    attachCardSelectionHandlers({
+      card,
+      itemId: item.id,
+      selectedItemIds,
+      focusController,
+      toggleCardSelection,
+      removeCardFromSelection,
     });
     return card;
   }
 
   async function render() {
+    // Rerenders can be superseded, so guard with a sequence id and restore UI state afterward.
     previewController.hideHoverPreview();
     clearArmedDelete();
     const gridFocusSnapshot =
@@ -738,25 +544,10 @@ export function createPopupGridController({
     previewController.cleanupObjectUrls();
   }
 
-  async function deleteSelectedItems() {
-    const targetIds = [...selectedItemIds];
-    if (targetIds.length === 0) {
-      return false;
-    }
-
-    const deletedStatusText = deletedStatusTextForIds(targetIds);
-    await removeItems(targetIds, targetIds[0]);
-    showTransientStatus(deletedStatusText, "ok", TEMP_STATUS_DURATION_MS, {
-      forceTemporary: true,
-      preserveProgress: false,
-    });
-    return true;
-  }
-
   return {
     clearSelections,
     cleanupObjectUrls,
-    deleteSelectedItems,
+    deleteSelectedItems: actionController.deleteSelectedItems,
     getSelectedCount,
     hideHoverPreview: previewController.hideHoverPreview,
     render,

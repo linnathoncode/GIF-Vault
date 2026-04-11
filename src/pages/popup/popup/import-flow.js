@@ -1,5 +1,6 @@
 import { safeLog } from "../../../lib/log.js";
 import { UI_MESSAGES } from "../../../lib/messages.js";
+import { getRuntimeConfig, normalizeRuntimeConfig } from "../../../lib/runtime-config.js";
 import {
   MESSAGE_TYPES,
   IMPORT_ERROR_CODES,
@@ -83,6 +84,39 @@ function getLocalPathHint(file) {
   return "";
 }
 
+function resolveMaxDownloadBytes(gifConversionConfig) {
+  const mb = Number(gifConversionConfig?.maxDownloadSizeMb);
+  if (!Number.isFinite(mb) || mb <= 0) {
+    return 50 * 1024 * 1024;
+  }
+  return Math.round(mb * 1024 * 1024);
+}
+
+function mediaTooLargeMessage(maxBytes) {
+  const maxMb = Math.max(1, Math.round(maxBytes / (1024 * 1024)));
+  return UI_MESSAGES.import.mediaTooLarge(maxMb);
+}
+
+function isMessageSizeExceededError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("message exceeded maximum allowed size") ||
+    message.includes("64mib")
+  );
+}
+
+function shouldRetrySerializedLocalImport(response, fileCount) {
+  if (!response || response.ok || fileCount <= 0) {
+    return false;
+  }
+  const errorCode = String(response.errorCode || "").trim();
+  const errorMessage = String(response.error || "").trim();
+  return (
+    errorCode === IMPORT_ERROR_CODES.invalidUrl &&
+    errorMessage === UI_MESSAGES.popup.chooseFilesFirst
+  );
+}
+
 async function serializeLocalFilesForMessage(files) {
   const payloads = [];
   for (const file of files) {
@@ -93,6 +127,7 @@ async function serializeLocalFilesForMessage(files) {
     payloads.push({
       name: String(file?.name || ""),
       mimeType: String(file?.type || ""),
+      byteLength: Number(file?.size || 0),
       localPath: getLocalPathHint(file),
       bytesBase64: uint8ToBase64(bytes),
     });
@@ -209,6 +244,7 @@ export function createPopupImportController({
       statusController.setImportSuccessState(successMessage);
       stateStore.setActiveImportRequestId("");
       await clearStoredImportStatePreservingUi();
+      syncImportUiState();
       await gridController.render();
     } catch (error) {
       if (
@@ -227,6 +263,7 @@ export function createPopupImportController({
       );
       stateStore.setActiveImportRequestId("");
       await clearStoredImportStatePreservingUi();
+      syncImportUiState();
       await safeLog("popup", "Import failed in popup", {
         url,
         requestId,
@@ -236,18 +273,49 @@ export function createPopupImportController({
     }
   }
 
-  async function runPopupImportFilesRequest(files, requestId, sourceUrlHint = "") {
+  async function runPopupImportFilesRequest(
+    files,
+    requestId,
+    sourceUrlHint = "",
+    maxBytes = 50 * 1024 * 1024,
+  ) {
     try {
-      const serializedFiles = await serializeLocalFilesForMessage(files);
-      if (serializedFiles.length === 0) {
-        throw new Error(UI_MESSAGES.popup.chooseFilesFirst);
+      let response = null;
+      try {
+        // Prefer sending native File/Blob objects to avoid expensive popup-side
+        // base64 serialization that can stall hover/interaction responsiveness.
+        response = await chrome.runtime.sendMessage({
+          type: MESSAGE_TYPES.importFiles,
+          files,
+          requestId,
+          sourceUrlHint: String(sourceUrlHint || ""),
+        });
+      } catch (error) {
+        if (isMessageSizeExceededError(error)) {
+          throw new Error(mediaTooLargeMessage(maxBytes));
+        }
+        const serializedFiles = await serializeLocalFilesForMessage(files);
+        if (serializedFiles.length === 0) {
+          throw new Error(UI_MESSAGES.popup.chooseFilesFirst);
+        }
+        response = await chrome.runtime.sendMessage({
+          type: MESSAGE_TYPES.importFiles,
+          files: serializedFiles,
+          requestId,
+          sourceUrlHint: String(sourceUrlHint || ""),
+        });
       }
-      const response = await chrome.runtime.sendMessage({
-        type: MESSAGE_TYPES.importFiles,
-        files: serializedFiles,
-        requestId,
-        sourceUrlHint: String(sourceUrlHint || ""),
-      });
+      if (shouldRetrySerializedLocalImport(response, files.length)) {
+        const serializedFiles = await serializeLocalFilesForMessage(files);
+        if (serializedFiles.length > 0) {
+          response = await chrome.runtime.sendMessage({
+            type: MESSAGE_TYPES.importFiles,
+            files: serializedFiles,
+            requestId,
+            sourceUrlHint: String(sourceUrlHint || ""),
+          });
+        }
+      }
       if (!response?.ok) {
         await safeLog("popup", "Popup local file import request was rejected", {
           fileCount: files.length,
@@ -280,6 +348,7 @@ export function createPopupImportController({
       }
       stateStore.setActiveImportRequestId("");
       await clearStoredImportStatePreservingUi();
+      syncImportUiState();
       await gridController.render();
     } catch (error) {
       const hasTerminalProgressFeedback =
@@ -294,6 +363,7 @@ export function createPopupImportController({
       }
       stateStore.setActiveImportRequestId("");
       await clearStoredImportStatePreservingUi();
+      syncImportUiState();
       await safeLog("popup", "Local file import failed in popup", {
         requestId,
         fileCount: files.length,
@@ -335,7 +405,22 @@ export function createPopupImportController({
       if (!response?.ok) {
         throw new Error(response?.error || UI_MESSAGES.popup.terminateFailed);
       }
-      await clearStoredImportStatePreservingUi();
+      if (response.terminated === false) {
+        statusController.setProgressState(null);
+        stateStore.resetActiveImportSession();
+        syncImportUiState();
+        await clearStoredImportStatePreservingUi();
+        statusController.showTransientStatus(
+          UI_MESSAGES.popup.noActiveImportToTerminate,
+          "error",
+        );
+        await safeLog("popup", "Terminate requested with no active background import", {
+          requestId,
+        });
+        return;
+      }
+      // Keep popup termination-pending state alive until the import pipeline
+      // emits its real terminal progress update.
     } catch (error) {
       stateStore.clearImportTerminationPending();
       syncImportUiState();
@@ -430,6 +515,24 @@ export function createPopupImportController({
       return;
     }
 
+    const runtimeConfig = await getRuntimeConfig()
+      .then((value) => normalizeRuntimeConfig(value || {}))
+      .catch(() => normalizeRuntimeConfig({}));
+    const maxBytes = resolveMaxDownloadBytes(runtimeConfig.gifConversion);
+    const tooLargeFile = files.find((file) => Number(file?.size || 0) > maxBytes);
+    if (tooLargeFile) {
+      statusController.showTransientStatus(mediaTooLargeMessage(maxBytes), "error");
+      await safeLog("popup", "Local file import blocked by preflight size check", {
+        fileName: String(tooLargeFile?.name || ""),
+        size: Number(tooLargeFile?.size || 0),
+        maxBytes,
+      });
+      if (refs.localFileInput) {
+        refs.localFileInput.value = "";
+      }
+      return;
+    }
+
     statusController.clearTransientStatus();
     const requestId = crypto.randomUUID();
     stateStore.setActiveImportRequestId(requestId);
@@ -454,6 +557,7 @@ export function createPopupImportController({
       files,
       requestId,
       String(options?.sourceUrlHint || ""),
+      maxBytes,
     );
   }
 

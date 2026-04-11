@@ -4,7 +4,7 @@ vi.mock("../../src/lib/log.js", () => ({
   safeLog: vi.fn(async () => {}),
 }));
 
-import { copyItemUrl } from "../../src/pages/popup/popup/grid/copy.js";
+import { copyItemUrl } from "../../src/pages/popup/popup/grid/card.js";
 
 describe("popup-grid copy item behavior", () => {
   beforeEach(() => {

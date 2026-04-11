@@ -10,6 +10,9 @@ export function createPopupStatusController({
   getPopupMenuConfig,
 }) {
   const TRANSIENT_STATUS_DURATION_MS = 5000;
+  const PROGRESS_DOT_ANIMATION_INTERVAL_MS = 450;
+  const PROGRESS_DOT_KICKOFF_DELAY_MS = 150;
+  const PROGRESS_DOT_FRAMES = [".", "..", "..."];
   const {
     statusEl,
     statusTextEl,
@@ -25,6 +28,10 @@ export function createPopupStatusController({
   let transientStatusActive = false;
   let transientProgressSnapshot = null;
   let transientDisplayMode = "below";
+  let progressDotTimer = 0;
+  let progressDotKickoffTimer = 0;
+  let progressDotFrame = 0;
+  let progressDotBaseText = "";
   const readState =
     typeof getState === "function"
       ? getState
@@ -57,6 +64,89 @@ export function createPopupStatusController({
           }
         };
 
+  function hasAnimatedDotSuffix(text) {
+    const value = String(text || "").trim();
+    return /(?:\u2026|\.{3,})\s*$/.test(value);
+  }
+
+  function normalizeProgressDotBaseText(text) {
+    const value = String(text || "").replace(/\u2026/g, ".").trim();
+    return value.replace(/\.+$/, "").trim();
+  }
+
+  function stopProgressDotAnimation() {
+    if (progressDotKickoffTimer) {
+      clearTimeout(progressDotKickoffTimer);
+      progressDotKickoffTimer = 0;
+    }
+    if (!progressDotTimer) {
+      return;
+    }
+    clearInterval(progressDotTimer);
+    progressDotTimer = 0;
+    progressDotFrame = 0;
+    progressDotBaseText = "";
+  }
+
+  function shouldAnimateProgressDots(importState) {
+    return Boolean(importState?.active && hasAnimatedDotSuffix(importState?.text));
+  }
+
+  function startProgressDotAnimation(baseText) {
+    const normalizedBaseText = normalizeProgressDotBaseText(baseText);
+    if (!normalizedBaseText) {
+      stopProgressDotAnimation();
+      return;
+    }
+
+    const hasChangedBaseText = progressDotBaseText !== normalizedBaseText;
+    progressDotBaseText = normalizedBaseText;
+    if (hasChangedBaseText) {
+      progressDotFrame = 0;
+      if (progressLabelEl) {
+        progressLabelEl.textContent = `${progressDotBaseText}...`;
+      }
+    }
+
+    const renderFrame = () => {
+      if (!progressLabelEl) {
+        return;
+      }
+
+      if (!shouldAnimateProgressDots(readState()?.currentImportState)) {
+        stopProgressDotAnimation();
+        return;
+      }
+
+      const frameSuffix =
+        PROGRESS_DOT_FRAMES[
+          progressDotFrame % PROGRESS_DOT_FRAMES.length
+        ];
+      progressLabelEl.textContent = `${progressDotBaseText}${frameSuffix}`;
+      progressDotFrame += 1;
+    };
+
+    if (!progressDotTimer) {
+      progressDotTimer = setInterval(
+        renderFrame,
+        PROGRESS_DOT_ANIMATION_INTERVAL_MS,
+      );
+      return;
+    }
+
+    if (hasChangedBaseText) {
+      if (progressDotKickoffTimer) {
+        clearTimeout(progressDotKickoffTimer);
+      }
+      progressDotKickoffTimer = setTimeout(() => {
+        progressDotKickoffTimer = 0;
+        if (progressDotTimer) {
+          renderFrame();
+        }
+      }, PROGRESS_DOT_KICKOFF_DELAY_MS);
+    }
+  }
+
   function getImportProgressPercent(importState) {
     if (!importState?.text && !importState?.phase) {
       return 0;
@@ -84,6 +174,7 @@ export function createPopupStatusController({
   }
 
   function clearProgressVisuals(options = {}) {
+    stopProgressDotAnimation();
     if (!progressTrackEl || !progressBarEl || !progressLabelEl) {
       return;
     }
@@ -111,11 +202,21 @@ export function createPopupStatusController({
     const isVisible = Boolean(
       importState?.active || kind === "success" || kind === "error",
     );
+    const shouldAnimateDots = shouldAnimateProgressDots(importState);
     progressTrackEl.classList.toggle("active", isVisible);
     progressTrackEl.classList.toggle("ok", kind === "success");
     progressTrackEl.classList.toggle("error", kind === "error");
     progressBarEl.style.width = `${percent}%`;
-    progressLabelEl.textContent = importState?.text || "";
+    if (!shouldAnimateDots || !progressDotTimer) {
+      progressLabelEl.textContent = importState?.text || "";
+    }
+
+    if (shouldAnimateDots) {
+      startProgressDotAnimation(importState?.text);
+      return;
+    }
+
+    stopProgressDotAnimation();
   }
 
   function captureProgressVisuals() {
@@ -205,6 +306,7 @@ export function createPopupStatusController({
     clearTransientStatusTimer();
     transientProgressSnapshot = null;
     transientDisplayMode = "below";
+    stopProgressDotAnimation();
   }
 
   function showTransientStatus(

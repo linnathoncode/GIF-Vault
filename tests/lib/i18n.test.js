@@ -131,4 +131,31 @@ describe("i18n helpers", () => {
     expect(i18n.isSupportedLocale("tr-TR")).toBe(true);
     expect(i18n.isSupportedLocale("de-DE")).toBe(false);
   });
+
+  it("does not let stale async initialize calls overwrite newer locale state", async () => {
+    const pendingStorageReads = [];
+    globalThis.chrome.storage.local.get = vi.fn((_keys, callback) => {
+      pendingStorageReads.push(callback);
+    });
+    const i18n = await import("../../src/lib/i18n.js");
+
+    const staleInit = i18n.initializeI18n();
+    const freshInit = i18n.initializeI18n({
+      localeHint: "tr",
+      useStoredLocale: false,
+      persistDetectedLocale: false,
+    });
+
+    await freshInit;
+    expect(i18n.getUiLocale()).toBe("tr");
+    expect(globalThis.document.attrs.lang).toBe("tr");
+
+    expect(pendingStorageReads).toHaveLength(1);
+    pendingStorageReads[0]({ locale: "en" });
+    await staleInit;
+
+    expect(i18n.getUiLocale()).toBe("tr");
+    expect(globalThis.document.attrs.lang).toBe("tr");
+    expect(globalThis.document.attrs["data-locale"]).toBe("tr");
+  });
 });

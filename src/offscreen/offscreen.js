@@ -1,13 +1,21 @@
-import { GIF_CONVERSION } from "../lib/settings.js";
+import { GIF_CONVERSION, STORAGE_KEYS } from "../lib/settings.js";
 import { normalizeRuntimeConfig } from "../lib/runtime-config.js";
 import { safeLog } from "../lib/log.js";
 import { UI_MESSAGES } from "../lib/messages.js";
 import { initializeI18n } from "../lib/i18n.js";
+import { MESSAGE_TYPES } from "../lib/protocol.js";
 import { FFmpeg } from "../vendor/@ffmpeg/ffmpeg/esm/index.js";
 import { fetchFile } from "../vendor/@ffmpeg/util/esm/index.js";
 
 const ffmpeg = new FFmpeg();
 let ffmpegLoadPromise = null;
+const RUNTIME_MESSAGE_MAX_BYTES = 64 * 1024 * 1024;
+const RUNTIME_MESSAGE_OVERHEAD_BYTES = 512 * 1024;
+const RUNTIME_MESSAGE_SAFE_MAX_BYTES =
+  RUNTIME_MESSAGE_MAX_BYTES - RUNTIME_MESSAGE_OVERHEAD_BYTES;
+const BASE64_TRANSPORT_SAFE_MAX_BYTES = Math.floor(
+  (RUNTIME_MESSAGE_SAFE_MAX_BYTES * 3) / 4,
+);
 void initializeI18n();
 ffmpeg.on("log", ({ message }) => {
   if (!message) {
@@ -171,6 +179,13 @@ function isConvertMessage(message) {
   return true;
 }
 
+function isPrewarmMessage(message) {
+  return (
+    isRuntimeMessage(message) &&
+    message.type === "OFFSCREEN_PREWARM"
+  );
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!isTrustedRuntimeSender(sender) || !isRuntimeMessage(message)) {
     return;
@@ -227,12 +242,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     return true;
   }
+
+  if (isPrewarmMessage(message)) {
+    ensureFfmpegLoaded()
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) =>
+        sendResponse({
+          ok: false,
+          error: error?.message || "OFFSCREEN_PREWARM_FAILED",
+        }),
+      );
+    return true;
+  }
 });
 
 async function convertMp4ToGif(message) {
   await initializeI18n();
   await ensureFfmpegLoaded();
-  const gifConversion = resolveGifConversionConfig(message?.gifConversion);
+  const gifConversionBase = resolveGifConversionConfig(message?.gifConversion);
+  const conversionProfiles = buildGifConversionProfiles(gifConversionBase);
+  const maxOutputBytes = resolveEffectiveMaxOutputBytes(gifConversionBase);
 
   const inputExtension =
     message.inputExtension === "webm" || message.inputExtension === "mp4"
@@ -242,59 +271,96 @@ async function convertMp4ToGif(message) {
   const outputName = `output-${Date.now()}.gif`;
 
   const inputData = await getInputData(message);
-  if (!(inputData instanceof Uint8Array) || inputData.length === 0) {
+  const inputByteLength = inputData instanceof Uint8Array ? inputData.byteLength : 0;
+  if (inputByteLength === 0) {
     throw new Error(UI_MESSAGES.offscreen.inputMediaBytesEmpty);
   }
   await safeLog("offscreen", "Starting ffmpeg conversion", {
-    inputBytes: inputData.length,
-    fps: gifConversion.fps,
-    width: gifConversion.width,
-    maxColors: gifConversion.maxColors,
-    maxDownloadSizeMb: gifConversion.maxDownloadSizeMb
+    requestId: String(message?.requestId || ""),
+    inputBytes: inputByteLength,
+    profileCount: conversionProfiles.length,
+    maxOutputBytes,
+    maxDownloadSizeMb: gifConversionBase.maxDownloadSizeMb,
   });
 
   await ffmpeg.writeFile(inputName, inputData);
+  try {
+    for (let index = 0; index < conversionProfiles.length; index += 1) {
+      const profile = conversionProfiles[index];
+      const isLastProfile = index === conversionProfiles.length - 1;
+      const attempt = index + 1;
+      const total = conversionProfiles.length;
+      await safeLog("offscreen", "Conversion attempt started", {
+        requestId: String(message?.requestId || ""),
+        attempt,
+        total,
+        profile,
+      });
 
-  // Keep the configured width as the target long-edge without upscaling.
-  // This avoids portrait size blow-ups and prevents low-res inputs from being
-  // enlarged into noisier GIF outputs.
-  const scaleFilter = [
-    `if(gte(iw\\,ih)\\,min(${gifConversion.width}\\,iw)\\,-1)`,
-    `if(gte(iw\\,ih)\\,-1\\,min(${gifConversion.width}\\,ih))`,
-    "flags=lanczos",
-  ].join(":");
+      await safeDeleteFile(outputName);
+      await ffmpeg.exec([
+        "-i",
+        inputName,
+        "-vf",
+        buildConversionFilter(profile),
+        "-loop",
+        "0",
+        outputName,
+      ]);
 
-  await ffmpeg.exec([
-    "-i",
-    inputName,
-    "-vf",
-    `fps=${gifConversion.fps},scale=${scaleFilter},split[s0][s1];[s0]palettegen=max_colors=${gifConversion.maxColors}:stats_mode=full[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle`,
-    "-loop",
-    "0",
-    outputName
-  ]);
+      const outputData = await ffmpeg.readFile(outputName);
+      if (!(outputData instanceof Uint8Array) || outputData.length === 0) {
+        throw new Error(UI_MESSAGES.offscreen.emptyGifOutput);
+      }
 
-  const outputData = await ffmpeg.readFile(outputName);
-  if (!(outputData instanceof Uint8Array) || outputData.length === 0) {
-    throw new Error(UI_MESSAGES.offscreen.emptyGifOutput);
+      if (outputData.length > maxOutputBytes) {
+        await safeLog("offscreen", "Converted GIF exceeded limit; lowering quality", {
+          attempt,
+          profile,
+          outputBytes: outputData.length,
+          maxOutputBytes,
+          willRetry: !isLastProfile,
+        });
+        if (!isLastProfile) {
+          await reportImportProgress({
+            requestId: String(message?.requestId || ""),
+            messageKey: "convertingVideoToGifDowngrade",
+            messageArgs: [],
+            kind: "info",
+            phase: UI_MESSAGES.import.phaseConverting,
+            active: true,
+          });
+          continue;
+        }
+        throw new Error(mediaTooLargeMessage(maxOutputBytes));
+      }
+
+      const gifBase64 = uint8ToBase64(outputData);
+      await safeLog("offscreen", "ffmpeg conversion finished", {
+        requestId: String(message?.requestId || ""),
+        attempt,
+        profile,
+        outputBytes: outputData.length,
+        compressionRatio:
+          inputByteLength > 0
+            ? Number((outputData.length / inputByteLength).toFixed(3))
+            : 0,
+      });
+      return {
+        converted: true,
+        reason: "",
+        gifBase64,
+        gifByteLength: outputData.length,
+        mimeType: "image/gif",
+        filename: message.filename || `vault-${Date.now()}.gif`,
+      };
+    }
+
+    throw new Error(mediaTooLargeMessage(maxOutputBytes));
+  } finally {
+    await safeDeleteFile(inputName);
+    await safeDeleteFile(outputName);
   }
-
-  await safeDeleteFile(inputName);
-  await safeDeleteFile(outputName);
-
-  const gifBase64 = uint8ToBase64(outputData);
-  await safeLog("offscreen", "ffmpeg conversion finished", {
-    outputBytes: outputData.length,
-    compressionRatio: inputData.length > 0 ? Number((outputData.length / inputData.length).toFixed(3)) : 0
-  });
-  return {
-    converted: true,
-    reason: "",
-    gifBase64,
-    gifByteLength: outputData.length,
-    mimeType: "image/gif",
-    filename: message.filename || `vault-${Date.now()}.gif`
-  };
 }
 
 async function probeDuration(message) {
@@ -308,13 +374,20 @@ async function probeDuration(message) {
   const inputName = `input-${Date.now()}.${inputExtension}`;
   const probeName = `probe-${Date.now()}.txt`;
   const inputData = await getInputData(message);
-  if (!(inputData instanceof Uint8Array) || inputData.length === 0) {
+  const inputByteLength = inputData instanceof Uint8Array ? inputData.byteLength : 0;
+  if (inputByteLength === 0) {
     throw new Error(UI_MESSAGES.offscreen.inputMediaBytesEmpty);
   }
 
   await ffmpeg.writeFile(inputName, inputData);
   try {
-    return await probeVideoDuration(inputName, probeName);
+    const durationSeconds = await probeVideoDuration(inputName, probeName);
+    await safeLog("offscreen", "Video duration probe completed", {
+      requestId: String(message?.requestId || ""),
+      inputBytes: inputByteLength,
+      durationSeconds,
+    });
+    return durationSeconds;
   } finally {
     await safeDeleteFile(inputName);
     await safeDeleteFile(probeName);
@@ -353,6 +426,139 @@ function resolveGifConversionConfig(rawConfig) {
   return normalized.gifConversion;
 }
 
+function resolveEffectiveMaxOutputBytes(gifConversion) {
+  const configuredBytes = Math.max(
+    1,
+    Math.round(Number(gifConversion?.maxDownloadSizeMb || 50) * 1024 * 1024),
+  );
+  return Math.min(configuredBytes, BASE64_TRANSPORT_SAFE_MAX_BYTES);
+}
+
+function buildGifConversionProfiles(baseConfig) {
+  const baseFps = Math.max(1, Number(baseConfig?.fps || GIF_CONVERSION.fps));
+  const baseWidth = Math.max(120, Number(baseConfig?.width || GIF_CONVERSION.width));
+  const baseColors = Math.max(2, Number(baseConfig?.maxColors || GIF_CONVERSION.maxColors));
+
+  const profileCandidates = [
+    { fps: baseFps, width: baseWidth, maxColors: baseColors },
+    {
+      fps: Math.max(1, Math.min(baseFps, Math.round(baseFps * 0.85))),
+      width: Math.max(120, Math.min(baseWidth, Math.round(baseWidth * 0.85))),
+      maxColors: Math.max(2, Math.min(baseColors, Math.round(baseColors * 0.8))),
+    },
+    {
+      fps: Math.max(1, Math.min(baseFps, Math.round(baseFps * 0.7))),
+      width: Math.max(120, Math.min(baseWidth, Math.round(baseWidth * 0.7))),
+      maxColors: Math.max(2, Math.min(baseColors, Math.round(baseColors * 0.6))),
+    },
+    {
+      fps: Math.max(1, Math.min(baseFps, Math.round(baseFps * 0.55))),
+      width: Math.max(120, Math.min(baseWidth, Math.round(baseWidth * 0.55))),
+      maxColors: Math.max(2, Math.min(baseColors, Math.round(baseColors * 0.45))),
+    },
+  ];
+
+  const dedupedProfiles = [];
+  const seen = new Set();
+  for (const profile of profileCandidates) {
+    const key = `${profile.fps}|${profile.width}|${profile.maxColors}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    dedupedProfiles.push(profile);
+  }
+  return dedupedProfiles;
+}
+
+function buildConversionFilter(profile) {
+  // Keep the configured width as the target long-edge without upscaling.
+  // This avoids portrait size blow-ups and prevents low-res inputs from being
+  // enlarged into noisier GIF outputs.
+  const scaleFilter = [
+    `if(gte(iw\\,ih)\\,min(${profile.width}\\,iw)\\,-1)`,
+    `if(gte(iw\\,ih)\\,-1\\,min(${profile.width}\\,ih))`,
+    "flags=lanczos",
+  ].join(":");
+
+  return `fps=${profile.fps},scale=${scaleFilter},split[s0][s1];[s0]palettegen=max_colors=${profile.maxColors}:stats_mode=full[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3:diff_mode=rectangle`;
+}
+
+function mediaTooLargeMessage(maxBytes) {
+  const maxMb = Math.max(1, Math.round(maxBytes / (1024 * 1024)));
+  return UI_MESSAGES.import.mediaTooLarge(maxMb);
+}
+
+function uint8ToBase64(bytes) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+function resolveImportProgressText(messageKey, messageArgs) {
+  const template = UI_MESSAGES.import?.[messageKey];
+  if (typeof template === "function") {
+    try {
+      return String(template(...messageArgs));
+    } catch {
+      return "";
+    }
+  }
+  if (typeof template === "string") {
+    return template;
+  }
+  return "";
+}
+
+async function reportImportProgress({
+  requestId = "",
+  messageKey = "",
+  messageArgs = [],
+  kind = "info",
+  phase = "",
+  active = true,
+}) {
+  const normalizedMessageKey = String(messageKey || "").trim();
+  const normalizedMessageArgs = Array.isArray(messageArgs) ? messageArgs : [];
+  const text = resolveImportProgressText(
+    normalizedMessageKey,
+    normalizedMessageArgs,
+  );
+  const payload = {
+    requestId: String(requestId || ""),
+    text,
+    kind: String(kind || "info"),
+    phase: String(phase || ""),
+    messageKey: normalizedMessageKey,
+    messageArgs: normalizedMessageArgs,
+    active: Boolean(active),
+  };
+
+  try {
+    if (chrome.storage?.local?.set) {
+      await chrome.storage.local.set({
+        [STORAGE_KEYS.importState]: {
+          ...payload,
+          updatedAt: Date.now(),
+        },
+      });
+    }
+
+    if (chrome.runtime?.sendMessage) {
+      await chrome.runtime.sendMessage({
+        type: MESSAGE_TYPES.importProgress,
+        ...payload,
+      });
+    }
+  } catch {
+    // Popup may be closed while conversion runs.
+  }
+}
+
 async function ensureFfmpegLoaded() {
   if (ffmpeg.loaded) {
     return;
@@ -388,16 +594,6 @@ async function safeDeleteFile(path) {
   } catch {
     // no-op
   }
-}
-
-function uint8ToBase64(bytes) {
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-  return btoa(binary);
 }
 
 async function probeVideoDuration(inputName, probeName) {
