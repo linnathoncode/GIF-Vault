@@ -4,6 +4,10 @@ All notable project changes are tracked here.
 
 ## Version Includes: NEXT
 
+- No entries yet.
+
+## Version Includes: v1.6.5
+
 - Import stability guardrail: max configurable download-size limit in Options is now capped at 64 MB (previously 200 MB) to reduce oversized conversion-message failures.
 - Conversion payload hardening: offscreen now enforces a strict converted-GIF response-size ceiling for runtime messaging safety, and conversion payload handling is covered with edge-case regressions.
 

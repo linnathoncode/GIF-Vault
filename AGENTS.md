@@ -3,7 +3,7 @@
 ## Workspace Context
 
 - Date snapshot: 2026-03-17
-- Workspace: `c:\Users\MONSTER\Desktop\GIF_Manager`
+- Workspace: `c:\Users\MONSTER\Desktop\projects\GIF_Manager`
 - Shell: `powershell`
 - Timezone: `Europe/Istanbul`
 
@@ -11,7 +11,7 @@
 
 - Branch: `test`
 - HEAD: `5510c2a`
-- Version: `1.6.4`
+- Version: `1.6.5`
 
 ## Project Purpose
 
