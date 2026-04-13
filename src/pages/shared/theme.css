@@ -2,6 +2,8 @@
   --bg: #e0e2db;
   --bg-top: #cfd6d2;
   --card: #f2f3ee;
+  --surface-1: #eceee8;
+  --surface-2: #e4e7e1;
   --text: #2e3532;
   --muted: #4b5450;
   --line: #a7aba4;
@@ -12,6 +14,10 @@
   --accent-text: #8b2635;
   --scrollbar-thumb: #8b2635;
   --scrollbar-track: #cfd6d2;
+  --panel-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--card) 86%, #ffffff 14%),
+    0 1px 0 color-mix(in srgb, var(--line) 60%, transparent 40%);
+  --icon-dark-filter: none;
   --page-bg:
     radial-gradient(circle at 10% -10%, color-mix(in srgb, var(--bg-top) 78%, #ffffff 22%), transparent 35%),
     radial-gradient(circle at 98% 18%, color-mix(in srgb, var(--bg-top) 68%, var(--card) 32%), transparent 40%),
@@ -19,21 +25,24 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #2e3532;
-  --bg-top: #3a4541;
-  --card: #39413d;
-  --text: #e0e2db;
-  --muted: #c6c8c2;
-  --line: #616a65;
+  --bg: #202724;
+  --bg-top: #29322e;
+  --card: #2c3531;
+  --surface-1: #333d38;
+  --surface-2: #3b4641;
+  --text: #e6e9e4;
+  --muted: #bcc4be;
+  --line: #4f5b55;
   --danger: #e0e2db;
   --ok: #e0e2db;
-  --accent-bg: #2e3532;
-  --accent-line: #8b2635;
+  --accent-bg: #2c3531;
+  --accent-line: #a33d4e;
   --accent-text: #e0e2db;
-  --scrollbar-thumb: #8b2635;
-  --scrollbar-track: #3a4541;
+  --scrollbar-thumb: #a33d4e;
+  --scrollbar-track: #303a36;
+  --panel-shadow: 0 1px 0 color-mix(in srgb, var(--line) 58%, transparent 42%);
+  --icon-dark-filter: brightness(0) invert(0.84) saturate(0.7) contrast(0.94);
   --page-bg:
-    radial-gradient(circle at 10% -10%, color-mix(in srgb, var(--bg-top) 90%, #ffffff 10%), transparent 42%),
-    radial-gradient(circle at 98% 18%, color-mix(in srgb, var(--bg-top) 84%, var(--card) 16%), transparent 46%),
-    linear-gradient(180deg, var(--bg-top), var(--bg) 56%);
+    radial-gradient(circle at 92% -25%, color-mix(in srgb, var(--bg-top) 97%, #ffffff 3%), transparent 60%),
+    linear-gradient(180deg, var(--bg-top), var(--bg) 70%);
 }
