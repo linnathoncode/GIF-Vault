@@ -60,6 +60,7 @@ Maintenance rule:
 - README release-table dedupe rule: if a feature was added and then fixed/refined in the same version, mention only the feature.
 - README release-table fix rule: mention fixes/tweaks only when they resolve issues that existed in previously listed versions in the table.
 - README release-table compare rule: do not mention or compare with previous versions unless the difference is drastic and user-significant.
+- Version metadata sync rule: when bumping/publishing a new version, update all version sources together, including `package.json`, `package-lock.json`, and MV3 `src/manifest.json` (`manifest.version`), before building/releasing artifacts.
 - Documentation update rule: if a code change affects architecture, file responsibility, public behavior, or workflow expectations, update `AGENTS.md` in the same change.
 - Module-doc rule: when creating or substantially reshaping modules, include brief top-of-file documentation comments describing purpose and boundaries.
 
