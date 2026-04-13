@@ -4,7 +4,7 @@ All notable project changes are tracked here.
 
 ## Version Includes: NEXT
 
-- No entries yet.
+- Import URL-resolution expansion: media resolver is now strategy-based (direct media, X/Twitter post, and HTML-embedded media pages), enabling page-style links (for example screenshot-host pages with `og:image`/`twitter:image`) to resolve to real media URLs more reliably while filtering decorative assets.
 
 ## Version Includes: v1.6.5
 
