@@ -16,7 +16,7 @@ const OFFSCREEN = {
 
 const IMPORT_PIPELINE = {
   minDownloadSizeMb: 5,
-  maxDownloadSizeMb: 200,
+  maxDownloadSizeMb: 64,
 };
 
 const DB = {

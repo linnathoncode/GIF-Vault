@@ -75,4 +75,14 @@ describe("runtime config normalization", () => {
 
     expect(normalized.popupMenu.defaultTab).toBe("latest");
   });
+
+  it("clamps max download size to runtime upper bound", () => {
+    const normalized = normalizeRuntimeConfig({
+      gifConversion: {
+        maxDownloadSizeMb: 999,
+      },
+    });
+
+    expect(normalized.gifConversion.maxDownloadSizeMb).toBe(64);
+  });
 });
