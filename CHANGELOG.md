@@ -4,7 +4,10 @@ All notable project changes are tracked here.
 
 ## Version Includes: NEXT
 
+## Version Includes: v1.6.6
+
 - Import URL-resolution expansion: media resolver is now strategy-based (direct media, X/Twitter post, and HTML-embedded media pages), enabling page-style links (for example screenshot-host pages with `og:image`/`twitter:image`) to resolve to real media URLs more reliably while filtering decorative assets.
+- Popup theme polish: improved dark/light visual consistency with matte surfaces, clearer tab state treatment, stronger multi-select visibility, and more readable hover feedback on cards/actions.
 
 ## Version Includes: v1.6.5
 
