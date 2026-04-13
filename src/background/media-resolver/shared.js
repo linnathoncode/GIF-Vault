@@ -1,12 +1,6 @@
 /**
- * Media resolver implementation for import flows.
- * Expands supported URLs (including X/Twitter post URLs) into concrete media
- * URLs and provides content-type/media validation helpers for import pipeline use.
+ * Shared resolver helpers used by classifier and strategy modules.
  */
-import { safeLog } from "../../lib/log.js";
-import { UI_MESSAGES } from "../../lib/messages.js";
-
-// URL resolution and media detection.
 function hostMatches(rawHost, expectedHost) {
   const host = String(rawHost || "").toLowerCase();
   const expected = String(expectedHost || "").toLowerCase();
@@ -24,43 +18,6 @@ function isTwitterUrl(url) {
   } catch {
     return false;
   }
-}
-
-async function resolveMediaUrl(rawUrl) {
-  const urls = await resolveMediaUrls(rawUrl);
-  return urls[0] || String(rawUrl || "");
-}
-
-async function resolveMediaUrls(rawUrl) {
-  if (looksDirectMedia(rawUrl)) {
-    return [rawUrl];
-  }
-
-  const directTweetId = extractTweetId(rawUrl);
-  const baseUrl = directTweetId ? rawUrl : await expandUrl(rawUrl);
-  if (looksDirectMedia(baseUrl)) {
-    return [baseUrl];
-  }
-
-  const tweetId = directTweetId || extractTweetId(baseUrl);
-  if (!tweetId) {
-    return [baseUrl];
-  }
-
-  const fromSyndicationPromise = resolveFromSyndication(tweetId);
-  const fromPagesPromise = resolveFromPages(tweetId, baseUrl);
-
-  const fromSyndication = await fromSyndicationPromise;
-  if (fromSyndication.length > 0) {
-    return fromSyndication;
-  }
-
-  const fromPages = await fromPagesPromise;
-  if (fromPages.length > 0) {
-    return fromPages;
-  }
-
-  return [baseUrl];
 }
 
 function looksDirectMedia(rawUrl) {
@@ -233,8 +190,6 @@ function videoQualityPreferenceScore(rawUrl) {
     return 0;
   }
 
-  // Prefer 720-quality streams from X/Twitter variants when available.
-  // We use the short edge so landscape/portrait both map consistently.
   const shortEdge = Math.min(size.width, size.height);
   const area = size.width * size.height;
   if (shortEdge === 720) {
@@ -288,14 +243,8 @@ function getVideoVariantKey(rawUrl) {
     const host = url.host.toLowerCase();
     let normalizedPath = url.pathname.toLowerCase();
 
-    // Normalize any resolution segment so quality variants collapse.
     normalizedPath = normalizedPath.replace(/\/\d+x\d+(?=\/)/g, "/*");
-
-    // Collapse codec-qualified vid paths:
-    // /vid/avc1/1280x720/... and /vid/h264/640x360/... -> /vid/*/...
     normalizedPath = normalizedPath.replace(/\/vid\/[^/]+\/\*(?=\/)/, "/vid/*");
-
-    // Ignore filename differences for the same media bucket.
     normalizedPath = normalizedPath.replace(/\/[^/]+\.mp4$/i, "");
 
     return `video:${host}${normalizedPath}`;
@@ -316,119 +265,6 @@ function getImageVariantKey(rawUrl) {
     return `image:${host}${normalizedPath}`;
   } catch {
     return `image:${rawUrl}`;
-  }
-}
-
-async function resolveFromSyndication(tweetId) {
-  try {
-    const endpoint = `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&lang=en`;
-    const response = await fetch(endpoint);
-    if (!response.ok) {
-      return "";
-    }
-
-    const data = await response.json();
-    const urls = sortMediaUrls(collectMediaUrls(data, [], { includeQuoted: false }));
-    await safeLog("resolve", "Syndication lookup finished", {
-      tweetId,
-      foundCount: urls.length,
-      picked: urls[0] || "",
-    });
-    return urls;
-  } catch {
-    await safeLog("resolve", "Syndication lookup failed", { tweetId });
-    return [];
-  }
-}
-
-async function resolveFromPages(tweetId, originalUrl) {
-  const candidates = [
-    `https://api.fxtwitter.com/status/${tweetId}`,
-    `https://api.vxtwitter.com/status/${tweetId}`,
-    `https://d.fxtwitter.com/i/status/${tweetId}`,
-    `https://fxtwitter.com/i/status/${tweetId}`,
-    `https://vxtwitter.com/i/status/${tweetId}`,
-    `https://fixupx.com/i/status/${tweetId}`,
-    originalUrl,
-    `https://x.com/i/status/${tweetId}`,
-    `https://twitter.com/i/status/${tweetId}`,
-  ];
-
-  for (const candidate of candidates) {
-    const text = await fetchText(candidate);
-    if (!text) {
-      continue;
-    }
-
-    const urls = extractMediaUrlsFromResponseText(text);
-    if (urls.length > 0) {
-      await safeLog("resolve", "Resolved from page fallback", {
-        tweetId,
-        candidate,
-        picked: urls[0],
-        foundCount: urls.length,
-      });
-      return urls;
-    }
-  }
-
-  await safeLog("resolve", "Page fallback failed", { tweetId });
-  return [];
-}
-
-async function fetchText(url) {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      return "";
-    }
-    return await response.text();
-  } catch {
-    return "";
-  }
-}
-
-function extractMediaUrlsFromText(text) {
-  const normalized = text.replace(/\\u0026/gi, "&").replace(/\\\//g, "/");
-  const videoMatches =
-    normalized.match(
-      /https:\/\/video\.twimg\.com\/[^"'\\\s<>()]+\.mp4[^"'\\\s<>()]*/gi,
-    ) || [];
-  const imageMatches =
-    normalized.match(/https:\/\/pbs\.twimg\.com\/media\/[^"'\\\s<>()]+/gi) || [];
-  const merged = [...videoMatches, ...imageMatches];
-  return [...new Set(merged)].filter(
-    (rawUrl) => isLikelyTweetVideoUrl(rawUrl) || isLikelyTweetImageUrl(rawUrl),
-  );
-}
-
-function extractMediaUrlsFromResponseText(text) {
-  const normalizedText = String(text || "");
-  const structuredUrls = collectMediaUrls(
-    tryParseJson(normalizedText),
-    [],
-    { includeQuoted: false },
-  );
-  if (structuredUrls.length > 0) {
-    return sortMediaUrls(structuredUrls);
-  }
-  return sortMediaUrls(extractMediaUrlsFromText(normalizedText));
-}
-
-function tryParseJson(text) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-async function expandUrl(rawUrl) {
-  try {
-    const response = await fetch(rawUrl);
-    return response.url || rawUrl;
-  } catch {
-    return rawUrl;
   }
 }
 
@@ -509,21 +345,13 @@ function isSupportedMediaType(contentType, options = {}) {
   return inferredType.startsWith("image/") || inferredType.startsWith("video/");
 }
 
-function getReadableImportError(url, contentType) {
-  const normalizedType = (contentType || "").toLowerCase();
-  if (normalizedType.startsWith("text/html")) {
-    return UI_MESSAGES.popup.enterValidUrl;
-  }
-  if (isTwitterUrl(url)) {
-    return UI_MESSAGES.import.couldNotResolveMediaFromPost;
-  }
-  return UI_MESSAGES.import.resolvedUrlNotMedia(contentType);
-}
-
 export {
-  getReadableImportError,
+  collectMediaUrls,
+  extractTweetId,
+  isLikelyTweetImageUrl,
+  isLikelyTweetVideoUrl,
   isSupportedMediaType,
   isTwitterUrl,
-  resolveMediaUrl,
-  resolveMediaUrls,
+  looksDirectMedia,
+  sortMediaUrls,
 };

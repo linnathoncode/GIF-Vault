@@ -32,9 +32,7 @@ body {
   border: 2px solid color-mix(in srgb, var(--line) 82%, var(--text) 18%);
   border-radius: 14px;
   padding: 14px;
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--card) 86%, #ffffff 14%),
-    0 1px 0 color-mix(in srgb, var(--line) 60%, transparent 40%);
+  box-shadow: var(--panel-shadow);
 }
 
 .notice-panel {
@@ -392,7 +390,20 @@ input:disabled {
 
 :root[data-theme="dark"] .section-icon,
 :root[data-theme="dark"] .icon-img {
-  filter: brightness(0) invert(0.9);
+  filter: var(--icon-dark-filter);
+}
+
+:root[data-theme="dark"] .guide-mascot {
+  opacity: 0.93;
+  filter: saturate(0.95) contrast(1.04);
+}
+
+:root[data-theme="dark"] .panel {
+  background: var(--surface-1);
+}
+
+:root[data-theme="dark"] .notice-panel {
+  background: color-mix(in srgb, var(--surface-1) 80%, var(--accent-line) 20%);
 }
 
 @media (max-width: 860px) {

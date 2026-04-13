@@ -75,9 +75,12 @@ Maintenance rule:
 - `src/background/import/runtime.js`: Runtime integration (host permission checks, progress/runtime messaging).
 - `src/background/import/offscreen.js`: Offscreen conversion bridge.
 - `src/background/import/media-utils.js`: Shared import/media utility helpers.
-- `src/background/import/media-resolver.js`: URL/media resolution implementation.
 - `src/background/import-service.js`: Backward-compatible shim that re-exports import API from `src/background/import/service.js`.
-- `src/background/media-resolver.js`: Backward-compatible shim that re-exports resolver API from `src/background/import/media-resolver.js`.
+- `src/background/media-resolver.js`: Media resolver composition root (classifies URLs and dispatches resolver strategies).
+- `src/background/media-resolver/`: Resolver internals grouped by concern.
+- `src/background/media-resolver/classifier.js`: URL-class routing (`twitter_post`, `direct_media`, `html_embed_candidate`, `unsupported`).
+- `src/background/media-resolver/strategies.js`: Strategy modules for Twitter/X posts, direct media URLs, and HTML-embedded media extraction.
+- `src/background/media-resolver/shared.js`: Shared media resolver helpers (host checks, tweet/media extraction, media-type gates).
 - `src/background/action-icon.js`: Toolbar icon/badge helpers.
 - `src/offscreen/offscreen.js`: FFmpeg offscreen conversion path.
 - `src/pages/popup/`: Popup entry files (`popup.js`, `popup.css`, `popup.html`) plus the popup subsystem folder `popup/`.
@@ -124,6 +127,15 @@ PowerShell note:
   - `import/runtime.js`: runtime/storage progress + permission interactions
   - `import/media-utils.js`: shared payload/media helper utilities
   - `import/offscreen.js`: offscreen document + conversion bridge
+
+### Media Resolver Architecture
+
+- `src/background/media-resolver.js` is the standalone resolver entry point.
+- Resolver flow: normalize/expand URL -> classify source type -> dispatch strategy -> return resolved media candidates.
+- URL classes: `twitter_post`, `direct_media`, `html_embed_candidate`, `unsupported`.
+- Strategy ownership:
+  - `strategies.js`: Twitter/X resolution and generic HTML-embedded media extraction.
+  - `shared.js`: host/media helpers shared by classifier and strategies.
 
 ### Storage
 
@@ -241,6 +253,7 @@ Rules:
 - Avoid reverting permission-assist UX without a stronger, gesture-safe alternative.
 - Keep tweakable/static constants centralized in `src/lib/settings.js` (for example popup boot/init timeouts, fallback tabs) and import them into feature modules instead of redefining local literals.
 - Add brief doc comments for abstract logic and non-obvious intent.
+- Git workflow rule: do not create a new branch unless the user explicitly asks for it.
 
 ## Known Issues
 

@@ -193,7 +193,7 @@ body.import-active .input:disabled {
   height: 22px;
   border: 2px solid color-mix(in srgb, var(--line) 85%, var(--text) 15%);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--bg-top) 70%, var(--card) 30%);
+  background: color-mix(in srgb, var(--surface-2) 62%, var(--card) 38%);
   overflow: hidden;
   opacity: 0.55;
   transform: scaleY(0.96);
@@ -213,37 +213,16 @@ body.import-active .input:disabled {
   inset: 0 auto 0 0;
   height: 100%;
   width: 0;
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, white 16%, transparent 84%) 0%,
-      transparent 42%,
-      color-mix(in srgb, black 8%, transparent 92%) 100%
-    ),
-    linear-gradient(90deg, #4f8a5b, #6fa878);
+  background: linear-gradient(90deg, #4e875a, #689f73);
   transition: width 220ms ease;
 }
 
 .progress-track.ok .progress-bar {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, white 14%, transparent 86%) 0%,
-      transparent 42%,
-      color-mix(in srgb, black 8%, transparent 92%) 100%
-    ),
-    linear-gradient(90deg, #5d9968, #7bb684);
+  background: linear-gradient(90deg, #5d9868, #78af82);
 }
 
 .progress-track.error .progress-bar {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, white 12%, transparent 88%) 0%,
-      transparent 42%,
-      color-mix(in srgb, black 10%, transparent 90%) 100%
-    ),
-    linear-gradient(90deg, #8b2635, #a13749);
+  background: linear-gradient(90deg, #8b2635, #9c3748);
 }
 
 .progress-label {
@@ -304,30 +283,22 @@ body.import-active .input:disabled {
 
 .progress-track.ok .progress-label {
   color: #f4fbf6;
-  text-shadow:
-    0 1px 0 rgba(20, 36, 25, 0.45),
-    0 0 1px rgba(20, 36, 25, 0.2);
+  text-shadow: 0 1px 0 rgba(20, 36, 25, 0.35);
 }
 
 :root[data-theme="dark"] .progress-track.ok .progress-label {
   color: #eef8f0;
-  text-shadow:
-    0 1px 0 rgba(15, 24, 17, 0.45),
-    0 0 2px rgba(15, 24, 17, 0.28);
+  text-shadow: 0 1px 0 rgba(15, 24, 17, 0.38);
 }
 
 .progress-track.error .progress-label {
   color: #fff7f7;
-  text-shadow:
-    0 1px 0 rgba(48, 14, 22, 0.42),
-    0 0 1px rgba(48, 14, 22, 0.22);
+  text-shadow: 0 1px 0 rgba(48, 14, 22, 0.38);
 }
 
 :root[data-theme="dark"] .progress-track.error .progress-label {
   color: #fbf0f2;
-  text-shadow:
-    0 1px 0 rgba(24, 8, 12, 0.42),
-    0 0 2px rgba(24, 8, 12, 0.22);
+  text-shadow: 0 1px 0 rgba(24, 8, 12, 0.38);
 }
 
 .danger-btn {
@@ -459,7 +430,7 @@ body.import-active .input:disabled {
 
 .inline-input-icon-btn:hover:not(:disabled),
 .inline-input-icon-btn:focus-visible {
-  background: color-mix(in srgb, var(--line) 24%, transparent 76%);
+  background: color-mix(in srgb, var(--line) 36%, transparent 64%);
   outline: none;
 }
 
@@ -520,9 +491,79 @@ body.import-active .input:disabled {
 
 .tab-pager {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) auto auto auto;
+  grid-template-columns: repeat(2, minmax(86px, 1fr)) auto auto auto;
   align-items: center;
   gap: 6px;
+}
+
+.tab-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 0;
+  padding: 6px 8px;
+  min-width: 86px;
+  color: var(--muted);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tab-btn::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--accent-line) 74%, transparent 26%) 12%,
+    color-mix(in srgb, var(--accent-line) 94%, transparent 6%) 36%,
+    color-mix(in srgb, var(--accent-line) 94%, transparent 6%) 64%,
+    color-mix(in srgb, var(--accent-line) 74%, transparent 26%) 88%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+
+.tab-btn + .tab-btn::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: 3px;
+  bottom: 3px;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--line) 72%, transparent 28%) 22%,
+    color-mix(in srgb, var(--line) 72%, transparent 28%) 78%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.tab-btn:hover:not(:disabled),
+.tab-btn:focus-visible {
+  background: transparent;
+  filter: none;
+  transform: none;
+  outline: none;
+}
+
+.tab-btn:hover:not(:disabled)::after,
+.tab-btn:focus-visible::after {
+  opacity: 0.62;
 }
 
 .page-indicator {
@@ -530,17 +571,21 @@ body.import-active .input:disabled {
   font-size: 12px;
   color: var(--muted);
   font-weight: 600;
+  min-width: 64px;
+  font-variant-numeric: tabular-nums;
 }
 
 .tab-btn.active {
-  background: var(--accent-bg);
-  border-color: var(--popup-btn-border);
-  color: var(--accent-text);
-  font-weight: 600;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+  font-weight: 800;
+  filter: none;
+  transform: none;
 }
 
-:root[data-theme="dark"] .tab-btn.active {
-  color: #f06b6b;
+.tab-btn.active::after {
+  opacity: 1;
 }
 
 .grid {
@@ -606,10 +651,29 @@ body.import-active .input:disabled {
   height: 124px;
   user-select: none;
   -webkit-user-select: none;
+  box-shadow: 0 0 0 0 transparent;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+:root[data-theme="dark"] .item {
+  background: var(--surface-1);
+  border-color: color-mix(in srgb, var(--line) 88%, var(--text) 12%);
 }
 
 .item.selected {
   border: 4px solid #f4b400;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(244, 180, 0, 0.25);
+}
+
+:root[data-theme="dark"] .item.selected {
+  border-color: #f4b400;
+  box-shadow:
+    inset 0 0 0 1px rgba(22, 26, 24, 0.85),
+    0 0 0 1px rgba(244, 180, 0, 0.34);
 }
 
 .thumb {
@@ -719,7 +783,7 @@ body.import-active .input:disabled {
 .danger-btn:hover:not(:disabled),
 .name-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  filter: brightness(0.96);
+  filter: brightness(1.05);
 }
 
 .btn:active:not(:disabled),
@@ -775,8 +839,15 @@ body.import-active .input:disabled {
 .actions .btn:focus-visible,
 .name-btn:hover:not(:disabled),
 .name-btn:focus-visible {
-  background: color-mix(in srgb, var(--line) 24%, transparent 76%);
+  background: color-mix(in srgb, var(--line) 38%, transparent 62%);
   outline: none;
+}
+
+.item:hover:not(.selected) {
+  border-color: color-mix(in srgb, var(--text) 34%, var(--line) 66%);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.1),
+    0 0 0 1px color-mix(in srgb, var(--line) 22%, transparent 78%);
 }
 
 .actions .btn.danger:hover:not(:disabled) {
@@ -830,6 +901,17 @@ body.import-active .input:disabled {
   object-fit: contain;
 }
 
+:root[data-theme="dark"] .empty-mascot {
+  filter: saturate(0.95) contrast(1.04);
+}
+
+:root[data-theme="dark"] .empty {
+  background:
+    radial-gradient(circle at 50% 32%, color-mix(in srgb, var(--surface-2) 78%, transparent 22%), transparent 62%),
+    var(--surface-1);
+  border-color: color-mix(in srgb, var(--line) 82%, var(--text) 18%);
+}
+
 .empty-text {
   margin: 0;
   white-space: pre-line;
@@ -853,7 +935,7 @@ body.import-active .input:disabled {
   border: 2px solid color-mix(in srgb, var(--line) 85%, var(--text) 15%);
   border-radius: 12px;
   background: var(--card);
-  box-shadow: 0 10px 26px color-mix(in srgb, black 34%, transparent 66%);
+  box-shadow: 0 8px 18px color-mix(in srgb, black 28%, transparent 72%);
   overflow: hidden;
   pointer-events: none;
   opacity: 0;
@@ -887,7 +969,54 @@ body.import-active .input:disabled {
 
 :root[data-theme="dark"] .btn-icon,
 :root[data-theme="dark"] .search-icon {
-  filter: brightness(0) invert(0.9);
+  filter: var(--icon-dark-filter);
+}
+
+:root[data-theme="dark"] .btn,
+:root[data-theme="dark"] .icon-btn,
+:root[data-theme="dark"] .danger-btn {
+  background: var(--surface-1);
+  border-color: color-mix(in srgb, var(--line) 84%, var(--text) 16%);
+}
+
+:root[data-theme="dark"] .tab-btn {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .tab-btn.active {
+  color: #f3f6f1;
+}
+
+:root[data-theme="dark"] .tab-btn + .tab-btn::before {
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--line) 88%, transparent 12%) 18%,
+    color-mix(in srgb, var(--line) 88%, transparent 12%) 82%,
+    transparent 100%
+  );
+}
+
+:root[data-theme="dark"] .input {
+  background: color-mix(in srgb, var(--surface-1) 76%, var(--card) 24%);
+}
+
+:root[data-theme="dark"] .thumb {
+  background: color-mix(in srgb, var(--surface-2) 72%, var(--card) 28%);
+}
+
+:root[data-theme="dark"] .actions .btn:hover:not(:disabled),
+:root[data-theme="dark"] .actions .btn:focus-visible,
+:root[data-theme="dark"] .name-btn:hover:not(:disabled),
+:root[data-theme="dark"] .name-btn:focus-visible {
+  background: color-mix(in srgb, var(--accent-line) 22%, var(--surface-2) 78%);
+}
+
+:root[data-theme="dark"] .item:hover:not(.selected) {
+  border-color: color-mix(in srgb, var(--text) 22%, var(--line) 78%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 .danger-btn:hover:not(:disabled),

@@ -329,6 +329,79 @@ describe("media resolver", () => {
     expect(resolved).toBe("https://pbs.twimg.com/media/ExampleId?format=jpg&name=orig");
   });
 
+  it("resolves embedded media URLs from generic html pages", async () => {
+    globalThis.fetch = vi.fn(async (url) => {
+      if (String(url).includes("prnt.sc")) {
+        return makeResponse({
+          ok: true,
+          url: "https://prnt.sc/-ECbcjE_jwrD",
+        text: [
+            "<html><head>",
+            '<meta property="og:image" content="https://img.lightshot.app/6u82d7d-TfKv8-baui85hQ.png">',
+            "</head>",
+            '<body><img src="https://img.lightshot.app/6u82d7d-TfKv8-baui85hQ.png"></body></html>',
+          ].join(""),
+        });
+      }
+      return makeResponse({ ok: false });
+    });
+
+    const resolved = await resolveMediaUrls("https://prnt.sc/-ECbcjE_jwrD");
+    expect(resolved).toEqual(["https://img.lightshot.app/6u82d7d-TfKv8-baui85hQ.png"]);
+  });
+
+  it("prefers metadata media over decorative img tags on html pages", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      makeResponse({
+        ok: true,
+        url: "https://prnt.sc/-ECbcjE_jwrD",
+        text: [
+          "<html><head>",
+          '<meta property="og:image" content="https://img.lightshot.app/6u82d7d-TfKv8-baui85hQ.png">',
+          "</head>",
+          '<body><img src="https://st.prntscr.com/2025/12/17/0541/img/footer-logo.png"></body></html>',
+        ].join(""),
+      }),
+    );
+
+    const resolved = await resolveMediaUrls("https://prnt.sc/-ECbcjE_jwrD");
+    expect(resolved).toEqual(["https://img.lightshot.app/6u82d7d-TfKv8-baui85hQ.png"]);
+  });
+
+  it("ignores embedded html candidates that point back to the same page url", async () => {
+    globalThis.fetch = vi.fn(async () =>
+      makeResponse({
+        ok: true,
+        url: "https://prnt.sc/-ECbcjE_jwrD",
+        text: [
+          "<html><head>",
+          '<meta property="og:image" content="https://img.lightshot.app/6u82d7d-TfKv8-baui85hQ.png">',
+          "</head>",
+          '<body><img src="https://prnt.sc/-ECbcjE_jwrD"></body></html>',
+        ].join(""),
+      }),
+    );
+
+    const resolved = await resolveMediaUrls("https://prnt.sc/-ECbcjE_jwrD");
+    expect(resolved).toEqual(["https://img.lightshot.app/6u82d7d-TfKv8-baui85hQ.png"]);
+  });
+
+  it("extracts embedded media from non-ok html responses", async () => {
+    globalThis.fetch = vi.fn(async (url) => {
+      if (String(url).includes("example.com/post/blocked")) {
+        return makeResponse({
+          ok: false,
+          url: "https://example.com/post/blocked",
+          text: '<meta property="og:image" content="https://cdn.example.com/media/blocked.png">',
+        });
+      }
+      return makeResponse({ ok: false, text: "" });
+    });
+
+    const resolved = await resolveMediaUrls("https://example.com/post/blocked");
+    expect(resolved).toEqual(["https://cdn.example.com/media/blocked.png"]);
+  });
+
   it("keeps invalid-url messaging precedence over twitter-specific messaging", () => {
     // HTML should always map to the invalid-url prompt, even for Twitter hosts.
     expect(
