@@ -178,6 +178,7 @@ PowerShell note:
 ### Popup Card UI Rules (Current)
 
 - Popup header/import/tab sections are de-pilled (no panel/card wrapper chrome), with subtle centered divider lines under header and progress.
+- Shared dark theme base background token (`--bg`) is `#28323D` in `src/pages/shared/theme.css`.
 - Card action controls are icon-only in the bottom row (rename, copy, favorite, delete) with preserved hover feedback.
 - Favorite action uses a filled star asset for favorited items (`src/assets/shared/icon-star-filled.svg`).
 - Card hover metadata uses a top full-row overlay in the non-preview section; source/size are shown on hover only.

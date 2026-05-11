@@ -25,21 +25,21 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #202724;
-  --bg-top: #29322e;
-  --card: #2c3531;
-  --surface-1: #333d38;
-  --surface-2: #3b4641;
+  --bg: #1d2630;
+  --bg-top: #25303c;
+  --card: #2a3644;
+  --surface-1: #313f4f;
+  --surface-2: #39495b;
   --text: #e6e9e4;
   --muted: #bcc4be;
-  --line: #4f5b55;
+  --line: #4d5d70;
   --danger: #e0e2db;
   --ok: #e0e2db;
-  --accent-bg: #2c3531;
+  --accent-bg: #2a3644;
   --accent-line: #a33d4e;
   --accent-text: #e0e2db;
   --scrollbar-thumb: #a33d4e;
-  --scrollbar-track: #303a36;
+  --scrollbar-track: #24303c;
   --panel-shadow: 0 1px 0 color-mix(in srgb, var(--line) 58%, transparent 42%);
   --icon-dark-filter: brightness(0) invert(0.84) saturate(0.7) contrast(0.94);
   --page-bg:

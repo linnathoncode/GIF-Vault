@@ -4,6 +4,7 @@ All notable project changes are tracked here.
 
 ## Version Includes: NEXT
 
+- Dark theme base background update: switched the shared dark-surface base color token to `#28323D` for more consistent page/popup surfaces.
 - Instagram post context-menu reliability: added page-context capture for right-clicked Instagram media so "Add to Vault" can resolve nested post media targets more consistently, and fixed permission-assist handoff to pass the resolved media URL instead of an empty `srcUrl`.
 
 ## Version Includes: v1.6.6

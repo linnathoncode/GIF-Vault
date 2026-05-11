@@ -1045,6 +1045,11 @@ body.import-active .input:disabled {
   color: color-mix(in srgb, var(--text) 64%, var(--muted) 36%);
 }
 
+:root[data-theme="dark"] input[type="search"]::-webkit-search-cancel-button {
+  filter: brightness(0) invert(1);
+  opacity: 1;
+}
+
 .btn.favorite-active .btn-icon,
 :root[data-theme="dark"] .btn.favorite-active .btn-icon {
   filter: none;
