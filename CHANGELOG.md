@@ -4,6 +4,8 @@ All notable project changes are tracked here.
 
 ## Version Includes: NEXT
 
+- Instagram post context-menu reliability: added page-context capture for right-clicked Instagram media so "Add to Vault" can resolve nested post media targets more consistently, and fixed permission-assist handoff to pass the resolved media URL instead of an empty `srcUrl`.
+
 ## Version Includes: v1.6.6
 
 - Import URL-resolution expansion: media resolver is now strategy-based (direct media, X/Twitter post, and HTML-embedded media pages), enabling page-style links (for example screenshot-host pages with `og:image`/`twitter:image`) to resolve to real media URLs more reliably while filtering decorative assets.

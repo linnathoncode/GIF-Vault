@@ -16,6 +16,7 @@ import { resolveMediaUrls } from "./media-resolver.js";
 
 let localeReadyPromise = null;
 const CONTEXT_MENU_DUPLICATE_ID_FRAGMENT = "duplicate id";
+const INSTAGRAM_POST_PATH_PATTERN = /^\/(?:p|reel|tv)\//i;
 
 function ensureLocaleReady(localeHint = "") {
   const initOptions = localeHint
@@ -36,6 +37,14 @@ function ensureLocaleReady(localeHint = "") {
 async function updateContextMenuTitle() {
   try {
     await chrome.contextMenus.update(CONTEXT_MENU.addToVaultId, {
+      title: UI_MESSAGES.serviceWorker.contextMenuAddToVault,
+    });
+  } catch {
+    // no-op
+  }
+
+  try {
+    await chrome.contextMenus.update(CONTEXT_MENU.addToVaultInstagramPageId, {
       title: UI_MESSAGES.serviceWorker.contextMenuAddToVault,
     });
   } catch {
@@ -83,6 +92,47 @@ function createContextMenuSafely() {
   });
 }
 
+function createInstagramPageContextMenuSafely() {
+  return new Promise((resolve, reject) => {
+    try {
+      chrome.contextMenus.create(
+        {
+          id: CONTEXT_MENU.addToVaultInstagramPageId,
+          title: UI_MESSAGES.serviceWorker.contextMenuAddToVault,
+          contexts: ["page"],
+          documentUrlPatterns: ["https://*.instagram.com/*"],
+        },
+        () => {
+          const runtimeError = chrome.runtime?.lastError;
+          if (!runtimeError) {
+            resolve();
+            return;
+          }
+          const errorMessage = String(runtimeError.message || "");
+          if (
+            errorMessage
+              .toLowerCase()
+              .includes(CONTEXT_MENU_DUPLICATE_ID_FRAGMENT)
+          ) {
+            resolve();
+            return;
+          }
+          reject(new Error(errorMessage || "Failed to create context menu"));
+        },
+      );
+    } catch (error) {
+      const errorMessage = String(error?.message || "");
+      if (
+        errorMessage.toLowerCase().includes(CONTEXT_MENU_DUPLICATE_ID_FRAGMENT)
+      ) {
+        resolve();
+        return;
+      }
+      reject(error);
+    }
+  });
+}
+
 void ensureLocaleReady();
 
 function isTrustedRuntimeSender(sender) {
@@ -94,6 +144,7 @@ chrome.runtime.onInstalled.addListener(() => {
   void (async () => {
     await ensureLocaleReady();
     await createContextMenuSafely();
+    await createInstagramPageContextMenuSafely();
   })();
 });
 
@@ -115,25 +166,34 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
-chrome.contextMenus.onClicked.addListener(async (info) => {
-  if (info.menuItemId !== CONTEXT_MENU.addToVaultId || !info.srcUrl) {
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  const isDirectMediaMenu = info.menuItemId === CONTEXT_MENU.addToVaultId;
+  const isInstagramPageMenu =
+    info.menuItemId === CONTEXT_MENU.addToVaultInstagramPageId;
+  if (!isDirectMediaMenu && !isInstagramPageMenu) {
     return;
   }
   await ensureLocaleReady();
+  let srcUrl = "";
 
   try {
+    srcUrl = await resolveContextMenuSourceUrl(info, tab);
+    if (!srcUrl) {
+      return;
+    }
+
     await safeLog("context-menu", "Context menu click received", {
-      srcUrl: info.srcUrl,
+      srcUrl,
       pageUrl: info.pageUrl || "",
     });
-    await importFromUrl(info.srcUrl, info.pageUrl || "");
+    await importFromUrl(srcUrl, info.pageUrl || "");
     await showBadgeFallback(true);
   } catch (error) {
     if (
       getImportErrorCode(error) === IMPORT_ERROR_CODES.hostAccessRequired ||
       String(error?.message || "") === UI_MESSAGES.import.hostAccessRequired
     ) {
-      await openPermissionAssist(info.srcUrl, info.pageUrl || "");
+      await openPermissionAssist(srcUrl, info.pageUrl || "");
     }
     await showBadgeFallback(false);
     await safeLog("context-menu", "Context menu import failed", {
@@ -141,6 +201,104 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
     });
   }
 });
+
+async function resolveContextMenuSourceUrl(info, tab) {
+  if (info?.srcUrl) {
+    return info.srcUrl;
+  }
+
+  if (!isInstagramPostPageUrl(info?.pageUrl || "")) {
+    await safeLog("context-menu", "No srcUrl and page is not Instagram post URL", {
+      pageUrl: info?.pageUrl || "",
+    });
+    return "";
+  }
+
+  const captured = await getStoredInstagramContextMedia();
+  if (!captured) {
+    const debugState = await getStoredInstagramContextDebug();
+    await safeLog("context-menu", "No stored Instagram context media found", {
+      pageUrl: info?.pageUrl || "",
+      tabUrl: tab?.url || "",
+      debugState,
+    });
+    return "";
+  }
+
+  const expectedPageUrl = String(info?.pageUrl || "");
+  const tabUrl = String(tab?.url || "");
+  const capturedPageUrl = String(captured.pageUrl || "");
+  if (
+    capturedPageUrl &&
+    capturedPageUrl !== expectedPageUrl &&
+    capturedPageUrl !== tabUrl
+  ) {
+    await safeLog("context-menu", "Stored Instagram media page mismatch", {
+      expectedPageUrl,
+      tabUrl,
+      capturedPageUrl,
+    });
+    return "";
+  }
+
+  const capturedAt = Number(captured.capturedAt || 0);
+  const maxAgeMs = Number(captured.maxAgeMs || 10_000);
+  if (!capturedAt || Date.now() - capturedAt > maxAgeMs) {
+    await safeLog("context-menu", "Stored Instagram media expired", {
+      capturedAt,
+      maxAgeMs,
+      ageMs: capturedAt ? Date.now() - capturedAt : -1,
+    });
+    return "";
+  }
+
+  return String(captured.mediaUrl || "").trim();
+}
+
+function isInstagramPostPageUrl(pageUrl) {
+  const value = String(pageUrl || "").trim();
+  if (!value) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.toLowerCase();
+    if (!host.endsWith("instagram.com")) {
+      return false;
+    }
+    return INSTAGRAM_POST_PATH_PATTERN.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
+async function getStoredInstagramContextMedia() {
+  try {
+    const data = await chrome.storage.local.get(STORAGE_KEYS.instagramContextMedia);
+    return data?.[STORAGE_KEYS.instagramContextMedia] || null;
+  } catch {
+    return null;
+  }
+}
+
+async function getStoredInstagramContextDebug() {
+  try {
+    const data = await chrome.storage.local.get("instagramContextDebug");
+    const debugState = data?.instagramContextDebug || null;
+    if (!debugState) {
+      return null;
+    }
+    const capturedAt = Number(debugState.capturedAt || 0);
+    const maxAgeMs = Number(debugState.maxAgeMs || 0);
+    if (!capturedAt || !maxAgeMs || Date.now() - capturedAt > maxAgeMs) {
+      return null;
+    }
+    return debugState;
+  } catch {
+    return null;
+  }
+}
 
 // Runtime message routing.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

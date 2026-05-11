@@ -25,6 +25,15 @@
     "service_worker": "background/service-worker.js",
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": ["https://*.instagram.com/*"],
+      "js": ["content/instagram-context.js"],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": true
+    }
+  ],
   "action": {
     "default_popup": "pages/popup/popup.html",
     "default_title": "GIF Vault",

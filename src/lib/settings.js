@@ -4,10 +4,12 @@ const STORAGE_KEYS = {
   importState: "importState",
   runtimeConfig: "runtimeConfig",
   popupLastTab: "popupLastTab",
+  instagramContextMedia: "instagramContextMedia",
 };
 
 const CONTEXT_MENU = {
   addToVaultId: "addToGifVault",
+  addToVaultInstagramPageId: "addToGifVaultInstagramPage",
 };
 
 const OFFSCREEN = {

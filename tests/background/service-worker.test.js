@@ -105,7 +105,7 @@ describe("service worker context menu setup", () => {
 
     process.off("unhandledRejection", onUnhandledRejection);
 
-    expect(globalThis.chrome.contextMenus.create).toHaveBeenCalledTimes(2);
+    expect(globalThis.chrome.contextMenus.create).toHaveBeenCalledTimes(4);
     expect(unhandledRejections).toHaveLength(0);
   });
 });
