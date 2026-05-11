@@ -214,15 +214,17 @@ async function resolveContextMenuSourceUrl(info, tab) {
     return "";
   }
 
+  const fallbackPageUrl = getInstagramPostFallbackUrl(info, tab);
   const captured = await getStoredInstagramContextMedia();
   if (!captured) {
     const debugState = await getStoredInstagramContextDebug();
     await safeLog("context-menu", "No stored Instagram context media found", {
       pageUrl: info?.pageUrl || "",
       tabUrl: tab?.url || "",
+      fallbackPageUrl,
       debugState,
     });
-    return "";
+    return fallbackPageUrl;
   }
 
   const expectedPageUrl = String(info?.pageUrl || "");
@@ -237,8 +239,9 @@ async function resolveContextMenuSourceUrl(info, tab) {
       expectedPageUrl,
       tabUrl,
       capturedPageUrl,
+      fallbackPageUrl,
     });
-    return "";
+    return fallbackPageUrl;
   }
 
   const capturedAt = Number(captured.capturedAt || 0);
@@ -248,11 +251,26 @@ async function resolveContextMenuSourceUrl(info, tab) {
       capturedAt,
       maxAgeMs,
       ageMs: capturedAt ? Date.now() - capturedAt : -1,
+      fallbackPageUrl,
     });
-    return "";
+    return fallbackPageUrl;
   }
 
   return String(captured.mediaUrl || "").trim();
+}
+
+function getInstagramPostFallbackUrl(info, tab) {
+  const expectedPageUrl = String(info?.pageUrl || "").trim();
+  if (isInstagramPostPageUrl(expectedPageUrl)) {
+    return expectedPageUrl;
+  }
+
+  const tabUrl = String(tab?.url || "").trim();
+  if (isInstagramPostPageUrl(tabUrl)) {
+    return tabUrl;
+  }
+
+  return "";
 }
 
 function isInstagramPostPageUrl(pageUrl) {
