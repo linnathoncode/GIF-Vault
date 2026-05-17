@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "GIF Vault: Save & Organize GIFs from X/Twitter",
+    "description": "Extension name shown in the Chrome Web Store and extension surfaces."
+  },
+  "extDescription": {
+    "message": "Save GIFs from X/Twitter and web links, convert videos to GIFs, and organize everything in your own private vault.",
+    "description": "Extension description shown in the Chrome Web Store and extension surfaces."
+  },
+  "actionDefaultTitle": {
+    "message": "GIF Vault",
+    "description": "Tooltip title for the extension action button."
+  }
+}

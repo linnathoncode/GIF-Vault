@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "GIF Vault: X/Twitter'dan GIF Kaydet ve Düzenle",
+    "description": "Chrome Web Store'da ve uzantı yüzeylerinde görünen uzantı adı."
+  },
+  "extDescription": {
+    "message": "X/Twitter ve web bağlantılarından GIF kaydet, videoları GIF'e çevir ve hepsini kendi özel kasanda düzenle.",
+    "description": "Chrome Web Store'da ve uzantı yüzeylerinde görünen uzantı açıklaması."
+  },
+  "actionDefaultTitle": {
+    "message": "GIF Vault",
+    "description": "Uzantı araç çubuğu düğmesinin ipucu başlığı."
+  }
+}
