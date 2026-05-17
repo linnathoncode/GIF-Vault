@@ -6,10 +6,11 @@ All notable project changes are tracked here.
 
 - Pending release notes.
 
-## Version Includes: v1.6.7
+## Version Includes: v1.6.8
 
-- Dark theme base background update: switched the shared dark-surface base color token to `#28323D` for more consistent page/popup surfaces.
-- Instagram post context-menu reliability: added page-context capture for right-clicked Instagram media so "Add to Vault" can resolve nested post media targets more consistently, and fixed permission-assist handoff to pass the resolved media URL instead of an empty `srcUrl`.
+- Instagram context-menu image-only guard: Instagram imports now block non-image media (including `/p/...` video posts) while preserving image-post import behavior.
+- Instagram SPA navigation reliability: stale captured Instagram context media is now cleared on in-page URL changes to prevent page-mismatch failures after navigating between posts.
+- Context-menu logging clarity: stale/expired Instagram page-menu captures now log explicit block reasons instead of fallback-oriented mismatch/expiry messages.
 
 ## Version Includes: v1.6.6
 

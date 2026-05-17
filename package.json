@@ -1,6 +1,6 @@
 {
   "name": "gif_manager",
-  "version": "1.6.7",
+  "version": "1.6.8",
   "description": "",
   "main": "background.js",
   "scripts": {
