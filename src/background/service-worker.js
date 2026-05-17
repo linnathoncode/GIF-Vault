@@ -174,6 +174,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     return;
   }
   await ensureLocaleReady();
+  if (isDirectMediaMenu && isInstagramHostUrl(info?.pageUrl || tab?.url || "")) {
+    const mediaType = String(info?.mediaType || "").toLowerCase();
+    if (mediaType && mediaType !== "image") {
+      await safeLog("context-menu", "Blocked Instagram non-image direct-media click", {
+        mediaType,
+        srcUrl: info?.srcUrl || "",
+        pageUrl: info?.pageUrl || "",
+      });
+      return;
+    }
+  }
   let srcUrl = "";
 
   try {
@@ -203,6 +214,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 async function resolveContextMenuSourceUrl(info, tab) {
+  const isInstagramPageMenu =
+    info?.menuItemId === CONTEXT_MENU.addToVaultInstagramPageId;
   if (info?.srcUrl) {
     return info.srcUrl;
   }
@@ -224,7 +237,7 @@ async function resolveContextMenuSourceUrl(info, tab) {
       fallbackPageUrl,
       debugState,
     });
-    return fallbackPageUrl;
+    return isInstagramPageMenu ? "" : fallbackPageUrl;
   }
 
   const expectedPageUrl = String(info?.pageUrl || "");
@@ -235,6 +248,14 @@ async function resolveContextMenuSourceUrl(info, tab) {
     capturedPageUrl !== expectedPageUrl &&
     capturedPageUrl !== tabUrl
   ) {
+    if (isInstagramPageMenu) {
+      await safeLog("context-menu", "Blocked Instagram page import due to stale captured media", {
+        expectedPageUrl,
+        tabUrl,
+        capturedPageUrl,
+      });
+      return "";
+    }
     await safeLog("context-menu", "Stored Instagram media page mismatch", {
       expectedPageUrl,
       tabUrl,
@@ -247,6 +268,14 @@ async function resolveContextMenuSourceUrl(info, tab) {
   const capturedAt = Number(captured.capturedAt || 0);
   const maxAgeMs = Number(captured.maxAgeMs || 10_000);
   if (!capturedAt || Date.now() - capturedAt > maxAgeMs) {
+    if (isInstagramPageMenu) {
+      await safeLog("context-menu", "Blocked Instagram page import due to expired captured media", {
+        capturedAt,
+        maxAgeMs,
+        ageMs: capturedAt ? Date.now() - capturedAt : -1,
+      });
+      return "";
+    }
     await safeLog("context-menu", "Stored Instagram media expired", {
       capturedAt,
       maxAgeMs,
@@ -254,6 +283,15 @@ async function resolveContextMenuSourceUrl(info, tab) {
       fallbackPageUrl,
     });
     return fallbackPageUrl;
+  }
+  const capturedKind = String(captured.mediaKind || "").trim().toLowerCase();
+  if (capturedKind && capturedKind !== "image") {
+    await safeLog("context-menu", "Blocked Instagram non-image captured media", {
+      capturedKind,
+      expectedPageUrl,
+      capturedPageUrl,
+    });
+    return "";
   }
 
   return String(captured.mediaUrl || "").trim();
@@ -286,6 +324,19 @@ function isInstagramPostPageUrl(pageUrl) {
       return false;
     }
     return INSTAGRAM_POST_PATH_PATTERN.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function isInstagramHostUrl(rawUrl) {
+  const value = String(rawUrl || "").trim();
+  if (!value) {
+    return false;
+  }
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return host === "instagram.com" || host.endsWith(".instagram.com");
   } catch {
     return false;
   }

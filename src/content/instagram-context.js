@@ -8,6 +8,7 @@ const INSTAGRAM_CONTEXT_DEBUG_STORAGE_KEY = "instagramContextDebug";
 const SUPPORTED_MEDIA_SELECTOR = "img[src], video[src], video source[src]";
 const MAX_AGE_MS = 10_000;
 const DEBUG_MAX_AGE_MS = 30_000;
+let lastKnownPageUrl = window.location.href;
 
 function toAbsoluteHttpUrl(rawUrl) {
   const value = String(rawUrl || "").trim();
@@ -63,27 +64,37 @@ function findMediaElementFromEvent(event) {
 
 function resolveMediaUrl(element) {
   if (!element) {
-    return "";
+    return { mediaUrl: "", mediaKind: "" };
   }
 
   if (element instanceof HTMLImageElement) {
-    return toAbsoluteHttpUrl(element.currentSrc || element.src);
+    return {
+      mediaUrl: toAbsoluteHttpUrl(element.currentSrc || element.src),
+      mediaKind: "image",
+    };
   }
 
   if (element instanceof HTMLVideoElement) {
-    return toAbsoluteHttpUrl(element.currentSrc || element.src);
+    return {
+      mediaUrl: toAbsoluteHttpUrl(element.currentSrc || element.src),
+      mediaKind: "video",
+    };
   }
 
   if (element instanceof HTMLSourceElement) {
-    return toAbsoluteHttpUrl(element.src);
+    return {
+      mediaUrl: toAbsoluteHttpUrl(element.src),
+      mediaKind: "video",
+    };
   }
 
-  return "";
+  return { mediaUrl: "", mediaKind: "" };
 }
 
-async function storeContextMedia(mediaUrl) {
+async function storeContextMedia(mediaUrl, mediaKind) {
   const payload = {
     mediaUrl,
+    mediaKind,
     pageUrl: window.location.href,
     capturedAt: Date.now(),
     maxAgeMs: MAX_AGE_MS,
@@ -96,6 +107,7 @@ async function storeContextMedia(mediaUrl) {
         ok: true,
         reason: "captured",
         mediaUrl,
+        mediaKind,
         pageUrl: window.location.href,
         capturedAt: payload.capturedAt,
         maxAgeMs: DEBUG_MAX_AGE_MS,
@@ -122,14 +134,40 @@ async function storeContextDebug(reason) {
   }
 }
 
+async function clearStaleContextOnPageChange(nextPageUrl) {
+  try {
+    await chrome.storage.local.remove(INSTAGRAM_CONTEXT_MEDIA_STORAGE_KEY);
+    await chrome.storage.local.set({
+      [INSTAGRAM_CONTEXT_DEBUG_STORAGE_KEY]: {
+        ok: false,
+        reason: "page-url-changed-cleared-stale-context",
+        pageUrl: nextPageUrl,
+        capturedAt: Date.now(),
+        maxAgeMs: DEBUG_MAX_AGE_MS,
+      },
+    });
+  } catch {
+    // no-op
+  }
+}
+
+function handlePossibleSpaNavigation() {
+  const nextPageUrl = window.location.href;
+  if (nextPageUrl === lastKnownPageUrl) {
+    return;
+  }
+  lastKnownPageUrl = nextPageUrl;
+  void clearStaleContextOnPageChange(nextPageUrl);
+}
+
 function handlePointerLikeEvent(event) {
   const mediaElement = findMediaElementFromEvent(event);
-  const mediaUrl = resolveMediaUrl(mediaElement);
+  const { mediaUrl, mediaKind } = resolveMediaUrl(mediaElement);
   if (!mediaUrl) {
     void storeContextDebug("no-media-from-event-target");
     return;
   }
-  void storeContextMedia(mediaUrl);
+  void storeContextMedia(mediaUrl, mediaKind);
 }
 
 document.addEventListener(
@@ -161,3 +199,15 @@ document.addEventListener(
   },
   { capture: true },
 );
+
+window.addEventListener("popstate", () => {
+  handlePossibleSpaNavigation();
+});
+
+window.addEventListener("hashchange", () => {
+  handlePossibleSpaNavigation();
+});
+
+setInterval(() => {
+  handlePossibleSpaNavigation();
+}, 500);
