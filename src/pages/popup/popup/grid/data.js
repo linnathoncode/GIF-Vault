@@ -84,7 +84,7 @@ export function createGridDataController({
     return hint;
   }
 
-  function refreshCountTextFromCache(selectedCount = 0) {
+  function refreshCountTextFromCache() {
     const baseText =
       state.currentTab === "favorites"
         ? UI_MESSAGES.grid.favoritesCount(latestVisibleItemCount)
@@ -92,16 +92,14 @@ export function createGridDataController({
             latestSavedItemCount,
             latestFavoritesCount,
           );
-    countEl.textContent = selectedCount > 0
-      ? `${baseText} | ${UI_MESSAGES.grid.selectedCount(selectedCount)}`
-      : baseText;
+    countEl.textContent = baseText;
   }
 
-  function setCountText(normalized, visibleItems, selectedCount = 0) {
+  function setCountText(normalized, visibleItems) {
     latestSavedItemCount = normalized.length;
     latestVisibleItemCount = visibleItems.length;
     latestFavoritesCount = normalized.filter((item) => item.favorite).length;
-    refreshCountTextFromCache(selectedCount);
+    refreshCountTextFromCache();
   }
 
   function createEmptyState(query) {

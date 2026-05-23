@@ -50,6 +50,7 @@ const refs = {
   progressLabelEl: document.getElementById("progressLabel"),
   progressTrackEl: document.getElementById("progressTrack"),
   selectionCancelBtn: document.getElementById("selectionCancelBtn"),
+  selectedCountEl: document.getElementById("selectedCount"),
   statusTextEl: document.getElementById("statusText"),
   searchInput: document.getElementById("searchInput"),
   statusEl: document.getElementById("status"),
@@ -303,7 +304,13 @@ function shouldIgnoreFileDrop(event) {
 
 function syncSelectionUi(selectedCount = 0) {
   const hasSelections = selectedCount > 0;
-  if (refs.selectionCancelBtn instanceof HTMLButtonElement) {
+  if (refs.selectedCountEl && "hidden" in refs.selectedCountEl) {
+    refs.selectedCountEl.hidden = !hasSelections;
+    refs.selectedCountEl.textContent = hasSelections
+      ? UI_MESSAGES.grid.selectedCount(selectedCount)
+      : "";
+  }
+  if (refs.selectionCancelBtn && "hidden" in refs.selectionCancelBtn) {
     refs.selectionCancelBtn.hidden = !hasSelections;
   }
 }

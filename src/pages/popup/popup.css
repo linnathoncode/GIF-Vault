@@ -137,9 +137,38 @@ body.import-active .input:disabled {
   justify-content: flex-end;
 }
 
+.selection-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 36px;
+  padding: 0 2px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translate(4px, 2px);
+}
+
+.selection-count[hidden],
+.selection-cancel-btn[hidden] {
+  display: none !important;
+}
+
 .selection-cancel-btn {
-  border-color: var(--line);
-  font-weight: 700;
+  width: 34px;
+  height: 38px;
+}
+
+:root[data-theme="dark"] .selection-cancel-btn {
+  background: transparent;
+  border: 0;
 }
 
 .danger-icon-btn {
@@ -977,6 +1006,13 @@ body.import-active .input:disabled {
 :root[data-theme="dark"] .danger-btn {
   background: var(--surface-1);
   border-color: color-mix(in srgb, var(--line) 84%, var(--text) 16%);
+}
+
+.header-actions .selection-cancel-btn,
+:root[data-theme="dark"] .header-actions .selection-cancel-btn {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 :root[data-theme="dark"] .tab-btn {

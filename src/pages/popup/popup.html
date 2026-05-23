@@ -17,8 +17,9 @@
         </div>
       </div>
       <div class="header-actions">
-        <button id="selectionCancelBtn" class="btn selection-cancel-btn" type="button" title="Clear" aria-label="Clear" data-i18n-title="popup.clearSelectionButton" data-i18n-aria-label="popup.clearSelectionButton" hidden>
-          <span data-i18n="popup.clearSelectionButton">Clear</span>
+        <div id="selectedCount" class="selection-count" aria-live="polite" hidden></div>
+        <button id="selectionCancelBtn" class="icon-btn selection-cancel-btn" type="button" title="Clear selection" aria-label="Clear selection" data-i18n-title="popup.clearSelectionButton" data-i18n-aria-label="popup.clearSelectionButton" hidden>
+          <img class="btn-icon btn-icon-md" src="../../assets/shared/icon-cancel-x.svg" alt="" aria-hidden="true" />
         </button>
         <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme" data-i18n-title="common.toggleTheme" data-i18n-aria-label="common.toggleTheme">
           <img id="themeToggleIcon" class="btn-icon btn-icon-md" src="../../assets/shared/icon-theme-light.svg" alt="" aria-hidden="true" />

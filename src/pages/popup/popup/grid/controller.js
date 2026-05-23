@@ -481,7 +481,7 @@ export function createPopupGridController({
       count: visibleItems.length,
       tab: state.currentTab,
     });
-    dataController.setCountText(normalized, visibleItems, selectedItemIds.size);
+    dataController.setCountText(normalized, visibleItems);
     dataController.updatePager(totalPages);
 
     previewController.pruneObjectUrlsForVisibleIds(new Set(pagedItemsMeta.map((item) => item.id)));
