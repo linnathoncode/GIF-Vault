@@ -6,6 +6,7 @@
 import { OFFSCREEN } from "../../lib/settings.js";
 import { safeLog } from "../../lib/log.js";
 import { UI_MESSAGES } from "../../lib/messages.js";
+import { MESSAGE_TYPES } from "../../lib/protocol.js";
 import { mediaTooLargeMessage, resolveMaxDownloadBytes } from "./media-utils.js";
 
 const RUNTIME_MESSAGE_MAX_BYTES = 64 * 1024 * 1024;
@@ -50,8 +51,10 @@ async function convertInOffscreen({
   inputExtension = "",
   gifConversion = null,
   inputBytes = null,
+  signal = null,
 }) {
   await ensureOffscreenDocument();
+  throwIfConversionAborted(signal);
 
   const hasInputBytes = isNonEmptyBinaryPayload(inputBytes);
   const canUseUrlFallback = isHttpUrl(url) && !isLocalPseudoUrl(url);
@@ -89,7 +92,9 @@ async function convertInOffscreen({
       gifConversion,
       ...(includeInputBytes ? { inputBytes } : {}),
     });
+    throwIfConversionAborted(signal);
   } catch (error) {
+    throwIfConversionAborted(signal);
     if (
       includeInputBytes &&
       canUseUrlFallback &&
@@ -109,7 +114,9 @@ async function convertInOffscreen({
           inputExtension,
           gifConversion,
         });
+        throwIfConversionAborted(signal);
       } catch (retryError) {
+        throwIfConversionAborted(signal);
         if (isMessageSizeExceededError(retryError)) {
           throw new Error(
             mediaTooLargeMessage(
@@ -136,6 +143,10 @@ async function convertInOffscreen({
     }
   }
   if (!response?.ok) {
+    throwIfConversionAborted(signal);
+    if (isTerminatedOffscreenResponse(response)) {
+      throw new Error(UI_MESSAGES.import.importTerminatedError);
+    }
     if (!includeInputBytes && hasInputBytes) {
       await safeLog("convert", "URL-based offscreen conversion failed; retrying with bytes", {
         inputBytesLength,
@@ -149,9 +160,11 @@ async function convertInOffscreen({
         gifConversion,
         inputBytes,
       });
+      throwIfConversionAborted(signal);
     }
   }
   if (!response?.ok) {
+    throwIfConversionAborted(signal);
     await safeLog("convert", "Offscreen conversion failed", {
       error: response?.error || "unknown",
     });
@@ -159,6 +172,44 @@ async function convertInOffscreen({
   }
 
   return response.payload;
+}
+
+function throwIfConversionAborted(signal) {
+  if (signal?.aborted) {
+    throw new Error(UI_MESSAGES.import.importTerminatedError);
+  }
+}
+
+function isTerminatedOffscreenResponse(response) {
+  const error = String(response?.error || "");
+  return (
+    error === UI_MESSAGES.import.importTerminatedError ||
+    error === "called FFmpeg.terminate()"
+  );
+}
+
+async function cancelOffscreenConversion(requestId) {
+  const id = String(requestId || "").trim();
+  if (!id) {
+    return false;
+  }
+
+  try {
+    if (!(await chrome.offscreen.hasDocument())) {
+      return false;
+    }
+    const response = await chrome.runtime.sendMessage({
+      type: MESSAGE_TYPES.offscreenCancelConversion,
+      requestId: id,
+    });
+    return Boolean(response?.cancelled);
+  } catch (error) {
+    await safeLog("convert", "Offscreen conversion cancel failed", {
+      requestId: id,
+      error: error?.message || "unknown",
+    });
+    return false;
+  }
 }
 
 function isNonEmptyBinaryPayload(inputBytes) {
@@ -208,4 +259,4 @@ function isMessageSizeExceededError(error) {
   );
 }
 
-export { convertInOffscreen };
+export { cancelOffscreenConversion, convertInOffscreen };

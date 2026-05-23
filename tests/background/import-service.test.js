@@ -424,6 +424,98 @@ describe("import service long-video gate", () => {
     );
   });
 
+  it("requests offscreen ffmpeg cancellation when terminating an active conversion", async () => {
+    let resolveConversion;
+    sendMessageMock.mockImplementation(async (message) => {
+      if (message?.type === "OFFSCREEN_CONVERT_MP4") {
+        return new Promise((resolve) => {
+          resolveConversion = resolve;
+        });
+      }
+      if (message?.type === "OFFSCREEN_CANCEL_CONVERSION") {
+        return { ok: true, cancelled: true };
+      }
+      return { ok: true };
+    });
+
+    const importPromise = importFromUrl(
+      "https://x.com/i/status/terminate-conversion",
+      "",
+      "request-conversion-cancel",
+    );
+
+    await vi.waitFor(() => {
+      expect(sendMessageMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "OFFSCREEN_CONVERT_MP4",
+          requestId: "request-conversion-cancel",
+        }),
+      );
+    });
+
+    await expect(terminateImport("request-conversion-cancel")).resolves.toBe(true);
+
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "OFFSCREEN_CANCEL_CONVERSION",
+        requestId: "request-conversion-cancel",
+      }),
+    );
+    await expect(importPromise).rejects.toThrow(
+      UI_MESSAGES.import.importTerminated,
+    );
+    resolveConversion?.({
+      ok: false,
+      error: UI_MESSAGES.import.importTerminatedError,
+    });
+  });
+
+  it("does not retry cancelled URL-based offscreen conversion with bytes", async () => {
+    let resolveConversion;
+    sendMessageMock.mockImplementation(async (message) => {
+      if (message?.type === "OFFSCREEN_CONVERT_MP4") {
+        return new Promise((resolve) => {
+          resolveConversion = resolve;
+        });
+      }
+      if (message?.type === "OFFSCREEN_CANCEL_CONVERSION") {
+        return { ok: true, cancelled: true };
+      }
+      return { ok: true };
+    });
+
+    const importPromise = importFromUrl(
+      "https://x.com/i/status/no-cancel-retry",
+      "",
+      "request-no-cancel-retry",
+    );
+
+    await vi.waitFor(() => {
+      expect(sendMessageMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "OFFSCREEN_CONVERT_MP4",
+          requestId: "request-no-cancel-retry",
+          url: "https://video.example.com/clip.mp4",
+        }),
+      );
+    });
+
+    await expect(terminateImport("request-no-cancel-retry")).resolves.toBe(true);
+    resolveConversion?.({
+      ok: false,
+      error: "called FFmpeg.terminate()",
+    });
+
+    await expect(importPromise).rejects.toThrow(
+      UI_MESSAGES.import.importTerminated,
+    );
+
+    const conversionMessages = sendMessageMock.mock.calls
+      .map(([message]) => message)
+      .filter((message) => message?.type === "OFFSCREEN_CONVERT_MP4");
+    expect(conversionMessages).toHaveLength(1);
+  });
+
   it("releases import lock when setup fails before progress loop", async () => {
     mocks.getRuntimeConfig.mockRejectedValueOnce(new Error("Runtime unavailable"));
 

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   ffmpegWriteFile: vi.fn(async () => {}),
   ffmpegReadFile: vi.fn(async () => new Uint8Array([1])),
   ffmpegDeleteFile: vi.fn(async () => {}),
+  ffmpegTerminate: vi.fn(),
 }));
 
 vi.mock("../../src/lib/log.js", () => ({
@@ -41,6 +42,7 @@ vi.mock("../../src/vendor/@ffmpeg/ffmpeg/esm/index.js", () => ({
     writeFile = mocks.ffmpegWriteFile;
     readFile = mocks.ffmpegReadFile;
     deleteFile = mocks.ffmpegDeleteFile;
+    terminate = mocks.ffmpegTerminate;
   },
 }));
 
@@ -130,6 +132,74 @@ describe("offscreen runtime message validation", () => {
     expect(mocks.fetchFile).not.toHaveBeenCalled();
     expect(mocks.ffmpegProbe).not.toHaveBeenCalled();
     expect(mocks.ffmpegExec).not.toHaveBeenCalled();
+  });
+
+  it("terminates the active ffmpeg worker for matching conversion cancel requests", async () => {
+    const convertResponse = vi.fn();
+    mocks.ffmpegExec.mockImplementationOnce(() => new Promise(() => {}));
+
+    const convertHandled = mocks.listener(
+      {
+        type: "OFFSCREEN_CONVERT_MP4",
+        requestId: "request-cancel-1",
+        url: "https://example.com/v.mp4",
+        inputExtension: "mp4",
+      },
+      { id: "ext-id" },
+      convertResponse,
+    );
+
+    expect(convertHandled).toBe(true);
+    await vi.waitFor(() => {
+      expect(mocks.ffmpegExec).toHaveBeenCalledTimes(1);
+    });
+
+    const cancelResponse = vi.fn();
+    const cancelHandled = mocks.listener(
+      {
+        type: "OFFSCREEN_CANCEL_CONVERSION",
+        requestId: "request-cancel-1",
+      },
+      { id: "ext-id" },
+      cancelResponse,
+    );
+
+    expect(cancelHandled).toBe(false);
+    expect(cancelResponse).toHaveBeenCalledWith({ ok: true, cancelled: true });
+    expect(mocks.ffmpegTerminate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not terminate ffmpeg for non-matching conversion cancel requests", async () => {
+    const convertResponse = vi.fn();
+    mocks.ffmpegExec.mockImplementationOnce(() => new Promise(() => {}));
+
+    mocks.listener(
+      {
+        type: "OFFSCREEN_CONVERT_MP4",
+        requestId: "request-cancel-2",
+        url: "https://example.com/v.mp4",
+        inputExtension: "mp4",
+      },
+      { id: "ext-id" },
+      convertResponse,
+    );
+
+    await vi.waitFor(() => {
+      expect(mocks.ffmpegExec).toHaveBeenCalledTimes(1);
+    });
+
+    const cancelResponse = vi.fn();
+    mocks.listener(
+      {
+        type: "OFFSCREEN_CANCEL_CONVERSION",
+        requestId: "other-request",
+      },
+      { id: "ext-id" },
+      cancelResponse,
+    );
+
+    expect(cancelResponse).toHaveBeenCalledWith({ ok: true, cancelled: false });
+    expect(mocks.ffmpegTerminate).not.toHaveBeenCalled();
   });
 
   it("accepts trusted extension-url sender when sender.id is missing", async () => {

@@ -120,6 +120,7 @@ PowerShell note:
 - Pipeline order: permission check -> media resolve -> fetch -> optional convert -> save -> notify.
 - Progress updates are written to `chrome.storage.local` and sent as runtime messages.
 - Import/runtime error flow now uses shared protocol error codes (`src/lib/protocol.js`) in addition to localized user text.
+- User import termination aborts the background pipeline and forwards a best-effort cancel message to the offscreen FFmpeg bridge so active vendor conversion workers can be terminated.
 - Import subsystem modularity:
   - `import/service.js`: composition root
   - `import/runner.js`: entry-point orchestration for URL/local imports

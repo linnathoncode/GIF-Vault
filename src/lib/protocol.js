@@ -2,6 +2,7 @@ const MESSAGE_TYPES = {
   importFiles: "IMPORT_FILES",
   importUrl: "IMPORT_URL",
   importProgress: "IMPORT_PROGRESS",
+  offscreenCancelConversion: "OFFSCREEN_CANCEL_CONVERSION",
   resolveMediaUrl: "RESOLVE_MEDIA_URL",
   terminateImport: "TERMINATE_IMPORT",
   vaultUpdated: "VAULT_UPDATED",

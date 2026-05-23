@@ -20,7 +20,7 @@ import {
   resolveMediaUrls,
 } from "../media-resolver.js";
 import { createImportControl } from "./control.js";
-import { convertInOffscreen } from "./offscreen.js";
+import { cancelOffscreenConversion, convertInOffscreen } from "./offscreen.js";
 import {
   blobFromConvertedPayload,
   buildLocalPseudoUrl,
@@ -102,6 +102,12 @@ const runner = createImportRunner({
 
 const importFromUrl = runner.importFromUrl;
 const importFromFiles = runner.importFromFiles;
-const terminateImport = control.terminateImport;
+async function terminateImport(requestId) {
+  const terminated = await control.terminateImport(requestId);
+  if (terminated) {
+    await cancelOffscreenConversion(requestId);
+  }
+  return terminated;
+}
 
 export { importFromFiles, importFromUrl, terminateImport };

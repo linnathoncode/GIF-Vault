@@ -9,6 +9,7 @@ import { fetchFile } from "../vendor/@ffmpeg/util/esm/index.js";
 
 const ffmpeg = new FFmpeg();
 let ffmpegLoadPromise = null;
+let activeConversionRequestId = "";
 const RUNTIME_MESSAGE_MAX_BYTES = 64 * 1024 * 1024;
 const RUNTIME_MESSAGE_OVERHEAD_BYTES = 512 * 1024;
 const RUNTIME_MESSAGE_SAFE_MAX_BYTES =
@@ -186,6 +187,14 @@ function isPrewarmMessage(message) {
   );
 }
 
+function isCancelConversionMessage(message) {
+  return (
+    isRuntimeMessage(message) &&
+    message.type === MESSAGE_TYPES.offscreenCancelConversion &&
+    typeof message.requestId === "string"
+  );
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!isTrustedRuntimeSender(sender) || !isRuntimeMessage(message)) {
     return;
@@ -243,6 +252,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (isCancelConversionMessage(message)) {
+    const requestId = String(message.requestId || "").trim();
+    const cancelled = cancelActiveConversion(requestId);
+    sendResponse({ ok: true, cancelled });
+    return false;
+  }
+
   if (isPrewarmMessage(message)) {
     ensureFfmpegLoaded()
       .then(() => sendResponse({ ok: true }))
@@ -258,6 +274,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function convertMp4ToGif(message) {
   await initializeI18n();
+  activeConversionRequestId = String(message?.requestId || "").trim();
   await ensureFfmpegLoaded();
   const gifConversionBase = resolveGifConversionConfig(message?.gifConversion);
   const conversionProfiles = buildGifConversionProfiles(gifConversionBase);
@@ -358,9 +375,31 @@ async function convertMp4ToGif(message) {
 
     throw new Error(mediaTooLargeMessage(maxOutputBytes));
   } finally {
+    if (activeConversionRequestId === String(message?.requestId || "").trim()) {
+      activeConversionRequestId = "";
+    }
     await safeDeleteFile(inputName);
     await safeDeleteFile(outputName);
   }
+}
+
+function cancelActiveConversion(requestId) {
+  const normalizedRequestId = String(requestId || "").trim();
+  if (
+    !normalizedRequestId ||
+    !activeConversionRequestId ||
+    activeConversionRequestId !== normalizedRequestId
+  ) {
+    return false;
+  }
+
+  ffmpeg.terminate();
+  ffmpegLoadPromise = null;
+  activeConversionRequestId = "";
+  void safeLog("offscreen", "Active ffmpeg conversion terminated", {
+    requestId: normalizedRequestId,
+  });
+  return true;
 }
 
 async function probeDuration(message) {
