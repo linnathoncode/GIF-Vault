@@ -134,6 +134,26 @@ describe("offscreen runtime message validation", () => {
     expect(mocks.ffmpegExec).not.toHaveBeenCalled();
   });
 
+  it("ignores malformed sender messages", async () => {
+    const validProbe = {
+      type: "OFFSCREEN_PROBE_VIDEO_DURATION",
+      url: "https://example.com/a.mp4",
+    };
+
+    for (const sender of [null, undefined, "ext-id", 42, {}]) {
+      const sendResponse = vi.fn();
+      const handled = mocks.listener(validProbe, sender, sendResponse);
+
+      await Promise.resolve();
+
+      expect(handled).toBeUndefined();
+      expect(sendResponse).not.toHaveBeenCalled();
+    }
+    expect(mocks.fetchFile).not.toHaveBeenCalled();
+    expect(mocks.ffmpegProbe).not.toHaveBeenCalled();
+    expect(mocks.ffmpegExec).not.toHaveBeenCalled();
+  });
+
   it("terminates the active ffmpeg worker for matching conversion cancel requests", async () => {
     const convertResponse = vi.fn();
     mocks.ffmpegExec.mockImplementationOnce(() => new Promise(() => {}));
@@ -202,7 +222,7 @@ describe("offscreen runtime message validation", () => {
     expect(mocks.ffmpegTerminate).not.toHaveBeenCalled();
   });
 
-  it("accepts trusted extension-url sender when sender.id is missing", async () => {
+  it("rejects extension-url sender when sender.id is missing", async () => {
     const sendResponse = vi.fn();
     mocks.fetchFile.mockResolvedValueOnce(new Uint8Array([1, 2, 3]));
     mocks.ffmpegProbe.mockResolvedValueOnce(undefined);
@@ -218,7 +238,13 @@ describe("offscreen runtime message validation", () => {
       sendResponse,
     );
 
-    expect(handled).toBe(true);
+    await Promise.resolve();
+
+    expect(handled).toBeUndefined();
+    expect(sendResponse).not.toHaveBeenCalled();
+    expect(mocks.fetchFile).not.toHaveBeenCalled();
+    expect(mocks.ffmpegProbe).not.toHaveBeenCalled();
+    expect(mocks.ffmpegExec).not.toHaveBeenCalled();
   });
 
   it("accepts object-serialized inputBytes payloads for trusted senders", async () => {

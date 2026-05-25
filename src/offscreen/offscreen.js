@@ -28,22 +28,7 @@ ffmpeg.on("log", ({ message }) => {
 });
 
 function isTrustedRuntimeSender(sender) {
-  if (sender?.id === chrome.runtime.id) {
-    return true;
-  }
-  if (!sender || typeof sender !== "object") {
-    return true;
-  }
-  if ("id" in sender && sender.id && sender.id !== chrome.runtime.id) {
-    return false;
-  }
-
-  const extensionBase = chrome.runtime.getURL("");
-  const extensionOrigin = new URL(extensionBase).origin;
-  const senderUrl = String(sender?.url || "");
-  const senderOrigin = String(sender?.origin || "");
-
-  return senderUrl.startsWith(extensionBase) || senderOrigin === extensionOrigin;
+  return Boolean(sender && sender.id === chrome.runtime.id);
 }
 
 function isRuntimeMessage(message) {
