@@ -23,7 +23,7 @@ const IMPORT_PIPELINE = {
 
 const DB = {
   name: "gifVaultDB",
-  version: 3,
+  version: 4,
   mediaStore: "media",
   mediaBlobStore: "mediaBlobs",
   logStore: "logs",

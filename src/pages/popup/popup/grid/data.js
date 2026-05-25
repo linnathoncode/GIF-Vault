@@ -102,6 +102,13 @@ export function createGridDataController({
     refreshCountTextFromCache();
   }
 
+  function setPagedCountText({ savedCount = 0, visibleCount = 0, favoritesCount = 0 } = {}) {
+    latestSavedItemCount = savedCount;
+    latestVisibleItemCount = visibleCount;
+    latestFavoritesCount = favoritesCount;
+    refreshCountTextFromCache();
+  }
+
   function createEmptyState(query) {
     const empty = document.createElement("div");
     empty.className = "empty";
@@ -149,6 +156,7 @@ export function createGridDataController({
     getFilteredItems,
     getPagedItemsMeta,
     refreshCountTextFromCache,
+    setPagedCountText,
     setCountText,
     updateEmptyStateMascotForTheme,
     updatePager,

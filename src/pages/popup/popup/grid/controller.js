@@ -1,7 +1,7 @@
 // Popup grid controller that composes the card, data, interaction, and media helpers.
 import {
   idbDelete,
-  idbGetAllMedia,
+  idbGetMediaPage,
   idbGetMediaBlobs,
   idbSave,
 } from "../../../../lib/db.js";
@@ -465,24 +465,30 @@ export function createPopupGridController({
     const previousScrollTop = grid.scrollTop;
     const previousScrollLeft = grid.scrollLeft;
     const renderId = ++state.renderSequence;
-    const items = await idbGetAllMedia();
+    const popupMenuConfig = getPopupMenuConfig();
+    const page = await idbGetMediaPage({
+      currentTab: state.currentTab,
+      page: state.currentPage,
+      pageSize: popupMenuConfig.pageSize,
+      query: state.searchTerm,
+    });
     if (renderId !== state.renderSequence) {
       return;
     }
 
-    const { normalized, visibleItems, query } = dataController.getFilteredItems(items);
-    latestItemById = new Map(normalized.map((item) => [String(item.id), item]));
-    const { totalPages, pagedItemsMeta } = dataController.getPagedItemsMeta(visibleItems);
+    state.currentPage = page.currentPage;
+    const pagedItemsMeta = page.items;
+    latestItemById = new Map(pagedItemsMeta.map((item) => [String(item.id), item]));
     latestVisiblePageIds = new Set(
       pagedItemsMeta.map((item) => String(item.id)),
     );
     updateSelectionForRender();
     await safeLog("popup", "Render media grid", {
-      count: visibleItems.length,
+      count: page.visibleCount,
       tab: state.currentTab,
     });
-    dataController.setCountText(normalized, visibleItems);
-    dataController.updatePager(totalPages);
+    dataController.setPagedCountText(page);
+    dataController.updatePager(page.totalPages);
 
     previewController.pruneObjectUrlsForVisibleIds(new Set(pagedItemsMeta.map((item) => item.id)));
     grid.innerHTML = "";
@@ -491,7 +497,7 @@ export function createPopupGridController({
       if (renderId !== state.renderSequence) {
         return;
       }
-      grid.appendChild(dataController.createEmptyState(query));
+      grid.appendChild(dataController.createEmptyState(page.query));
       focusController.restorePendingFocus();
       return;
     }
@@ -526,7 +532,7 @@ export function createPopupGridController({
       }
     }
 
-    if (totalPages > 1) {
+    if (page.totalPages > 1) {
       grid.appendChild(dataController.createPaginationHint());
     }
 

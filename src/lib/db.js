@@ -1,5 +1,9 @@
 import { DB } from "./settings.js";
 
+const MEDIA_INDEX = {
+  savedAt: "savedAt",
+};
+
 // Database open and schema migration.
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -10,10 +14,10 @@ function openDb() {
       let mediaStore;
       if (!db.objectStoreNames.contains(DB.mediaStore)) {
         mediaStore = db.createObjectStore(DB.mediaStore, { keyPath: "id" });
-        mediaStore.createIndex("savedAt", "savedAt", { unique: false });
       } else {
         mediaStore = request.transaction.objectStore(DB.mediaStore);
       }
+      ensureMediaIndexes(mediaStore);
       if (!db.objectStoreNames.contains(DB.mediaBlobStore)) {
         db.createObjectStore(DB.mediaBlobStore, { keyPath: "id" });
       }
@@ -31,6 +35,15 @@ function openDb() {
     request.onerror = () =>
       reject(request.error || new Error("Failed to open IndexedDB"));
   });
+}
+
+function ensureMediaIndexes(mediaStore) {
+  if (!mediaStore) {
+    return;
+  }
+  if (!mediaStore.indexNames.contains(MEDIA_INDEX.savedAt)) {
+    mediaStore.createIndex(MEDIA_INDEX.savedAt, "savedAt", { unique: false });
+  }
 }
 
 function migrateMediaStore(tx, mediaStore) {
@@ -153,6 +166,214 @@ function idbGetAllMedia() {
       };
       request.onerror = () =>
         reject(request.error || new Error("Failed to read IndexedDB items"));
+    });
+  });
+}
+
+function normalizeMediaMetadata(item) {
+  return {
+    ...item,
+    favorite: Boolean(item?.favorite),
+    name: item?.name || "",
+  };
+}
+
+function matchesMediaQuery(item, query) {
+  if (!query) {
+    return true;
+  }
+
+  const haystack =
+    `${item.name || ""} ${item.sourceUrl || ""} ${item.mediaUrl || ""} ${item.localPath || ""} local`.toLowerCase();
+  return haystack.includes(query);
+}
+
+function readRequest(request, errorMessage) {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error(errorMessage));
+  });
+}
+
+function readCursorPage(cursorRequest, startIndex, pageSize, predicate = () => true) {
+  return new Promise((resolve, reject) => {
+    const items = [];
+    let visibleIndex = 0;
+
+    cursorRequest.onsuccess = () => {
+      const cursor = cursorRequest.result;
+      if (!cursor || items.length >= pageSize) {
+        resolve(items);
+        return;
+      }
+
+      const item = normalizeMediaMetadata(cursor.value || {});
+      if (!predicate(item)) {
+        cursor.continue();
+        return;
+      }
+
+      if (visibleIndex < startIndex) {
+        const remainingSkip = startIndex - visibleIndex;
+        visibleIndex = startIndex;
+        if (typeof cursor.advance === "function") {
+          cursor.advance(remainingSkip);
+        } else {
+          cursor.continue();
+        }
+        return;
+      }
+
+      visibleIndex += 1;
+      items.push(item);
+      cursor.continue();
+    };
+    cursorRequest.onerror = () =>
+      reject(
+        cursorRequest.error || new Error("Failed to read IndexedDB page"),
+      );
+  });
+}
+
+function readFilteredMediaPage(index, { currentTab, pageSize, query, requestedPage, startIndex }) {
+  return new Promise((resolve, reject) => {
+    let savedCount = 0;
+    let favoritesCount = 0;
+    let visibleCount = 0;
+    const pageItems = [];
+    const cursorRequest = index.openCursor(null, "prev");
+
+    cursorRequest.onsuccess = () => {
+      const cursor = cursorRequest.result;
+      if (!cursor) {
+        const totalPages = Math.max(1, Math.ceil(visibleCount / pageSize));
+        const currentPage = Math.min(requestedPage, totalPages);
+        resolve({
+          currentPage,
+          favoritesCount,
+          items: pageItems,
+          query,
+          savedCount,
+          totalPages,
+          visibleCount,
+        });
+        return;
+      }
+
+      const item = normalizeMediaMetadata(cursor.value || {});
+      savedCount += 1;
+      if (item.favorite) {
+        favoritesCount += 1;
+      }
+
+      const isVisibleByTab = currentTab !== "favorites" || item.favorite;
+      const isVisible = isVisibleByTab && matchesMediaQuery(item, query);
+      if (isVisible) {
+        if (
+          visibleCount >= startIndex &&
+          pageItems.length < pageSize
+        ) {
+          pageItems.push(item);
+        }
+        visibleCount += 1;
+      }
+
+      cursor.continue();
+    };
+    cursorRequest.onerror = () =>
+      reject(
+        cursorRequest.error || new Error("Failed to read IndexedDB page"),
+      );
+  });
+}
+
+function readFavoriteCount(index) {
+  return new Promise((resolve, reject) => {
+    let favoritesCount = 0;
+    const cursorRequest = index.openCursor();
+
+    cursorRequest.onsuccess = () => {
+      const cursor = cursorRequest.result;
+      if (!cursor) {
+        resolve(favoritesCount);
+        return;
+      }
+
+      if (cursor.value?.favorite) {
+        favoritesCount += 1;
+      }
+      cursor.continue();
+    };
+    cursorRequest.onerror = () =>
+      reject(
+        cursorRequest.error || new Error("Failed to count favorite media records"),
+      );
+  });
+}
+
+function idbGetMediaPage({
+  currentTab = "all",
+  page = 1,
+  pageSize = 12,
+  query = "",
+} = {}) {
+  const requestedPage = Math.max(1, Number(page) || 1);
+  const safePageSize = Math.max(1, Number(pageSize) || 1);
+  const normalizedQuery = String(query || "").trim().toLowerCase();
+  const tab = currentTab === "favorites" ? "favorites" : "all";
+  const startIndex = (requestedPage - 1) * safePageSize;
+
+  return runMediaTx("readonly", [DB.mediaStore], (tx) => {
+    const store = tx.objectStore(DB.mediaStore);
+    const savedAtIndex = store.index(MEDIA_INDEX.savedAt);
+
+    if (normalizedQuery || tab === "favorites") {
+      return readFilteredMediaPage(savedAtIndex, {
+        currentTab: tab,
+        pageSize: safePageSize,
+        query: normalizedQuery,
+        requestedPage,
+        startIndex,
+      });
+    }
+
+    const savedCountPromise = readRequest(
+      store.count(),
+      "Failed to count media records",
+    );
+    const pageItemsPromise = readCursorPage(
+      savedAtIndex.openCursor(null, "prev"),
+      startIndex,
+      safePageSize,
+    );
+    const favoritesCountPromise = readFavoriteCount(savedAtIndex);
+
+    return Promise.all([
+      savedCountPromise,
+      favoritesCountPromise,
+      pageItemsPromise,
+    ]).then(([savedCount, favoritesCount, items]) => {
+      const totalPages = Math.max(1, Math.ceil(savedCount / safePageSize));
+      return {
+        currentPage: Math.min(requestedPage, totalPages),
+        favoritesCount,
+        items,
+        query: normalizedQuery,
+        savedCount,
+        totalPages,
+        visibleCount: savedCount,
+      };
+    });
+  }).then((result) => {
+    if (result.currentPage === requestedPage) {
+      return result;
+    }
+
+    return idbGetMediaPage({
+      currentTab: tab,
+      page: result.currentPage,
+      pageSize: safePageSize,
+      query: normalizedQuery,
     });
   });
 }
@@ -327,6 +548,7 @@ function pruneOldLogs(store, maxItems) {
 export {
   idbSave,
   idbGetAllMedia,
+  idbGetMediaPage,
   idbGetMediaBlobs,
   idbDelete,
   idbClear,
