@@ -163,6 +163,50 @@ function idbGetMediaBlobs(ids) {
     return Promise.resolve(new Map());
   }
 
+  return readMediaBlobs(uniqueIds).then((blobById) => {
+    const missingIds = uniqueIds.filter((id) => !blobById.has(id));
+    if (missingIds.length === 0) {
+      return blobById;
+    }
+
+    return migrateLegacyMediaBlobs(missingIds).then((legacyBlobById) => {
+      for (const [id, blob] of legacyBlobById) {
+        blobById.set(id, blob);
+      }
+      return blobById;
+    });
+  });
+}
+
+function readMediaBlobs(ids) {
+  return runMediaTx("readonly", [DB.mediaBlobStore], (tx) => {
+    const blobStore = tx.objectStore(DB.mediaBlobStore);
+
+    return Promise.all(
+      ids.map(
+        (id) =>
+          new Promise((resolve, reject) => {
+            const blobRequest = blobStore.get(id);
+            blobRequest.onsuccess = () => {
+              const blobRecord = blobRequest.result || null;
+              if (blobRecord?.blob instanceof Blob) {
+                resolve([id, blobRecord.blob]);
+                return;
+              }
+
+              resolve([id, null]);
+            };
+            blobRequest.onerror = () =>
+              reject(
+                blobRequest.error || new Error(`Failed to read blob for ${id}`),
+              );
+          }),
+      ),
+    ).then((entries) => new Map(entries.filter(([, blob]) => blob)));
+  });
+}
+
+function migrateLegacyMediaBlobs(ids) {
   return runMediaTx(
     "readwrite",
     [DB.mediaStore, DB.mediaBlobStore],
@@ -171,43 +215,30 @@ function idbGetMediaBlobs(ids) {
       const blobStore = tx.objectStore(DB.mediaBlobStore);
 
       return Promise.all(
-        uniqueIds.map(
+        ids.map(
           (id) =>
             new Promise((resolve, reject) => {
-              const blobRequest = blobStore.get(id);
-              blobRequest.onsuccess = () => {
-                const blobRecord = blobRequest.result || null;
-                if (blobRecord?.blob instanceof Blob) {
-                  resolve([id, blobRecord.blob]);
+              const mediaRequest = mediaStore.get(id);
+              mediaRequest.onsuccess = () => {
+                const mediaRecord = mediaRequest.result || null;
+                if (mediaRecord?.blob instanceof Blob) {
+                  const migratedBlob = mediaRecord.blob;
+                  blobStore.put({ id, blob: migratedBlob });
+                  mediaStore.put(toMediaMetadata(mediaRecord));
+                  resolve([id, migratedBlob]);
                   return;
                 }
 
-                const mediaRequest = mediaStore.get(id);
-                mediaRequest.onsuccess = () => {
-                  const mediaRecord = mediaRequest.result || null;
-                  if (mediaRecord?.blob instanceof Blob) {
-                    const migratedBlob = mediaRecord.blob;
-                    blobStore.put({ id, blob: migratedBlob });
-                    mediaStore.put(toMediaMetadata(mediaRecord));
-                    resolve([id, migratedBlob]);
-                    return;
-                  }
-
-                  resolve([id, null]);
-                };
-                mediaRequest.onerror = () =>
-                  reject(
-                    mediaRequest.error ||
-                      new Error(`Failed to read legacy media for ${id}`),
-                  );
+                resolve([id, null]);
               };
-              blobRequest.onerror = () =>
+              mediaRequest.onerror = () =>
                 reject(
-                  blobRequest.error || new Error(`Failed to read blob for ${id}`),
+                  mediaRequest.error ||
+                    new Error(`Failed to read legacy media for ${id}`),
                 );
             }),
         ),
-      ).then((entries) => new Map(entries));
+      ).then((entries) => new Map(entries.filter(([, blob]) => blob)));
     },
   );
 }
