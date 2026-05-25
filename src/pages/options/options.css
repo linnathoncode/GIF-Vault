@@ -402,10 +402,6 @@ input:disabled {
   background: var(--surface-1);
 }
 
-:root[data-theme="dark"] .notice-panel {
-  background: color-mix(in srgb, var(--surface-1) 80%, var(--accent-line) 20%);
-}
-
 @media (max-width: 860px) {
   h2 {
     font-size: 17px;

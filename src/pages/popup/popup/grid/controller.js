@@ -252,7 +252,7 @@ export function createPopupGridController({
         ? UI_MESSAGES.grid.confirmDeleteTitleMany(count)
         : UI_MESSAGES.grid.confirmDeleteTitleSingle;
     const armedGlyph = armedDeleteGlyph(count);
-    const armedIconFile = count > 1 ? "icon-warning.svg" : "icon-confirm.svg";
+    const armedIconFile = "icon-confirm.svg";
     const buttonsToArm = [];
 
     if (count > 1 && targetIds.length > 0) {

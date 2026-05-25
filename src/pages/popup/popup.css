@@ -880,7 +880,7 @@ body.import-active .input:disabled {
 }
 
 .actions .btn.danger:hover:not(:disabled) {
-  background: #c74747;
+  background: var(--delete-action-red);
 }
 
 .btn.favorite-active {
@@ -890,7 +890,8 @@ body.import-active .input:disabled {
 }
 
 .actions .btn.danger.delete-armed {
-  background: color-mix(in srgb, #f4b400 42%, transparent 58%);
+  background: var(--delete-action-armed-bg);
+  border-color: var(--delete-action-armed-border);
 }
 
 .name-btn .btn-icon {
@@ -1057,15 +1058,26 @@ body.import-active .input:disabled {
 
 .danger-btn:hover:not(:disabled),
 .btn.danger:hover:not(:disabled) {
-  background: #c74747;
-  border-color: #c74747;
+  background: var(--delete-action-red);
+  border-color: var(--delete-action-red);
   color: #ffffff;
 }
 
+:root[data-theme="dark"] .danger-btn:hover:not(:disabled),
+:root[data-theme="dark"] .btn.danger:hover:not(:disabled) {
+  background: var(--delete-action-red);
+  border-color: var(--delete-action-red);
+}
+
 .icon-btn.danger-icon-btn:hover:not(:disabled) {
-  background: #c74747;
-  border-color: #c74747;
+  background: var(--delete-action-red);
+  border-color: var(--delete-action-red);
   color: #ffffff;
+}
+
+:root[data-theme="dark"] .icon-btn.danger-icon-btn:hover:not(:disabled) {
+  background: var(--delete-action-red);
+  border-color: var(--delete-action-red);
 }
 
 .danger-btn:hover:not(:disabled) .btn-icon,
