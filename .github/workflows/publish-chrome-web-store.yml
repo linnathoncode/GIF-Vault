@@ -1,0 +1,81 @@
+name: Publish Chrome Web Store
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chrome-web-store-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Upload and publish
+    runs-on: windows-latest
+
+    env:
+      CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+      CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+      CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+      CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+      CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on master
+        shell: powershell
+        run: |
+          git fetch origin master:refs/remotes/origin/master
+          git merge-base --is-ancestor $env:GITHUB_SHA origin/master
+          if ($LASTEXITCODE -ne 0) {
+            throw "Refusing to publish: tag $env:GITHUB_REF_NAME does not point to a commit contained in origin/master."
+          }
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify release version
+        shell: powershell
+        run: |
+          $tagVersion = $env:GITHUB_REF_NAME -replace '^v', ''
+          $packageVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $manifestVersion = (Get-Content src/manifest.json -Raw | ConvertFrom-Json).version
+
+          if ($packageVersion -ne $manifestVersion) {
+            throw "package.json version ($packageVersion) does not match src/manifest.json version ($manifestVersion)."
+          }
+
+          if ($packageVersion -ne $tagVersion) {
+            throw "Tag version ($tagVersion) does not match package/manifest version ($packageVersion)."
+          }
+
+      - name: Build and test
+        run: npm.cmd run build:verify
+
+      - name: Package extension
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          $zipPath = "release/gif-vault-$env:GITHUB_REF_NAME.zip"
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+          }
+          Compress-Archive -Path dist/* -DestinationPath $zipPath -Force
+          "PACKAGE_ZIP=$zipPath" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Publish to Chrome Web Store
+        run: node scripts/publish-chrome-webstore.js --zip "$env:PACKAGE_ZIP"

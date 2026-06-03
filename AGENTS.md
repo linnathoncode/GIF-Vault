@@ -98,6 +98,7 @@ Maintenance rule:
 - Build: `npm.cmd run build`
 - Verify: `npm.cmd run build:verify`
 - Tests: `npm.cmd test`
+- Chrome Web Store deploy: push a version tag like `v1.6.9`; GitHub Actions publishes only when the tagged commit is contained in `origin/master` and the tag version matches `package.json` plus `src/manifest.json`.
 
 PowerShell note:
 
