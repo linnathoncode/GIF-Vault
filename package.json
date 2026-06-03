@@ -4,7 +4,7 @@
   "description": "",
   "main": "background.js",
   "scripts": {
-    "build": "powershell -NoProfile -Command \"if (Test-Path dist) { Get-ChildItem dist -Force | Remove-Item -Recurse -Force }; Copy-Item -Recurse -Force src/* dist/\"",
+    "build": "powershell -NoProfile -Command \"if (Test-Path dist) { Get-ChildItem dist -Force | Remove-Item -Recurse -Force } else { New-Item -ItemType Directory -Force dist | Out-Null }; Copy-Item -Recurse -Force src/* dist/\"",
     "test": "vitest run --pool=threads --maxWorkers=1",
     "build:verify": "npm run test && npm run build"
   },
