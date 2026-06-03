@@ -6,6 +6,13 @@ All notable project changes are tracked here.
 
 - Pending release notes.
 
+## Version Includes: v1.6.9
+
+- Import cancellation reliability: terminating an import now forwards cancellation into the offscreen FFmpeg bridge so active conversion workers stop more cleanly, with fail-closed validation for offscreen sender messages.
+- Popup library performance: grid paging and visible-card hydration now use metadata cursor reads and readonly blob transactions to reduce IndexedDB work while browsing larger vaults.
+- Popup UI polish: selection header controls and delete-action theme colors were refined for clearer multi-select and destructive-action states.
+- Chrome Web Store release automation: version tags on `master` can now build, package, upload, and submit the extension through Chrome Web Store API V2.
+
 ## Version Includes: v1.6.8
 
 - Instagram context-menu image-only guard: Instagram imports now block non-image media (including `/p/...` video posts) while preserving image-post import behavior.

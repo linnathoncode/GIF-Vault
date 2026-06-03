@@ -11,7 +11,7 @@
 
 - Branch: `test`
 - HEAD: `d157fe0`
-- Version: `1.6.8`
+- Version: `1.6.9`
 
 ## Project Purpose
 
