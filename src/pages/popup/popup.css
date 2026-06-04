@@ -387,6 +387,10 @@ body.import-active .input:disabled {
   height: 19px;
 }
 
+#localImportBtn .btn-icon {
+  filter: none;
+}
+
 .icon-text-btn {
   display: inline-flex;
   align-items: center;
@@ -1000,6 +1004,10 @@ body.import-active .input:disabled {
 :root[data-theme="dark"] .btn-icon,
 :root[data-theme="dark"] .search-icon {
   filter: var(--icon-dark-filter);
+}
+
+:root[data-theme="dark"] #localImportBtn .btn-icon {
+  filter: none;
 }
 
 :root[data-theme="dark"] .btn,
