@@ -35,6 +35,7 @@ Core capabilities:
 - Drag-and-drop import support: Drop local files onto popup to start import without opening the file picker.
 - Video to GIF conversion: Turn supported videos into GIFs automatically during import.
 - Privacy-first storage: Your media stays in your browser. No account, no tracking.
+- Portable vault backup: Download a private backup of saved media and restore it in another browser profile without clearing the current vault; duplicate items are skipped.
 - Search your collection: Find saved items by name or source link in seconds.
 - Favorites tab: Star your best GIFs and access them fast.
 - Easy library management: Rename, copy, delete, or clear your saved items anytime.
@@ -89,7 +90,8 @@ Maintenance rule:
 - `src/pages/assist/`: Permission assist page.
 - `src/pages/logs/`: Logs page (`logs.js` coordinator + `logs-format.js` formatting + `logs-report.js` report helpers + `logs-view.js` view controller).
 - `src/pages/options/`: Settings/options page.
-- `src/lib/`: Shared helpers (`async.js`, `db.js`, `theme.js`, `ui.js`, `log.js`, `runtime-config.js`, `messages.js`, `protocol.js`, `page-lifecycle.js`).
+- `src/lib/`: Shared helpers (`async.js`, `db.js`, `theme.js`, `ui.js`, `log.js`, `runtime-config.js`, `messages.js`, `protocol.js`, `page-lifecycle.js`). `db.js` also provides atomic batch saves for vault restores.
+- `src/lib/vault-backup.js`: Portable backup serialization and full-file validation before restore writes.
 - `src/assets/icons/app/`: Manifest/action PNG icon sizes.
 - `src/assets/icons/brand/`: In-page SVG logos.
 

@@ -4,7 +4,7 @@ All notable project changes are tracked here.
 
 ## Version Includes: NEXT
 
-- Pending release notes.
+- Portable vault backup: users can download their saved media and metadata as a private JSON backup, then restore it additively in another browser profile while skipping duplicate items.
 
 ## Version Includes: v1.6.9
 

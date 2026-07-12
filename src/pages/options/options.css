@@ -193,6 +193,24 @@ input:disabled {
   overflow: hidden;
 }
 
+.backup-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.backup-panel .status {
+  margin-top: 8px;
+}
+
 .guide-copy p {
   margin: 0;
   color: var(--muted);

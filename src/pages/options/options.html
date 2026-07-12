@@ -94,6 +94,26 @@
         </section>
       </div>
 
+      <section class="panel backup-panel">
+        <h2>
+          <img class="section-icon" src="../../assets/shared/icon-storage.svg" alt="" aria-hidden="true">
+          <span data-i18n="options.backupHeading">Vault Backup</span>
+        </h2>
+        <p data-i18n="options.backupBody">Download a private backup of your saved media, then restore it on this or another browser profile.</p>
+        <div class="backup-actions">
+          <button id="exportBackupBtn" class="btn icon-text-btn" type="button">
+            <img class="icon-img" src="../../assets/shared/icon-download.svg" alt="" aria-hidden="true">
+            <span data-i18n="options.exportBackupButton">Download backup</span>
+          </button>
+          <button id="importBackupBtn" class="btn icon-text-btn" type="button">
+            <img class="icon-img" src="../../assets/shared/icon-folder.svg" alt="" aria-hidden="true">
+            <span data-i18n="options.restoreBackupButton">Restore backup</span>
+          </button>
+          <input id="importBackupInput" type="file" accept="application/json,.json" hidden>
+        </div>
+        <div id="backupStatus" class="status" aria-live="polite" hidden></div>
+      </section>
+
       <section class="panel guide-panel">
         <div class="guide-copy">
           <h2>

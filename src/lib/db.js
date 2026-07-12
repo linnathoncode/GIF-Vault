@@ -154,6 +154,24 @@ function idbSave(item) {
   );
 }
 
+// Keeps multi-item restores atomic: metadata and blobs either all commit or none do.
+function idbSaveMany(items) {
+  const validItems = (items || []).filter((item) => item?.id && item.blob instanceof Blob);
+  return runMediaTx(
+    "readwrite",
+    [DB.mediaStore, DB.mediaBlobStore],
+    (tx) => {
+      const mediaStore = tx.objectStore(DB.mediaStore);
+      const blobStore = tx.objectStore(DB.mediaBlobStore);
+      for (const item of validItems) {
+        mediaStore.put(toMediaMetadata(item));
+        blobStore.put({ id: item.id, blob: item.blob });
+      }
+      return validItems;
+    },
+  );
+}
+
 function idbGetAllMedia() {
   return runMediaTx("readonly", [DB.mediaStore], (tx) => {
     const store = tx.objectStore(DB.mediaStore);
@@ -547,6 +565,7 @@ function pruneOldLogs(store, maxItems) {
 
 export {
   idbSave,
+  idbSaveMany,
   idbGetAllMedia,
   idbGetMediaPage,
   idbGetMediaBlobs,

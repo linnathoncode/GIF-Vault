@@ -354,4 +354,29 @@ describe("db media blob reads", () => {
     });
   });
 
+  it("saves a restore batch in one atomic media transaction", async () => {
+    const blob = new Blob([new Uint8Array([1])], { type: "image/gif" });
+    const stores = new Map([
+      [DB.mediaStore, createStore()],
+      [DB.mediaBlobStore, createStore()],
+      [DB.logStore, createStore()],
+    ]);
+    const fake = createIndexedDbFake(stores);
+    globalThis.indexedDB = fake.indexedDB;
+
+    const { idbSaveMany } = await import("../../src/lib/db.js");
+    await idbSaveMany([
+      { id: "restore-1", name: "one.gif", blob },
+      { id: "restore-2", name: "two.gif", blob },
+    ]);
+
+    expect(fake.transactions).toHaveLength(1);
+    expect(fake.transactions[0].storeNames).toEqual([
+      DB.mediaStore,
+      DB.mediaBlobStore,
+    ]);
+    expect(stores.get(DB.mediaStore).size).toBe(2);
+    expect(stores.get(DB.mediaBlobStore).size).toBe(2);
+  });
+
 });

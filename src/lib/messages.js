@@ -185,6 +185,18 @@ function createEnMessages() {
       statusLanguageUpdated: "Language switched.",
       statusAdjustAndSave: "Tweak values and save.",
       languageLabel: "Language",
+      backupHeading: "Vault Backup",
+      backupBody:
+        "Download a private backup of your saved media, then restore it on this or another browser profile.",
+      exportBackupButton: "Download backup",
+      restoreBackupButton: "Restore backup",
+      backupPreparing: "Preparing backup...",
+      backupDownloaded: (count) => `Backup downloaded with ${count} items.`,
+      backupExportFailed: "Couldn't create the vault backup.",
+      backupRestoring: "Restoring backup...",
+      backupRestored: (restored, skipped) =>
+        `Restored ${restored} items. Skipped ${skipped} duplicates.`,
+      backupRestoreFailed: "Couldn't restore that backup. Your vault was not cleared.",
       guideHeading: "Feedback",
       guideBodyPrimary:
         "Share feedback or suggestions to improve GIF Vault.",
@@ -459,6 +471,18 @@ function createTrMessages() {
       statusLanguageUpdated: "Dil değiştirildi.",
       statusAdjustAndSave: "Değerleri düzenleyip kaydet.",
       languageLabel: "Dil",
+      backupHeading: "Vault Yedeği",
+      backupBody:
+        "Kayıtlı medyanın özel bir yedeğini indir, sonra bu veya başka bir tarayıcı profilinde geri yükle.",
+      exportBackupButton: "Yedeği indir",
+      restoreBackupButton: "Yedeği geri yükle",
+      backupPreparing: "Yedek hazırlanıyor...",
+      backupDownloaded: (count) => `${count} öğelik yedek indirildi.`,
+      backupExportFailed: "Vault yedeği oluşturulamadı.",
+      backupRestoring: "Yedek geri yükleniyor...",
+      backupRestored: (restored, skipped) =>
+        `${restored} öğe geri yüklendi. ${skipped} yinelenen öğe atlandı.`,
+      backupRestoreFailed: "Bu yedek geri yüklenemedi. Vault'un temizlenmedi.",
       guideHeading: "Geri Bildirim",
       guideBodyPrimary:
         "GIF Vault'u geliştirmek için geri bildirim veya öneri paylaş.",
