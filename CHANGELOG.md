@@ -4,8 +4,11 @@ All notable project changes are tracked here.
 
 ## Version Includes: NEXT
 
+## Version Includes: v1.7.0
+
 - Portable vault backup: users can download their saved media and metadata as a private JSON backup, then restore it additively in another browser profile while skipping duplicate items.
 - Import & Backup page: users can import pasted URL lists or selected files through a sequential queue with per-item results and stop support, and manage portable vault backups.
+- Popup card layout: actions now appear in an overlay on hover or keyboard focus, leaving the full card area available for saved media.
 
 ## Version Includes: v1.6.9
 

@@ -10,8 +10,7 @@
 ## Release State
 
 - Branch: `test`
-- HEAD: `d157fe0`
-- Version: `1.6.9`
+- Version: `1.7.0`
 
 ## Project Purpose
 
