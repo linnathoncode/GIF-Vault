@@ -33,6 +33,7 @@ Core capabilities:
 - Paste-and-import support: Import GIF, image, video, or X/Twitter post links directly from the popup.
 - Local file import support: Choose one or more local images/videos from popup and import them directly.
 - Drag-and-drop import support: Drop local files onto popup to start import without opening the file picker.
+- Bulk import support: Combine pasted URL lists, multiple text files, and local media files in one sequential import queue with per-item results.
 - Video to GIF conversion: Turn supported videos into GIFs automatically during import.
 - Privacy-first storage: Your media stays in your browser. No account, no tracking.
 - Portable vault backup: Download a private backup of saved media and restore it in another browser profile without clearing the current vault; duplicate items are skipped.
@@ -90,6 +91,7 @@ Maintenance rule:
 - `src/pages/assist/`: Permission assist page.
 - `src/pages/logs/`: Logs page (`logs.js` coordinator + `logs-format.js` formatting + `logs-report.js` report helpers + `logs-view.js` view controller).
 - `src/pages/options/`: Settings/options page.
+- `src/pages/transfer/`: Dedicated Import & Backup page. It processes the selected URL or file import method as a sequential queue and provides portable vault backup controls.
 - `src/lib/`: Shared helpers (`async.js`, `db.js`, `theme.js`, `ui.js`, `log.js`, `runtime-config.js`, `messages.js`, `protocol.js`, `page-lifecycle.js`). `db.js` also provides atomic batch saves for vault restores.
 - `src/lib/vault-backup.js`: Portable backup serialization and full-file validation before restore writes.
 - `src/assets/icons/app/`: Manifest/action PNG icon sizes.
@@ -124,6 +126,7 @@ PowerShell note:
 - Progress updates are written to `chrome.storage.local` and sent as runtime messages.
 - Import/runtime error flow now uses shared protocol error codes (`src/lib/protocol.js`) in addition to localized user text.
 - User import termination aborts the background pipeline and forwards a best-effort cancel message to the offscreen FFmpeg bridge so active vendor conversion workers can be terminated.
+- Bulk transfers request access for the queue's URL origins in the transfer-page start gesture, then process URL and local-file sources sequentially to preserve the single-active-import contract.
 - Import subsystem modularity:
   - `import/service.js`: composition root
   - `import/runner.js`: entry-point orchestration for URL/local imports

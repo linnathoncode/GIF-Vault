@@ -368,7 +368,7 @@ body.import-active .input:disabled {
     filter 110ms ease;
 }
 
-.icon-btn.logs-btn {
+.icon-btn.transfer-btn {
   background: var(--accent-bg);
   border-color: var(--line);
   color: var(--text);

@@ -70,6 +70,7 @@ function createEnMessages() {
       nextPageAriaLabel: "Next page",
       openOptions: "Open Options",
       openLogs: "Open Logs",
+      openTransfer: "Open Import & Backup",
       paginationHint: "Use the arrows to move between pages.",
       themeToggleAriaLabel: "Toggle theme",
       brandLogoAlt: "GIF Vault logo",
@@ -92,8 +93,8 @@ function createEnMessages() {
       importFailedWithPeriod: "Import failed.",
       pageTitle: "Grant Access",
       heading: "Grant Site Access",
-      intro:
-        "This import needs temporary site access before GIF Vault can fetch the media.",
+      accessHint:
+        "Review the requested hosts, then grant access to continue this import.",
       requestedHosts: "Requested hosts",
       checkingAccess: "Checking required access...",
       cancelButton: "Cancel",
@@ -157,7 +158,6 @@ function createEnMessages() {
     options: {
       pageTitle: "GIF Vault Options",
       heading: "GIF Vault Options",
-      subtitle: "Tune popup behavior and GIF conversion.",
       warningAriaLabel: "Options warning",
       warningStrong: "Defaults are your friend.",
       warningBody:
@@ -185,6 +185,10 @@ function createEnMessages() {
       statusLanguageUpdated: "Language switched.",
       statusAdjustAndSave: "Tweak values and save.",
       languageLabel: "Language",
+      logsHeading: "Logs & Support",
+      logsHint:
+        "Use logs to inspect recent activity or include diagnostics in a bug report.",
+      openLogsButton: "Open logs",
       backupHeading: "Vault Backup",
       backupBody:
         "Download a private backup of your saved media, then restore it on this or another browser profile.",
@@ -198,8 +202,8 @@ function createEnMessages() {
         `Restored ${restored} items. Skipped ${skipped} duplicates.`,
       backupRestoreFailed: "Couldn't restore that backup. Your vault was not cleared.",
       guideHeading: "Feedback",
-      guideBodyPrimary:
-        "Share feedback or suggestions to improve GIF Vault.",
+      feedbackHint:
+        "Include what you expected and what happened so your feedback is easier to act on.",
       feedbackDescriptionPlaceholder:
         "Share your feedback or suggestions for improvement.",
       feedbackCharCount: (count, max) => `${count}/${max}`,
@@ -213,6 +217,47 @@ function createEnMessages() {
         `Feedback from GIF Vault user\n\nFeedback:\n${description}`,
       feedbackEmailOpened: "Feedback email draft opened.",
       guideMascotAlt: "Options guide mascot",
+    },
+    transfer: {
+      pageTitle: "GIF Vault Import & Backup",
+      heading: "Import & Backup",
+      bulkHeading: "Bulk import",
+      bulkHint:
+        "Choose one import method. Inputs from the other method are kept but ignored.",
+      importMethodLabel: "Import method",
+      pasteUrlsMethod: "Paste URLs",
+      chooseFilesMethod: "Choose files",
+      urlListLabel: "URLs (one per line or comma-separated)",
+      urlListPlaceholder:
+        "https://example.com/animation.gif\nhttps://media.example.com/clip.mp4\nhttps://x.com/example/status/123456789",
+      textFilesLabel: "URL list files",
+      mediaFilesLabel: "Local media",
+      noFilesSelected: "No files selected",
+      chooseTextFilesButton: "Choose .txt files",
+      chooseMediaFilesButton: "Choose media files",
+      startButton: "Start import",
+      stopButton: "Stop",
+      resultSource: "Source",
+      resultStatus: "Status",
+      noResults: "No import results yet.",
+      backupHeading: "Backup export & restore",
+      backupHint:
+        "Restoring adds missing items without replacing anything already in your vault.",
+      exportBackupButton: "Download backup",
+      restoreBackupButton: "Restore backup",
+      textFilesSummary: (files, urls) => `${files} files · ${urls} unique URLs`,
+      mediaFilesSummary: (count) => `${count} media files`,
+      progress: (current, total) => `Processing ${current} of ${total}`,
+      complete: (succeeded, failed, invalid) => `${succeeded} imported · ${failed} failed · ${invalid} invalid lines`,
+      imported: "Imported",
+      stopped: "Stopped",
+      failed: "Import failed",
+      nothingToImport: "Add at least one URL or local media file.",
+      permissionDenied: "Site access was not granted. The queue was not started.",
+      permissionRequestFailed:
+        "Site access could not be requested. The queue was not started.",
+      queueComplete: "Import queue complete.",
+      queueStopped: "Import queue stopped.",
     },
     logs: {
       pageTitle: "GIF Vault Logs",
@@ -355,6 +400,7 @@ function createTrMessages() {
       nextPageAriaLabel: "Sonraki sayfa",
       openOptions: "Ayarları Aç",
       openLogs: "Kayıtları Aç",
+      openTransfer: "İçe Aktarma ve Yedeklemeyi Aç",
       paginationHint: "Sayfalar arasında gezinmek için okları kullan.",
       themeToggleAriaLabel: "Temayı değiştir",
       brandLogoAlt: "GIF Vault logosu",
@@ -375,8 +421,8 @@ function createTrMessages() {
       importFailedWithPeriod: "Aktarma başarısız.",
       pageTitle: "Erişim İzni",
       heading: "Site Erişimi Ver",
-      intro:
-        "Bu aktarma için GIF Vault'un medyayı alabilmesi adına geçici site erişimi gerekiyor.",
+      accessHint:
+        "İstenen siteleri incele, ardından bu içe aktarmaya devam etmek için erişim ver.",
       requestedHosts: "İstenen alan adları",
       checkingAccess: "Gerekli erişim kontrol ediliyor...",
       cancelButton: "İptal",
@@ -443,7 +489,6 @@ function createTrMessages() {
     options: {
       pageTitle: "GIF Vault Ayarları",
       heading: "GIF Vault Ayarları",
-      subtitle: "Açılır pencere davranışını ve GIF dönüştürmeyi ayarla.",
       warningAriaLabel: "Ayar uyarısı",
       warningStrong: "Varsayılanlar senin dostundur.",
       warningBody:
@@ -471,6 +516,10 @@ function createTrMessages() {
       statusLanguageUpdated: "Dil değiştirildi.",
       statusAdjustAndSave: "Değerleri düzenleyip kaydet.",
       languageLabel: "Dil",
+      logsHeading: "Kayıtlar ve Destek",
+      logsHint:
+        "Son etkinlikleri incelemek veya hata raporuna tanılama bilgileri eklemek için kayıtları kullan.",
+      openLogsButton: "Kayıtları aç",
       backupHeading: "Vault Yedeği",
       backupBody:
         "Kayıtlı medyanın özel bir yedeğini indir, sonra bu veya başka bir tarayıcı profilinde geri yükle.",
@@ -484,8 +533,8 @@ function createTrMessages() {
         `${restored} öğe geri yüklendi. ${skipped} yinelenen öğe atlandı.`,
       backupRestoreFailed: "Bu yedek geri yüklenemedi. Vault'un temizlenmedi.",
       guideHeading: "Geri Bildirim",
-      guideBodyPrimary:
-        "GIF Vault'u geliştirmek için geri bildirim veya öneri paylaş.",
+      feedbackHint:
+        "Geri bildirimin daha kolay değerlendirilebilmesi için beklediğin sonucu ve ne olduğunu belirt.",
       feedbackDescriptionPlaceholder:
         "Geri bildiriminizi veya geliştirme önerilerinizi yazın.",
       feedbackCharCount: (count, max) => `${count}/${max}`,
@@ -499,6 +548,47 @@ function createTrMessages() {
         `GIF Vault kullanıcı geri bildirimi\n\nGeri bildirim:\n${description}`,
       feedbackEmailOpened: "Geri bildirim e-posta taslağı açıldı.",
       guideMascotAlt: "Ayarlar rehberi maskotu",
+    },
+    transfer: {
+      pageTitle: "GIF Vault İçe Aktarma ve Yedekleme",
+      heading: "İçe Aktarma ve Yedekleme",
+      bulkHeading: "Toplu içe aktarma",
+      bulkHint:
+        "Bir içe aktarma yöntemi seç. Diğer yöntemdeki girdiler korunur ancak işleme alınmaz.",
+      importMethodLabel: "İçe aktarma yöntemi",
+      pasteUrlsMethod: "URL yapıştır",
+      chooseFilesMethod: "Dosya seç",
+      urlListLabel: "URL'ler (her satıra bir tane veya virgülle ayrılmış)",
+      urlListPlaceholder:
+        "https://example.com/animation.gif\nhttps://media.example.com/clip.mp4\nhttps://x.com/example/status/123456789",
+      textFilesLabel: "URL listesi dosyaları",
+      mediaFilesLabel: "Yerel medya",
+      noFilesSelected: "Dosya seçilmedi",
+      chooseTextFilesButton: ".txt dosyaları seç",
+      chooseMediaFilesButton: "Medya dosyaları seç",
+      startButton: "Aktarımı başlat",
+      stopButton: "Durdur",
+      resultSource: "Kaynak",
+      resultStatus: "Durum",
+      noResults: "Henüz aktarım sonucu yok.",
+      backupHeading: "Yedeği dışa aktar ve geri yükle",
+      backupHint:
+        "Geri yükleme, Vault'taki mevcut öğeleri değiştirmeden eksik öğeleri ekler.",
+      exportBackupButton: "Yedeği indir",
+      restoreBackupButton: "Yedeği geri yükle",
+      textFilesSummary: (files, urls) => `${files} dosya · ${urls} benzersiz URL`,
+      mediaFilesSummary: (count) => `${count} medya dosyası`,
+      progress: (current, total) => `${total} öğeden ${current}. işleniyor`,
+      complete: (succeeded, failed, invalid) => `${succeeded} aktarıldı · ${failed} başarısız · ${invalid} geçersiz satır`,
+      imported: "Aktarıldı",
+      stopped: "Durduruldu",
+      failed: "Aktarım başarısız",
+      nothingToImport: "En az bir URL veya yerel medya dosyası ekle.",
+      permissionDenied: "Site erişimi verilmedi. Kuyruk başlatılmadı.",
+      permissionRequestFailed:
+        "Site erişimi istenemedi. Kuyruk başlatılmadı.",
+      queueComplete: "Aktarım kuyruğu tamamlandı.",
+      queueStopped: "Aktarım kuyruğu durduruldu.",
     },
     logs: {
       pageTitle: "GIF Vault Kayıtları",

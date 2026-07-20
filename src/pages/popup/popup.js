@@ -42,8 +42,8 @@ const refs = {
   localFileInput: document.getElementById("localFileInput"),
   localImportBtn: document.getElementById("localImportBtn"),
   nextPageBtn: document.getElementById("nextPageBtn"),
-  openLogsBtn: document.getElementById("openLogsBtn"),
   openOptionsBtn: document.getElementById("openOptionsBtn"),
+  openTransferBtn: document.getElementById("openTransferBtn"),
   pageIndicator: document.getElementById("pageIndicator"),
   prevPageBtn: document.getElementById("prevPageBtn"),
   progressBarEl: document.getElementById("progressBar"),
@@ -72,8 +72,8 @@ const INTERACTIVE_REFS = [
   "localFileInput",
   "localImportBtn",
   "nextPageBtn",
-  "openLogsBtn",
   "openOptionsBtn",
+  "openTransferBtn",
   "prevPageBtn",
   "selectionCancelBtn",
   "searchInput",
@@ -577,10 +577,10 @@ refs.openOptionsBtn.addEventListener(
     void chrome.tabs.create({ url });
   }),
 );
-refs.openLogsBtn.addEventListener(
+refs.openTransferBtn.addEventListener(
   "click",
   runWhenInteractive(() => {
-    const url = chrome.runtime.getURL("pages/logs/logs.html");
+    const url = chrome.runtime.getURL("pages/transfer/transfer.html");
     void chrome.tabs.create({ url });
   }),
 );

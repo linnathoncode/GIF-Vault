@@ -1,10 +1,4 @@
 import { OPTIONS_FEEDBACK, STORAGE_KEYS } from "../../lib/settings.js";
-import { idbGetAllMedia, idbGetMediaBlobs, idbSaveMany } from "../../lib/db.js";
-import {
-  BACKUP_MIME_TYPE,
-  createVaultBackup,
-  parseVaultBackup,
-} from "../../lib/vault-backup.js";
 import {
   getRuntimeConfig,
   normalizeRuntimeConfig,
@@ -49,10 +43,7 @@ const feedbackDescriptionInput = document.getElementById(
 );
 const feedbackCharCountEl = document.getElementById("feedbackCharCount");
 const feedbackStatusEl = document.getElementById("feedbackStatus");
-const exportBackupBtn = document.getElementById("exportBackupBtn");
-const importBackupBtn = document.getElementById("importBackupBtn");
-const importBackupInput = document.getElementById("importBackupInput");
-const backupStatusEl = document.getElementById("backupStatus");
+const openLogsBtn = document.getElementById("openLogsBtn");
 const FEEDBACK_SUPPORT_EMAIL = "gifvault.support@gmail.com";
 
 let themeMode = "light";
@@ -175,80 +166,6 @@ function setFeedbackStatus(text, ok = false) {
   feedbackStatusEl.hidden = false;
 }
 
-function setBackupStatus(text, kind = "") {
-  if (!backupStatusEl) {
-    return;
-  }
-  backupStatusEl.textContent = String(text || "");
-  backupStatusEl.className = kind ? `status ${kind}` : "status";
-  backupStatusEl.hidden = !text;
-}
-
-function downloadBackup(text) {
-  const url = URL.createObjectURL(new Blob([text], { type: BACKUP_MIME_TYPE }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `gif-vault-backup-${new Date().toISOString().slice(0, 10)}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-async function exportBackup() {
-  if (exportBackupBtn) {
-    exportBackupBtn.disabled = true;
-  }
-  setBackupStatus(UI_MESSAGES.options.backupPreparing);
-  try {
-    const items = await idbGetAllMedia();
-    const blobById = await idbGetMediaBlobs(items.map((item) => item.id));
-    downloadBackup(await createVaultBackup(items, blobById));
-    setBackupStatus(UI_MESSAGES.options.backupDownloaded(items.length), "ok");
-  } catch {
-    setBackupStatus(UI_MESSAGES.options.backupExportFailed, "error");
-  } finally {
-    if (exportBackupBtn) {
-      exportBackupBtn.disabled = false;
-    }
-  }
-}
-
-async function restoreBackup(file) {
-  if (!file) {
-    return;
-  }
-  if (importBackupBtn) {
-    importBackupBtn.disabled = true;
-  }
-  setBackupStatus(UI_MESSAGES.options.backupRestoring);
-  try {
-    const items = parseVaultBackup(await file.text());
-    const existingIds = new Set((await idbGetAllMedia()).map((item) => item.id));
-    let skipped = 0;
-    const itemsToRestore = [];
-    for (const item of items) {
-      if (existingIds.has(item.id)) {
-        skipped += 1;
-        continue;
-      }
-      itemsToRestore.push(item);
-    }
-    await idbSaveMany(itemsToRestore);
-    setBackupStatus(
-      UI_MESSAGES.options.backupRestored(itemsToRestore.length, skipped),
-      "ok",
-    );
-  } catch {
-    setBackupStatus(UI_MESSAGES.options.backupRestoreFailed, "error");
-  } finally {
-    if (importBackupBtn) {
-      importBackupBtn.disabled = false;
-    }
-    if (importBackupInput) {
-      importBackupInput.value = "";
-    }
-  }
-}
-
 function syncFeedbackCharCount() {
   if (!feedbackDescriptionInput || !feedbackCharCountEl) {
     return;
@@ -360,16 +277,8 @@ submitFeedbackBtn?.addEventListener("click", async () => {
   }
 });
 
-exportBackupBtn?.addEventListener("click", () => {
-  void exportBackup();
-});
-
-importBackupBtn?.addEventListener("click", () => {
-  importBackupInput?.click();
-});
-
-importBackupInput?.addEventListener("change", () => {
-  void restoreBackup(importBackupInput.files?.[0]);
+openLogsBtn?.addEventListener("click", () => {
+  globalThis.open("../logs/logs.html", "_blank", "noopener,noreferrer");
 });
 
 themeToggleBtn.addEventListener("click", async () => {
@@ -411,7 +320,6 @@ async function init() {
   await applyLocale();
   applyTheme(await getThemeMode());
   setFeedbackStatus("");
-  setBackupStatus("");
   syncFeedbackCharCount();
   fillForm(await getRuntimeConfig());
   setLocaleValue(await getStoredLocale());

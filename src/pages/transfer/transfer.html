@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="transfer.pageTitle">GIF Vault Import &amp; Backup</title>
+  <link rel="stylesheet" href="transfer.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="header">
+      <div>
+        <h1 data-i18n="transfer.heading">Import &amp; Backup</h1>
+      </div>
+      <button id="themeToggleBtn" class="icon-btn" type="button" data-i18n-title="common.toggleTheme" data-i18n-aria-label="common.toggleTheme">
+        <img id="themeToggleIcon" src="../../assets/shared/icon-theme-light.svg" alt="" aria-hidden="true">
+      </button>
+    </header>
+
+    <section class="section">
+      <h2><img src="../../assets/shared/icon-import.svg" alt="" aria-hidden="true"><span data-i18n="transfer.bulkHeading">Bulk import</span></h2>
+      <p class="hint" data-i18n="transfer.bulkHint">Choose one import method. Inputs from the other method are kept but ignored.</p>
+
+      <fieldset class="source-toggle">
+        <legend data-i18n="transfer.importMethodLabel">Import method</legend>
+        <label><input type="radio" name="importMethod" value="urls" checked><span data-i18n="transfer.pasteUrlsMethod">Paste URLs</span></label>
+        <label><input type="radio" name="importMethod" value="files"><span data-i18n="transfer.chooseFilesMethod">Choose files</span></label>
+      </fieldset>
+
+      <div id="urlSourcePanel" class="source-panel">
+        <label class="field" for="urlListInput">
+          <span data-i18n="transfer.urlListLabel">URLs (one per line or comma-separated)</span>
+          <textarea id="urlListInput" rows="9" data-i18n-placeholder="transfer.urlListPlaceholder" placeholder="https://example.com/animation.gif&#10;https://media.example.com/clip.mp4&#10;https://x.com/example/status/123456789"></textarea>
+        </label>
+      </div>
+
+      <div id="fileSourcePanel" class="source-panel source-grid" hidden>
+        <div class="source-row">
+          <div><strong data-i18n="transfer.textFilesLabel">URL list files</strong><small id="textFilesSummary" data-i18n="transfer.noFilesSelected">No files selected</small></div>
+          <button id="chooseTextFilesBtn" class="btn" type="button" data-i18n="transfer.chooseTextFilesButton">Choose .txt files</button>
+          <input id="textFilesInput" type="file" accept="text/plain,.txt" multiple hidden>
+        </div>
+        <div class="source-row">
+          <div><strong data-i18n="transfer.mediaFilesLabel">Local media</strong><small id="mediaFilesSummary" data-i18n="transfer.noFilesSelected">No files selected</small></div>
+          <button id="chooseMediaFilesBtn" class="btn" type="button" data-i18n="transfer.chooseMediaFilesButton">Choose media files</button>
+          <input id="mediaFilesInput" type="file" accept="image/*,video/mp4,video/webm,.gif,.webp,.avif" multiple hidden>
+        </div>
+      </div>
+
+      <div class="queue-actions">
+        <button id="startImportBtn" class="btn primary" type="button" data-i18n="transfer.startButton">Start import</button>
+        <button id="stopImportBtn" class="btn danger" type="button" disabled data-i18n="transfer.stopButton">Stop</button>
+        <span id="queueSummary" class="summary" aria-live="polite"></span>
+      </div>
+      <progress id="queueProgress" value="0" max="1"></progress>
+      <div id="queueStatus" class="status" aria-live="polite"></div>
+      <div class="results-wrap">
+        <table>
+          <thead><tr><th data-i18n="transfer.resultSource">Source</th><th data-i18n="transfer.resultStatus">Status</th></tr></thead>
+          <tbody id="resultsBody"><tr id="emptyResults"><td colspan="2" data-i18n="transfer.noResults">No import results yet.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2><img src="../../assets/shared/icon-storage.svg" alt="" aria-hidden="true"><span data-i18n="transfer.backupHeading">Backup export & restore</span></h2>
+      <p class="hint" data-i18n="transfer.backupHint">Restoring adds missing items without replacing anything already in your vault.</p>
+      <div class="backup-actions">
+        <button id="exportBackupBtn" class="btn" type="button" data-i18n="transfer.exportBackupButton">Download backup</button>
+        <button id="restoreBackupBtn" class="btn" type="button" data-i18n="transfer.restoreBackupButton">Restore backup</button>
+        <input id="restoreBackupInput" type="file" accept="application/json,.json" hidden>
+      </div>
+      <div id="backupStatus" class="status" aria-live="polite"></div>
+    </section>
+  </main>
+  <script type="module" src="transfer.js"></script>
+</body>
+</html>
