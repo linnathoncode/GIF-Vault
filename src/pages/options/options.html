@@ -11,7 +11,6 @@
     <section class="panel header">
       <div>
         <h1 class="title" data-i18n="options.heading">GIF Vault Options</h1>
-        <div class="subtitle" data-i18n="options.subtitle">Tune popup behavior and GIF conversion.</div>
       </div>
       <button id="themeToggleBtn" class="icon-btn" type="button" title="Toggle Theme" aria-label="Toggle Theme" data-i18n-title="common.toggleTheme" data-i18n-aria-label="common.toggleTheme">
         <img id="themeToggleIcon" class="icon-img icon-img-md" src="../../assets/shared/icon-theme-light.svg" alt="" aria-hidden="true">
@@ -94,6 +93,20 @@
         </section>
       </div>
 
+      <section class="panel backup-panel">
+        <h2>
+          <img class="section-icon" src="../../assets/shared/icon-logs.svg" alt="" aria-hidden="true">
+          <span data-i18n="options.logsHeading">Logs & Support</span>
+        </h2>
+        <p data-i18n="options.logsHint">Use logs to inspect recent activity or include diagnostics in a bug report.</p>
+        <div class="backup-actions">
+          <button id="openLogsBtn" class="btn primary icon-text-btn" type="button">
+            <img class="icon-img" src="../../assets/shared/icon-logs.svg" alt="" aria-hidden="true">
+            <span data-i18n="options.openLogsButton">Open logs</span>
+          </button>
+        </div>
+      </section>
+
       <section class="panel guide-panel">
         <div class="guide-copy">
           <h2>
@@ -104,7 +117,7 @@
             </svg>
             <span data-i18n="options.guideHeading">Feedback</span>
           </h2>
-          <p data-i18n="options.guideBodyPrimary">Share feedback or suggestions to improve GIF Vault.</p>
+          <p data-i18n="options.feedbackHint">Include what you expected and what happened so your feedback is easier to act on.</p>
           <div class="guide-actions">
             <button id="submitFeedbackBtn" class="btn icon-text-btn" type="button">
               <svg class="icon-img icon-stroke theme-accent-icon" viewBox="0 0 24 24" aria-hidden="true">

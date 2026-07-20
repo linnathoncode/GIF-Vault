@@ -43,6 +43,7 @@ const feedbackDescriptionInput = document.getElementById(
 );
 const feedbackCharCountEl = document.getElementById("feedbackCharCount");
 const feedbackStatusEl = document.getElementById("feedbackStatus");
+const openLogsBtn = document.getElementById("openLogsBtn");
 const FEEDBACK_SUPPORT_EMAIL = "gifvault.support@gmail.com";
 
 let themeMode = "light";
@@ -274,6 +275,10 @@ submitFeedbackBtn?.addEventListener("click", async () => {
       submitFeedbackBtn.disabled = false;
     }
   }
+});
+
+openLogsBtn?.addEventListener("click", () => {
+  globalThis.open("../logs/logs.html", "_blank", "noopener,noreferrer");
 });
 
 themeToggleBtn.addEventListener("click", async () => {
