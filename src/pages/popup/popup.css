@@ -876,6 +876,10 @@ body.import-active .input:disabled {
   filter: brightness(0) invert(1);
 }
 
+.meta .actions .btn.favorite-active .btn-icon {
+  filter: none;
+}
+
 .meta .actions .btn.favorite-active {
   background: rgba(18, 24, 22, 0.58);
 }
