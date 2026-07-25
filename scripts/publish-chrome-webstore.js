@@ -60,6 +60,32 @@ function isUploadSucceeded(uploadState) {
   return uploadState === "SUCCEEDED" || uploadState === "UPLOAD_PROCESSED";
 }
 
+function formatDistributionChannels(status) {
+  const channels = status?.distributionChannels || [];
+  if (!channels.length) {
+    return "none";
+  }
+
+  return channels
+    .map((channel) => {
+      const version = channel.crxVersion || "unknown-version";
+      const percentage = channel.deployPercentage ?? "unknown";
+      return `${version} at ${percentage}%`;
+    })
+    .join(", ");
+}
+
+function logRevisionStatus(label, revisionStatus) {
+  if (!revisionStatus) {
+    console.log(`${label}: unavailable`);
+    return;
+  }
+
+  console.log(
+    `${label}: ${revisionStatus.state || "unknown"} (${formatDistributionChannels(revisionStatus)})`,
+  );
+}
+
 async function readJsonResponse(response, context) {
   const text = await response.text();
   let body = {};
@@ -196,11 +222,11 @@ async function main() {
   const publisherId = requireEnv("CWS_PUBLISHER_ID");
   const extensionId = requireEnv("CWS_EXTENSION_ID");
 
-  console.log(`Publishing ${zipPath} to Chrome Web Store item ${extensionId}.`);
+  console.log(`Publishing ${zipPath} to Chrome Web Store.`);
   const accessToken = await getAccessToken(auth);
 
   const upload = await uploadPackage({ accessToken, publisherId, extensionId, zipPath });
-  console.log(`Upload response: ${JSON.stringify(upload, null, 2)}`);
+  console.log(`Upload: ${upload.crxVersion || "unknown-version"} ${getUploadState(upload) || "unknown"}`);
 
   const uploadState = getUploadState(upload);
   if (isUploadInProgress(uploadState)) {
@@ -210,10 +236,11 @@ async function main() {
   }
 
   const publish = await publishItem({ accessToken, publisherId, extensionId });
-  console.log(`Publish response: ${JSON.stringify(publish, null, 2)}`);
+  console.log(`Publish: ${publish.state || "unknown"}`);
 
   const status = await fetchStatus({ accessToken, publisherId, extensionId });
-  console.log(`Current status: ${JSON.stringify(status, null, 2)}`);
+  logRevisionStatus("Published revision", status.publishedItemRevisionStatus);
+  logRevisionStatus("Submitted revision", status.submittedItemRevisionStatus);
 }
 
 main().catch((error) => {
