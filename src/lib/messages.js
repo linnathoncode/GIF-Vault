@@ -71,7 +71,8 @@ function createEnMessages() {
       openOptions: "Open Options",
       openLogs: "Open Logs",
       openTransfer: "Open Import & Backup",
-      paginationHint: "Use the arrows to move between pages.",
+      paginationHint:
+        "Use the arrows to move between pages. (Page size can be changed in Options.)",
       themeToggleAriaLabel: "Toggle theme",
       brandLogoAlt: "GIF Vault logo",
       pageTitle: "GIF Vault",
@@ -401,7 +402,8 @@ function createTrMessages() {
       openOptions: "Ayarları Aç",
       openLogs: "Kayıtları Aç",
       openTransfer: "İçe Aktarma ve Yedeklemeyi Aç",
-      paginationHint: "Sayfalar arasında gezinmek için okları kullan.",
+      paginationHint:
+        "Sayfalar arasında gezinmek için okları kullan. (Sayfa boyutu Ayarlar'dan değiştirilebilir.)",
       themeToggleAriaLabel: "Temayı değiştir",
       brandLogoAlt: "GIF Vault logosu",
       pageTitle: "GIF Vault",

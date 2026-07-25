@@ -4,6 +4,9 @@ All notable project changes are tracked here.
 
 ## Version Includes: NEXT
 
+- Favorite icon consistency: favorited cards keep their yellow filled-star icon in both light and dark themes.
+- Pagination guidance: the popup hint now points users to the page-size setting in Options.
+
 ## Version Includes: v1.7.0
 
 - Portable vault backup: users can download their saved media and metadata as a private JSON backup, then restore it additively in another browser profile while skipping duplicate items.

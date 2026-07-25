@@ -5,8 +5,47 @@ const BACKUP_FORMAT = "gif-vault-backup";
 const BACKUP_VERSION = 1;
 const BACKUP_MIME_TYPE = "application/json";
 
-function backupError(message) {
-  return new Error(message);
+async function createVaultBackup(mediaItems, blobsById) {
+  const backupItems = [];
+  for (const item of mediaItems || []) {
+    const blob = blobsById?.get(item?.id);
+    if (!(blob instanceof Blob) || !String(item?.id || "").trim()) {
+      throw new Error("Couldn't read every item in the vault.");
+    }
+
+    backupItems.push({
+      metadata: toBackupMetadata(item, blob),
+      data: toBase64(new Uint8Array(await blob.arrayBuffer())),
+    });
+  }
+
+  return JSON.stringify({
+    format: BACKUP_FORMAT,
+    version: BACKUP_VERSION,
+    createdAt: new Date().toISOString(),
+    items: backupItems,
+  });
+}
+
+function parseVaultBackup(text) {
+  let parsed;
+  try {
+    parsed = JSON.parse(String(text || ""));
+  } catch {
+    throw new Error("That file is not a valid GIF Vault backup.");
+  }
+
+  if (
+    !parsed ||
+    parsed.format !== BACKUP_FORMAT ||
+    parsed.version !== BACKUP_VERSION ||
+    !Array.isArray(parsed.items)
+  ) {
+    throw new Error("That file is not a supported GIF Vault backup.");
+  }
+
+  const seenIds = new Set();
+  return parsed.items.map((entry) => parseBackupItem(entry, seenIds));
 }
 
 function toBase64(bytes) {
@@ -19,12 +58,12 @@ function toBase64(bytes) {
 }
 
 function fromBase64(value) {
-  const normalized = String(value || "");
-  if (!normalized || normalized.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
-    throw backupError("Backup contains invalid media data.");
+  const base64 = String(value || "");
+  if (!base64 || base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) {
+    throw new Error("Backup contains invalid media data.");
   }
 
-  const binary = atob(normalized);
+  const binary = atob(base64);
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
@@ -53,27 +92,27 @@ function toBackupMetadata(item, blob) {
   };
 }
 
-function validateBackupEntry(entry, seenIds) {
+function parseBackupItem(entry, seenIds) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-    throw backupError("Backup contains an invalid item.");
+    throw new Error("Backup contains an invalid item.");
   }
 
   const metadata = entry.metadata;
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
-    throw backupError("Backup contains invalid item metadata.");
+    throw new Error("Backup contains invalid item metadata.");
   }
 
   const id = stringValue(metadata.id).trim();
   const mimeType = stringValue(metadata.mimeType).trim();
   if (!id || seenIds.has(id) || !/^(image|video)\//i.test(mimeType)) {
-    throw backupError("Backup contains invalid or duplicate media.");
+    throw new Error("Backup contains invalid or duplicate media.");
   }
   seenIds.add(id);
 
   const bytes = fromBase64(entry.data);
   const blob = new Blob([bytes], { type: mimeType });
   if (blob.size === 0) {
-    throw backupError("Backup contains empty media data.");
+    throw new Error("Backup contains empty media data.");
   }
 
   return {
@@ -82,49 +121,6 @@ function validateBackupEntry(entry, seenIds) {
     mimeType,
     blob,
   };
-}
-
-async function createVaultBackup(items, blobById) {
-  const backupItems = [];
-  for (const item of items || []) {
-    const blob = blobById?.get(item?.id);
-    if (!(blob instanceof Blob) || !String(item?.id || "").trim()) {
-      throw backupError("Couldn't read every item in the vault.");
-    }
-
-    backupItems.push({
-      metadata: toBackupMetadata(item, blob),
-      data: toBase64(new Uint8Array(await blob.arrayBuffer())),
-    });
-  }
-
-  return JSON.stringify({
-    format: BACKUP_FORMAT,
-    version: BACKUP_VERSION,
-    createdAt: new Date().toISOString(),
-    items: backupItems,
-  });
-}
-
-function parseVaultBackup(text) {
-  let parsed;
-  try {
-    parsed = JSON.parse(String(text || ""));
-  } catch {
-    throw backupError("That file is not a valid GIF Vault backup.");
-  }
-
-  if (
-    !parsed ||
-    parsed.format !== BACKUP_FORMAT ||
-    parsed.version !== BACKUP_VERSION ||
-    !Array.isArray(parsed.items)
-  ) {
-    throw backupError("That file is not a supported GIF Vault backup.");
-  }
-
-  const seenIds = new Set();
-  return parsed.items.map((entry) => validateBackupEntry(entry, seenIds));
 }
 
 export {

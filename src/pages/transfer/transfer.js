@@ -28,6 +28,136 @@ let stopRequested = false;
 let activeRequestId = "";
 let themeMode = "light";
 
+async function startQueue() {
+  const method = selectedImportMethod();
+  const pasted = method === "urls"
+    ? parseUrlList(refs.urlListInput.value)
+    : { urls: [], invalid: [] };
+  const urls = method === "urls" ? pasted.urls : textFileUrls;
+  const files = method === "files" ? [...(refs.mediaFilesInput.files || [])] : [];
+  const invalidCount = method === "urls" ? pasted.invalid.length : textFileInvalidCount;
+  if (!urls.length && !files.length) {
+    setStatus(refs.queueStatus, UI_MESSAGES.transfer.nothingToImport, "error");
+    return;
+  }
+
+  const origins = originPatternsForUrls(urls);
+  if (origins.length) {
+    let granted = false;
+    try {
+      granted = await chrome.permissions.request({ origins });
+    } catch {
+      setStatus(
+        refs.queueStatus,
+        UI_MESSAGES.transfer.permissionRequestFailed,
+        "error",
+      );
+      return;
+    }
+    if (!granted) {
+      setStatus(refs.queueStatus, UI_MESSAGES.transfer.permissionDenied, "error");
+      return;
+    }
+  }
+
+  running = true;
+  stopRequested = false;
+  refs.startImportBtn.disabled = true;
+  refs.stopImportBtn.disabled = false;
+  refs.resultsBody.textContent = "";
+  const queue = [
+    ...urls.map((url) => ({ label: url, run: importUrl })),
+    ...files.map((file) => ({ label: file.name, run: (_label, id) => importFile(file, id) })),
+  ];
+  refs.queueProgress.max = queue.length;
+  refs.queueProgress.value = 0;
+  let succeeded = 0;
+  let failed = 0;
+
+  for (let index = 0; index < queue.length && !stopRequested; index += 1) {
+    const item = queue[index];
+    activeRequestId = crypto.randomUUID();
+    refs.queueSummary.textContent = UI_MESSAGES.transfer.progress(index + 1, queue.length);
+    setStatus(refs.queueStatus, item.label);
+    try {
+      const result = await item.run(item.label, activeRequestId);
+      succeeded += result?.importedCount || 1;
+      addResult(item.label, UI_MESSAGES.transfer.imported, true);
+    } catch (error) {
+      if (stopRequested) {
+        addResult(item.label, UI_MESSAGES.transfer.stopped, false);
+      } else {
+        failed += 1;
+        addResult(item.label, error?.message || UI_MESSAGES.transfer.failed, false);
+      }
+    } finally {
+      await chrome.storage.local.remove(STORAGE_KEYS.importState);
+    }
+    refs.queueProgress.value = index + 1;
+  }
+
+  activeRequestId = "";
+  running = false;
+  refs.startImportBtn.disabled = false;
+  refs.stopImportBtn.disabled = true;
+  refs.queueSummary.textContent = UI_MESSAGES.transfer.complete(succeeded, failed, invalidCount);
+  setStatus(refs.queueStatus, stopRequested ? UI_MESSAGES.transfer.queueStopped : UI_MESSAGES.transfer.queueComplete, stopRequested || failed ? "error" : "ok");
+}
+
+async function stopQueue() {
+  stopRequested = true;
+  refs.stopImportBtn.disabled = true;
+  if (activeRequestId) {
+    await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.terminateImport, requestId: activeRequestId });
+  }
+}
+
+async function exportVaultBackup() {
+  refs.exportBackupBtn.disabled = true;
+  setStatus(refs.backupStatus, UI_MESSAGES.options.backupPreparing);
+
+  try {
+    const mediaItems = await idbGetAllMedia();
+    const mediaIds = mediaItems.map(({ id }) => id);
+    const blobsById = await idbGetMediaBlobs(mediaIds);
+    const backupJson = await createVaultBackup(mediaItems, blobsById);
+
+    downloadBackupFile(backupJson);
+    setStatus(refs.backupStatus, UI_MESSAGES.options.backupDownloaded(mediaItems.length), "ok");
+  } catch {
+    setStatus(refs.backupStatus, UI_MESSAGES.options.backupExportFailed, "error");
+  } finally {
+    refs.exportBackupBtn.disabled = false;
+  }
+}
+
+async function restoreVaultBackup(backupFile) {
+  if (!backupFile) return;
+
+  refs.restoreBackupBtn.disabled = true;
+  setStatus(refs.backupStatus, UI_MESSAGES.options.backupRestoring);
+
+  try {
+    const backupItems = parseVaultBackup(await backupFile.text());
+    const existingItems = await idbGetAllMedia();
+    const existingIds = new Set(existingItems.map(({ id }) => id));
+    const newItems = backupItems.filter(({ id }) => !existingIds.has(id));
+    const skippedCount = backupItems.length - newItems.length;
+
+    await idbSaveMany(newItems);
+    setStatus(
+      refs.backupStatus,
+      UI_MESSAGES.options.backupRestored(newItems.length, skippedCount),
+      "ok",
+    );
+  } catch {
+    setStatus(refs.backupStatus, UI_MESSAGES.options.backupRestoreFailed, "error");
+  } finally {
+    refs.restoreBackupBtn.disabled = false;
+    refs.restoreBackupInput.value = "";
+  }
+}
+
 function selectedImportMethod() {
   return document.querySelector('input[name="importMethod"]:checked')?.value === "files"
     ? "files"
@@ -124,129 +254,13 @@ async function importFile(file, requestId) {
   });
 }
 
-async function startQueue() {
-  const method = selectedImportMethod();
-  const pasted = method === "urls"
-    ? parseUrlList(refs.urlListInput.value)
-    : { urls: [], invalid: [] };
-  const urls = method === "urls" ? pasted.urls : textFileUrls;
-  const files = method === "files" ? [...(refs.mediaFilesInput.files || [])] : [];
-  const invalidCount = method === "urls" ? pasted.invalid.length : textFileInvalidCount;
-  if (!urls.length && !files.length) {
-    setStatus(refs.queueStatus, UI_MESSAGES.transfer.nothingToImport, "error");
-    return;
-  }
-
-  const origins = originPatternsForUrls(urls);
-  if (origins.length) {
-    let granted = false;
-    try {
-      granted = await chrome.permissions.request({ origins });
-    } catch {
-      setStatus(
-        refs.queueStatus,
-        UI_MESSAGES.transfer.permissionRequestFailed,
-        "error",
-      );
-      return;
-    }
-    if (!granted) {
-      setStatus(refs.queueStatus, UI_MESSAGES.transfer.permissionDenied, "error");
-      return;
-    }
-  }
-
-  running = true;
-  stopRequested = false;
-  refs.startImportBtn.disabled = true;
-  refs.stopImportBtn.disabled = false;
-  refs.resultsBody.textContent = "";
-  const queue = [
-    ...urls.map((url) => ({ label: url, run: importUrl })),
-    ...files.map((file) => ({ label: file.name, run: (_label, id) => importFile(file, id) })),
-  ];
-  refs.queueProgress.max = queue.length;
-  refs.queueProgress.value = 0;
-  let succeeded = 0;
-  let failed = 0;
-
-  for (let index = 0; index < queue.length && !stopRequested; index += 1) {
-    const item = queue[index];
-    activeRequestId = crypto.randomUUID();
-    refs.queueSummary.textContent = UI_MESSAGES.transfer.progress(index + 1, queue.length);
-    setStatus(refs.queueStatus, item.label);
-    try {
-      const result = await item.run(item.label, activeRequestId);
-      succeeded += result?.importedCount || 1;
-      addResult(item.label, UI_MESSAGES.transfer.imported, true);
-    } catch (error) {
-      if (stopRequested) {
-        addResult(item.label, UI_MESSAGES.transfer.stopped, false);
-      } else {
-        failed += 1;
-        addResult(item.label, error?.message || UI_MESSAGES.transfer.failed, false);
-      }
-    } finally {
-      await chrome.storage.local.remove(STORAGE_KEYS.importState);
-    }
-    refs.queueProgress.value = index + 1;
-  }
-
-  activeRequestId = "";
-  running = false;
-  refs.startImportBtn.disabled = false;
-  refs.stopImportBtn.disabled = true;
-  refs.queueSummary.textContent = UI_MESSAGES.transfer.complete(succeeded, failed, invalidCount);
-  setStatus(refs.queueStatus, stopRequested ? UI_MESSAGES.transfer.queueStopped : UI_MESSAGES.transfer.queueComplete, stopRequested || failed ? "error" : "ok");
-}
-
-async function stopQueue() {
-  stopRequested = true;
-  refs.stopImportBtn.disabled = true;
-  if (activeRequestId) {
-    await chrome.runtime.sendMessage({ type: MESSAGE_TYPES.terminateImport, requestId: activeRequestId });
-  }
-}
-
-function downloadBackup(text) {
-  const url = URL.createObjectURL(new Blob([text], { type: BACKUP_MIME_TYPE }));
+function downloadBackupFile(backupJson) {
+  const url = URL.createObjectURL(new Blob([backupJson], { type: BACKUP_MIME_TYPE }));
   const link = document.createElement("a");
   link.href = url;
   link.download = `gif-vault-backup-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
   URL.revokeObjectURL(url);
-}
-
-async function exportBackup() {
-  refs.exportBackupBtn.disabled = true;
-  setStatus(refs.backupStatus, UI_MESSAGES.options.backupPreparing);
-  try {
-    const items = await idbGetAllMedia();
-    downloadBackup(await createVaultBackup(items, await idbGetMediaBlobs(items.map(({ id }) => id))));
-    setStatus(refs.backupStatus, UI_MESSAGES.options.backupDownloaded(items.length), "ok");
-  } catch {
-    setStatus(refs.backupStatus, UI_MESSAGES.options.backupExportFailed, "error");
-  } finally {
-    refs.exportBackupBtn.disabled = false;
-  }
-}
-
-async function restoreBackup(file) {
-  if (!file) return;
-  refs.restoreBackupBtn.disabled = true;
-  setStatus(refs.backupStatus, UI_MESSAGES.options.backupRestoring);
-  try {
-    const items = parseVaultBackup(await file.text());
-    const existingIds = new Set((await idbGetAllMedia()).map(({ id }) => id));
-    const fresh = items.filter(({ id }) => !existingIds.has(id));
-    await idbSaveMany(fresh);
-    setStatus(refs.backupStatus, UI_MESSAGES.options.backupRestored(fresh.length, items.length - fresh.length), "ok");
-  } catch {
-    setStatus(refs.backupStatus, UI_MESSAGES.options.backupRestoreFailed, "error");
-  } finally {
-    refs.restoreBackupBtn.disabled = false;
-    refs.restoreBackupInput.value = "";
-  }
 }
 
 refs.chooseTextFilesBtn.addEventListener("click", () => refs.textFilesInput.click());
@@ -258,9 +272,9 @@ refs.textFilesInput.addEventListener("change", () => void loadTextFiles());
 refs.mediaFilesInput.addEventListener("change", () => { refs.mediaFilesSummary.textContent = UI_MESSAGES.transfer.mediaFilesSummary(refs.mediaFilesInput.files?.length || 0); });
 refs.startImportBtn.addEventListener("click", () => { if (!running) void startQueue(); });
 refs.stopImportBtn.addEventListener("click", () => void stopQueue());
-refs.exportBackupBtn.addEventListener("click", () => void exportBackup());
+refs.exportBackupBtn.addEventListener("click", () => void exportVaultBackup());
 refs.restoreBackupBtn.addEventListener("click", () => refs.restoreBackupInput.click());
-refs.restoreBackupInput.addEventListener("change", () => void restoreBackup(refs.restoreBackupInput.files?.[0]));
+refs.restoreBackupInput.addEventListener("change", () => void restoreVaultBackup(refs.restoreBackupInput.files?.[0]));
 refs.themeToggleBtn.addEventListener("click", async () => { applyTheme(themeMode === "dark" ? "light" : "dark"); await setThemeMode(themeMode); });
 
 addThemeLocaleStorageListener({
