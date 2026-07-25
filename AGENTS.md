@@ -10,7 +10,7 @@
 ## Release State
 
 - Branch: `test`
-- Version: `1.7.0`
+- Version: `1.7.1`
 
 ## Project Purpose
 
@@ -26,33 +26,8 @@ Core capabilities:
 
 ## Store Listing Features
 
-### Recently Added (Store Listing)
-
-- Save from the web in one click: Right-click GIFs or images and add them to your vault instantly.
-- Paste-and-import support: Import GIF, image, video, or X/Twitter post links directly from the popup.
-- Local file import support: Choose one or more local images/videos from popup and import them directly.
-- Drag-and-drop import support: Drop local files onto popup to start import without opening the file picker.
-- Bulk import support: Combine pasted URL lists, multiple text files, and local media files in one sequential import queue with per-item results.
-- Video to GIF conversion: Turn supported videos into GIFs automatically during import.
-- Privacy-first storage: Your media stays in your browser. No account, no tracking.
-- Portable vault backup: Download a private backup of saved media and restore it in another browser profile without clearing the current vault; duplicate items are skipped.
-- Search your collection: Find saved items by name or source link in seconds.
-- Favorites tab: Star your best GIFs and access them fast.
-- Easy library management: Rename, copy, delete, or clear your saved items anytime.
-- Shift-click multi-select: Start selection with Shift-click, then add/remove items with regular click while selection is active.
-- In-selection quick clear: A header clear button appears during multi-select and clears current selections in one click.
-- In-selection keyboard delete: Press Delete/Backspace during multi-select to remove selected items with confirmation.
-- Clean grid layout: Browse your GIFs in a simple visual gallery with pagination.
-- Import progress status: See import steps in real time and stop an import if needed.
-- Guided permissions flow: If a site needs access, GIF Vault walks you through it.
-- Built-in support tools: Send feedback from Options and generate bug-report emails with log attachments from Logs.
-- Custom options: Tune GIF conversion and popup behavior with flexible controls for FPS, output width, max colors, max download-size limit, default tab behavior, page size, hover-preview preferences, language selection, and direct feedback submission.
-- Light and dark themes: Pick the look you prefer.
-- Supported languages: English and Turkish (change via options).
-
-Maintenance rule:
-
-- Keep user-facing store copy in this section only (no detailed per-version history in `AGENTS.md`).
+- The current English and Turkish Chrome Web Store copy is maintained in `STORE_LISTING.md`.
+- Keep user-facing store copy in that file only; do not add detailed listing copy or per-version history to `AGENTS.md`.
 - Track release/version changes in `CHANGELOG.md` under `## Version Includes: ...` markers (keep a `NEXT` placeholder at the top).
 - PR/release-note rule: when preparing PR text for a release train, summarize changes from the last released version marker/tag (for example `v1.6.2 -> v1.6.3`) even if the current branch has only merge/sync commits.
 - Release-summary rule: for each version marker, prefer broad net-change bullets; if a feature was added and then fixed/refined within the same version, list the feature once (not each intermediate fix).

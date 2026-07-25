@@ -4,7 +4,7 @@
     "description": "Extension name shown in the Chrome Web Store and extension surfaces."
   },
   "extDescription": {
-    "message": "Save GIFs from X/Twitter and web links, convert videos, organize your collection, and back it up privately.",
+    "message": "Import media from supported links and files. Convert supported MP4/WebM videos to GIFs, organize your vault, and back it up.",
     "description": "Extension description shown in the Chrome Web Store and extension surfaces."
   },
   "actionDefaultTitle": {

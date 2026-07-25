@@ -1,10 +1,10 @@
 {
   "extName": {
-    "message": "GIF Vault: X/Twitter'dan GIF Kaydet ve Düzenle",
+    "message": "GIF Vault: GIF’leri Kaydedin, Düzenleyin ve Yedekleyin",
     "description": "Chrome Web Store'da ve uzantı yüzeylerinde görünen uzantı adı."
   },
   "extDescription": {
-    "message": "X/Twitter ve web bağlantılarından GIF kaydet, videoları GIF'e çevir ve hepsini kendi özel kasanda düzenle.",
+    "message": "Desteklenen bağlantılardan ve yerel dosyalardan medya aktarın. MP4/WebM videolarını GIF’e çevirin, arşivinizi düzenleyip yedekleyin.",
     "description": "Chrome Web Store'da ve uzantı yüzeylerinde görünen uzantı açıklaması."
   },
   "actionDefaultTitle": {
