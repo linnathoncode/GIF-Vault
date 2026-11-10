@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extName__",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
   "icons": {
@@ -11,6 +11,7 @@
     "128": "assets/icons/app/icon-dark-128.png"
   },
   "permissions": ["contextMenus", "storage", "offscreen"],
+  "optional_permissions": ["clipboardRead"],
   "host_permissions": [
     "https://*.x.com/*",
     "https://*.twitter.com/*",

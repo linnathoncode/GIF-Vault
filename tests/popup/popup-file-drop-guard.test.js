@@ -54,6 +54,7 @@ vi.mock("../../src/pages/popup/popup/status.js", () => ({
 }));
 
 vi.mock("../../src/pages/popup/popup/import-flow.js", () => ({
+  autofillImportUrl: vi.fn(),
   createPopupImportController: () => ({
     importFiles: mocks.importFiles,
     importUrl: vi.fn(async () => {}),

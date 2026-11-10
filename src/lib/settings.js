@@ -12,6 +12,8 @@ const CONTEXT_MENU = {
   addToVaultInstagramPageId: "addToGifVaultInstagramPage",
 };
 
+const CLIPBOARD_READ_PERMISSION = { permissions: ["clipboardRead"] };
+
 const OFFSCREEN = {
   url: "offscreen/offscreen.html",
 };
@@ -86,6 +88,7 @@ const OPTIONS_FEEDBACK = {
 export {
   STORAGE_KEYS,
   CONTEXT_MENU,
+  CLIPBOARD_READ_PERMISSION,
   OFFSCREEN,
   IMPORT_PIPELINE,
   DB,

@@ -4,6 +4,12 @@ All notable project changes are tracked here.
 
 ## Version Includes: NEXT
 
+## Version Includes: v1.7.2
+
+- Clipboard autofill: enable it in Options to fill the popup's URL field with a copied media link.
+
+## Version Includes: v1.7.1
+
 - Favorite icon consistency: favorited cards keep their yellow filled-star icon in both light and dark themes.
 - Pagination guidance: the popup hint now points users to the page-size setting in Options.
 

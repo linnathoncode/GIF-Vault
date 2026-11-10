@@ -1,3 +1,10 @@
+/** Coordinates popup imports and prepares the URL field for manual submission. */
+import {
+  extractTweetId,
+  hasLikelyMediaUrlHint,
+  hostMatches,
+  isTwitterUrl,
+} from "../../../background/media-resolver/shared.js";
 import { safeLog } from "../../../lib/log.js";
 import { UI_MESSAGES } from "../../../lib/messages.js";
 import { getRuntimeConfig, normalizeRuntimeConfig } from "../../../lib/runtime-config.js";
@@ -5,7 +12,57 @@ import {
   MESSAGE_TYPES,
   IMPORT_ERROR_CODES,
 } from "../../../lib/protocol.js";
+import { CLIPBOARD_READ_PERMISSION } from "../../../lib/settings.js";
 import { isValidUrl, originPatternFromUrl } from "../../../lib/ui.js";
+
+function looksLikeMediaUrl(candidate) {
+  if (!/^https?:\/\/\S+$/i.test(candidate)) {
+    return false;
+  }
+
+  const { hostname, pathname, username, password } = new URL(candidate);
+  if (username || password) {
+    return false;
+  }
+
+  return (
+    hasLikelyMediaUrlHint(candidate) ||
+    (isTwitterUrl(candidate) && Boolean(extractTweetId(candidate))) ||
+    (hostMatches(hostname, "giphy.com") && /^\/(gifs|embed)\/[^/]+/i.test(pathname)) ||
+    (hostMatches(hostname, "tenor.com") && /^\/view\/[^/]+/i.test(pathname))
+  );
+}
+
+export async function autofillImportUrl(input) {
+  if (input.disabled || input.value || !navigator.clipboard?.readText) {
+    return;
+  }
+
+  const pendingRead = new AbortController();
+  input.addEventListener("input", () => pendingRead.abort(), {
+    signal: pendingRead.signal,
+  });
+  try {
+    const canRead = await chrome.permissions.contains(CLIPBOARD_READ_PERMISSION);
+    if (!canRead || pendingRead.signal.aborted || input.disabled || input.value) {
+      return;
+    }
+
+    const candidate = (await navigator.clipboard.readText()).trim();
+    if (
+      !pendingRead.signal.aborted &&
+      !input.disabled &&
+      !input.value &&
+      looksLikeMediaUrl(candidate)
+    ) {
+      input.value = candidate;
+    }
+  } catch {
+    // Clipboard access can fail if the popup loses focus or permission is revoked.
+  } finally {
+    pendingRead.abort();
+  }
+}
 
 function isTweetUrl(rawUrl) {
   try {

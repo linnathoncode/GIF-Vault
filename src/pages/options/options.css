@@ -105,11 +105,11 @@ h2 {
   flex: 1 1 auto;
 }
 
-.field.full-row {
+.full-row {
   grid-column: 1 / -1;
 }
 
-.hover-preview-group {
+.divided-fields {
   grid-column: 1 / -1;
   display: grid;
   gap: 12px;
