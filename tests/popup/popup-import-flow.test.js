@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UI_MESSAGES } from "../../src/lib/messages.js";
+import { autofillImportUrl } from "../../src/pages/popup/popup/import-flow.js";
 
 const mocks = vi.hoisted(() => ({
   safeLog: vi.fn(async () => {}),
@@ -18,6 +19,73 @@ vi.mock("../../src/lib/runtime-config.js", () => ({
   getRuntimeConfig: mocks.getRuntimeConfig,
   normalizeRuntimeConfig: mocks.normalizeRuntimeConfig,
 }));
+
+describe("popup clipboard autofill", () => {
+  const contains = vi.fn();
+  const readText = vi.fn();
+  let input;
+
+  beforeEach(() => {
+    contains.mockReset().mockResolvedValue(true);
+    readText.mockReset();
+    vi.stubGlobal("chrome", { permissions: { contains } });
+    vi.stubGlobal("navigator", { clipboard: { readText } });
+    input = Object.assign(new EventTarget(), { value: "", disabled: false });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    "https://example.com/cat.GIF?token=abc#preview",
+    "https://x.com/example/status/123",
+    "https://giphy.com/gifs/cat-123",
+    "https://tenor.com/view/cat-123",
+  ])("fills an empty field with %s", async (url) => {
+    readText.mockResolvedValue(`  ${url}\n`);
+    await autofillImportUrl(input);
+    expect(input.value).toBe(url);
+  });
+
+  it.each([
+    "https://example.com/article",
+    "https://x.com.example.com/example/status/123",
+    "https://example.com/one.gif\nhttps://example.com/two.gif",
+    "file:///image.gif",
+    "https://[malformed]/image.gif",
+  ])("ignores unrelated or invalid clipboard text %s", async (text) => {
+    readText.mockResolvedValue(text);
+    await autofillImportUrl(input);
+    expect(input.value).toBe("");
+  });
+
+  it("reads the clipboard only with permission and an empty, enabled field", async () => {
+    contains.mockResolvedValueOnce(false);
+    await autofillImportUrl(input);
+    expect(contains).toHaveBeenCalledWith({ permissions: ["clipboardRead"] });
+
+    input.value = "https://example.com/manual";
+    await autofillImportUrl(input);
+    expect(input.value).toBe("https://example.com/manual");
+
+    input.value = "";
+    input.disabled = true;
+    await autofillImportUrl(input);
+    expect(readText).not.toHaveBeenCalled();
+  });
+
+  it("preserves user edits made during the read even if the field is cleared", async () => {
+    let finishRead;
+    readText.mockImplementation(() => new Promise((resolve) => { finishRead = resolve; }));
+    const autofill = autofillImportUrl(input);
+    await vi.waitFor(() => expect(readText).toHaveBeenCalled());
+    input.dispatchEvent(new Event("input"));
+    finishRead("https://example.com/cat.gif");
+    await autofill;
+    expect(input.value).toBe("");
+  });
+});
 
 describe("popup import flow local file path", () => {
   beforeEach(() => {

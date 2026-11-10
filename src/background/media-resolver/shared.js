@@ -348,6 +348,8 @@ function isSupportedMediaType(contentType, options = {}) {
 export {
   collectMediaUrls,
   extractTweetId,
+  hasLikelyMediaUrlHint,
+  hostMatches,
   isLikelyTweetImageUrl,
   isLikelyTweetVideoUrl,
   isSupportedMediaType,

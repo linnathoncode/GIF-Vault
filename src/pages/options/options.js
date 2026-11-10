@@ -1,4 +1,4 @@
-import { OPTIONS_FEEDBACK, STORAGE_KEYS } from "../../lib/settings.js";
+import { CLIPBOARD_READ_PERMISSION, OPTIONS_FEEDBACK, STORAGE_KEYS } from "../../lib/settings.js";
 import {
   getRuntimeConfig,
   normalizeRuntimeConfig,
@@ -35,6 +35,7 @@ const hoverPreviewDelayInput = document.getElementById(
 const hoverPreviewDelayField = document.getElementById(
   "popupHoverPreviewDelayField",
 );
+const clipboardAutofillInput = document.getElementById("clipboardAutofill");
 const guideMascotEl = document.getElementById("guideMascot");
 const submitFeedbackBtn = document.getElementById("submitFeedbackBtn");
 const submitFeedbackBtnLabel = document.getElementById("submitFeedbackBtnLabel");
@@ -244,6 +245,20 @@ hoverPreviewEnabledInput?.addEventListener("change", () => {
   syncHoverPreviewDelayState();
 });
 
+clipboardAutofillInput.addEventListener("change", async () => {
+  const enable = clipboardAutofillInput.checked;
+  clipboardAutofillInput.disabled = true;
+  try {
+    clipboardAutofillInput.checked = enable
+      ? await chrome.permissions.request(CLIPBOARD_READ_PERMISSION)
+      : !(await chrome.permissions.remove(CLIPBOARD_READ_PERMISSION));
+  } catch {
+    clipboardAutofillInput.checked = !enable;
+  } finally {
+    clipboardAutofillInput.disabled = false;
+  }
+});
+
 localeInput?.addEventListener("change", () => {
   void applyLocaleChangeFromSelector();
 });
@@ -324,6 +339,12 @@ async function init() {
   fillForm(await getRuntimeConfig());
   setLocaleValue(await getStoredLocale());
   setStatus(UI_MESSAGES.options.statusAdjustAndSave);
+  try {
+    clipboardAutofillInput.checked = await chrome.permissions.contains(CLIPBOARD_READ_PERMISSION);
+    clipboardAutofillInput.disabled = false;
+  } catch {
+    // Keep the toggle disabled when the browser cannot check clipboard access.
+  }
 }
 
 init();

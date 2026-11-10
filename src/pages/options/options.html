@@ -79,7 +79,7 @@
               <span data-i18n="options.pageSizeLabel">Page Size (1-60)</span>
               <input id="popupPageSize" name="popupPageSize" type="number" min="1" max="60" step="1" required>
             </label>
-            <div class="hover-preview-group">
+            <div class="divided-fields">
               <label class="toggle-row" for="popupHoverPreviewEnabled">
                 <input id="popupHoverPreviewEnabled" name="popupHoverPreviewEnabled" type="checkbox">
                 <span data-i18n="options.hoverPreviewEnabledLabel">Enable Hover Preview</span>
@@ -87,6 +87,12 @@
               <label id="popupHoverPreviewDelayField" class="field delay-field">
                 <span data-i18n="options.hoverPreviewDelayLabel">Preview Delay ms (500-5000)</span>
                 <input id="popupHoverPreviewDelayMs" name="popupHoverPreviewDelayMs" type="number" min="500" max="5000" step="100" required>
+              </label>
+            </div>
+            <div class="divided-fields">
+              <label class="toggle-row">
+                <input id="clipboardAutofill" type="checkbox" disabled>
+                <span data-i18n="options.clipboardAutofillLabel">Autofill media URLs from clipboard</span>
               </label>
             </div>
           </div>

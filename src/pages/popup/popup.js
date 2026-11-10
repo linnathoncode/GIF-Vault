@@ -25,7 +25,7 @@ import {
 import { createPopupState } from "./popup/state.js";
 import { createPopupGridController } from "./popup/grid.js";
 import { createPopupStatusController } from "./popup/status.js";
-import { createPopupImportController } from "./popup/import-flow.js";
+import { autofillImportUrl, createPopupImportController } from "./popup/import-flow.js";
 import { createPopupTabController } from "./popup/tab.js";
 
 const refs = {
@@ -920,6 +920,7 @@ async function init() {
     }
     setInteractiveEnabled(true);
     syncImportUiState();
+    void autofillImportUrl(refs.importInput);
   } catch (error) {
     // Fail-safe path keeps interactions locked and surfaces a clear status.
     setInteractiveEnabled(false);
