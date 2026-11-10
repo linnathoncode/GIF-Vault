@@ -25,11 +25,14 @@ import {
 import { createPopupState } from "./popup/state.js";
 import { createPopupGridController } from "./popup/grid.js";
 import { createPopupStatusController } from "./popup/status.js";
-import { autofillImportUrl, createPopupImportController } from "./popup/import-flow.js";
+import { createPopupImportController, prepareClipboardImport } from "./popup/import-flow.js";
 import { createPopupTabController } from "./popup/tab.js";
 
 const refs = {
   brandLogo: document.getElementById("brandLogo"),
+  clipboardAutofillTip: document.getElementById("clipboardAutofillTip"),
+  clipboardAutofillOptionsBtn: document.getElementById("clipboardAutofillOptionsBtn"),
+  dismissClipboardAutofillTipBtn: document.getElementById("dismissClipboardAutofillTipBtn"),
   clearAllBtn: document.getElementById("clearAllBtn"),
   countEl: document.getElementById("count"),
   grid: document.getElementById("grid"),
@@ -566,17 +569,23 @@ refs.clearAllBtn.addEventListener(
 );
 
 window.addEventListener("unload", gridController.cleanupObjectUrls);
-refs.openOptionsBtn.addEventListener(
-  "click",
-  runWhenInteractive(() => {
-    if (typeof chrome.runtime.openOptionsPage === "function") {
-      void chrome.runtime.openOptionsPage();
-      return;
-    }
-    const url = chrome.runtime.getURL("pages/options/options.html");
-    void chrome.tabs.create({ url });
-  }),
-);
+const openOptions = runWhenInteractive(() => {
+  if (refs.clipboardAutofillTip) {
+    refs.clipboardAutofillTip.hidden = true;
+  }
+  if (typeof chrome.runtime.openOptionsPage === "function") {
+    void chrome.runtime.openOptionsPage();
+    return;
+  }
+  const url = chrome.runtime.getURL("pages/options/options.html");
+  void chrome.tabs.create({ url });
+});
+refs.openOptionsBtn.addEventListener("click", openOptions);
+refs.clipboardAutofillOptionsBtn?.addEventListener("click", openOptions);
+refs.dismissClipboardAutofillTipBtn?.addEventListener("click", () => {
+  refs.clipboardAutofillTip.hidden = true;
+  refs.importInput.focus();
+});
 refs.openTransferBtn.addEventListener(
   "click",
   runWhenInteractive(() => {
@@ -920,7 +929,7 @@ async function init() {
     }
     setInteractiveEnabled(true);
     syncImportUiState();
-    void autofillImportUrl(refs.importInput);
+    void prepareClipboardImport(refs.importInput, refs.clipboardAutofillTip);
   } catch (error) {
     // Fail-safe path keeps interactions locked and surfaces a clear status.
     setInteractiveEnabled(false);

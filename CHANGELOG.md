@@ -4,6 +4,8 @@ All notable project changes are tracked here.
 
 ## Version Includes: NEXT
 
+- A one-time popup tip points users to clipboard autofill in Options.
+
 ## Version Includes: v1.7.2
 
 - Clipboard autofill: enable it in Options to fill the popup's URL field with a copied media link.

@@ -12,7 +12,7 @@ import {
   MESSAGE_TYPES,
   IMPORT_ERROR_CODES,
 } from "../../../lib/protocol.js";
-import { CLIPBOARD_READ_PERMISSION } from "../../../lib/settings.js";
+import { CLIPBOARD_READ_PERMISSION, STORAGE_KEYS } from "../../../lib/settings.js";
 import { isValidUrl, originPatternFromUrl } from "../../../lib/ui.js";
 
 function looksLikeMediaUrl(candidate) {
@@ -33,7 +33,18 @@ function looksLikeMediaUrl(candidate) {
   );
 }
 
-export async function autofillImportUrl(input) {
+async function showClipboardAutofillTip(input, tip) {
+  const key = STORAGE_KEYS.clipboardAutofillTipSeen;
+  const { [key]: seen } = await chrome.storage.local.get(key);
+  if (seen || input.disabled || input.value) {
+    return;
+  }
+
+  await chrome.storage.local.set({ [key]: true });
+  tip.hidden = false;
+}
+
+export async function prepareClipboardImport(input, tip) {
   if (input.disabled || input.value || !navigator.clipboard?.readText) {
     return;
   }
@@ -44,7 +55,13 @@ export async function autofillImportUrl(input) {
   });
   try {
     const canRead = await chrome.permissions.contains(CLIPBOARD_READ_PERMISSION);
-    if (!canRead || pendingRead.signal.aborted || input.disabled || input.value) {
+    if (pendingRead.signal.aborted || input.disabled || input.value) {
+      return;
+    }
+    if (!canRead) {
+      if (tip) {
+        await showClipboardAutofillTip(input, tip);
+      }
       return;
     }
 

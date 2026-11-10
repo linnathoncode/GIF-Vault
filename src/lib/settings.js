@@ -4,6 +4,7 @@ const STORAGE_KEYS = {
   importState: "importState",
   runtimeConfig: "runtimeConfig",
   popupLastTab: "popupLastTab",
+  clipboardAutofillTipSeen: "clipboardAutofillTipSeen",
   instagramContextMedia: "instagramContextMedia",
 };
 

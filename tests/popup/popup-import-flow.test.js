@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UI_MESSAGES } from "../../src/lib/messages.js";
-import { autofillImportUrl } from "../../src/pages/popup/popup/import-flow.js";
+import { prepareClipboardImport } from "../../src/pages/popup/popup/import-flow.js";
 
 const mocks = vi.hoisted(() => ({
   safeLog: vi.fn(async () => {}),
@@ -44,7 +44,7 @@ describe("popup clipboard autofill", () => {
     "https://tenor.com/view/cat-123",
   ])("fills an empty field with %s", async (url) => {
     readText.mockResolvedValue(`  ${url}\n`);
-    await autofillImportUrl(input);
+    await prepareClipboardImport(input);
     expect(input.value).toBe(url);
   });
 
@@ -56,34 +56,64 @@ describe("popup clipboard autofill", () => {
     "https://[malformed]/image.gif",
   ])("ignores unrelated or invalid clipboard text %s", async (text) => {
     readText.mockResolvedValue(text);
-    await autofillImportUrl(input);
+    await prepareClipboardImport(input);
     expect(input.value).toBe("");
   });
 
   it("reads the clipboard only with permission and an empty, enabled field", async () => {
     contains.mockResolvedValueOnce(false);
-    await autofillImportUrl(input);
+    await prepareClipboardImport(input);
     expect(contains).toHaveBeenCalledWith({ permissions: ["clipboardRead"] });
 
     input.value = "https://example.com/manual";
-    await autofillImportUrl(input);
+    await prepareClipboardImport(input);
     expect(input.value).toBe("https://example.com/manual");
 
     input.value = "";
     input.disabled = true;
-    await autofillImportUrl(input);
+    await prepareClipboardImport(input);
     expect(readText).not.toHaveBeenCalled();
   });
 
   it("preserves user edits made during the read even if the field is cleared", async () => {
     let finishRead;
     readText.mockImplementation(() => new Promise((resolve) => { finishRead = resolve; }));
-    const autofill = autofillImportUrl(input);
+    const autofill = prepareClipboardImport(input);
     await vi.waitFor(() => expect(readText).toHaveBeenCalled());
     input.dispatchEvent(new Event("input"));
     finishRead("https://example.com/cat.gif");
     await autofill;
     expect(input.value).toBe("");
+  });
+
+  it("shows the tip only once across popup opens when clipboard access is off", async () => {
+    contains.mockResolvedValue(false);
+    let saved = {};
+    chrome.storage = { local: {
+      get: vi.fn(async () => saved),
+      set: vi.fn(async (values) => { saved = values; }),
+    } };
+
+    const firstTip = { hidden: true };
+    await prepareClipboardImport(input, firstTip);
+    expect(firstTip.hidden).toBe(false);
+    expect(saved).toEqual({ clipboardAutofillTipSeen: true });
+
+    const reopenedTip = { hidden: true };
+    await prepareClipboardImport(input, reopenedTip);
+    expect(reopenedTip.hidden).toBe(true);
+    expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
+    expect(readText).not.toHaveBeenCalled();
+  });
+
+  it("keeps the tip hidden when clipboard access is already on", async () => {
+    const tip = { hidden: true };
+    readText.mockResolvedValue("https://example.com/cat.gif");
+
+    await prepareClipboardImport(input, tip);
+
+    expect(input.value).toBe("https://example.com/cat.gif");
+    expect(tip.hidden).toBe(true);
   });
 });
 

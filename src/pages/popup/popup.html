@@ -50,6 +50,16 @@
         </button>
         <input id="localFileInput" type="file" class="visually-hidden-file-input" accept="image/*,video/mp4,video/webm" multiple />
       </div>
+      <aside id="clipboardAutofillTip" class="clipboard-tip" aria-labelledby="clipboardAutofillTipTitle" hidden>
+        <div>
+          <strong id="clipboardAutofillTipTitle" data-i18n="popup.clipboardAutofillTipTitle">Autofill copied media links</strong>
+          <p data-i18n="popup.clipboardAutofillTipBody">Turn on clipboard autofill in Options to fill the URL field when you open GIF Vault.</p>
+        </div>
+        <div class="clipboard-tip-actions">
+          <button id="clipboardAutofillOptionsBtn" class="btn" type="button" data-i18n="popup.openOptions">Open Options</button>
+          <button id="dismissClipboardAutofillTipBtn" class="btn" type="button" data-i18n="popup.dismissClipboardAutofillTip">Dismiss</button>
+        </div>
+      </aside>
       <div class="import-row single">
         <div class="search-wrap">
           <img class="search-icon" src="../../assets/shared/icon-search.svg" alt="" aria-hidden="true" />

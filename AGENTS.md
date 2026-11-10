@@ -135,6 +135,7 @@ PowerShell note:
 - Popup tab persistence/default-tab resolution lives in `src/pages/popup/popup/tab.js`.
 - Popup import orchestration, permission precheck, and popup-owned import request handling live in `src/pages/popup/popup/import-flow.js`.
 - When clipboard autofill is enabled, the popup checks for one likely media URL on opening and fills the URL field if it is empty and editable. The user starts the import.
+- If clipboard autofill is off, the popup shows a dismissible tip linking to Options once per extension profile. It records the tip in `chrome.storage.local` when shown.
 - Popup grid item actions and selection hints are handled by `src/pages/popup/popup/grid.js`.
 - Popup grid internals live in `src/pages/popup/popup/grid/` and should stay grouped into broader modules: `controller.js`, `card.js`, `data.js`, `interaction.js`, and `media.js`.
 - Grid modularity direction: avoid splitting into many micro-files by default; prefer these broader buckets and only split further when a module becomes difficult to reason about.

@@ -69,6 +69,9 @@ function createEnMessages() {
       previousPageAriaLabel: "Previous page",
       nextPageAriaLabel: "Next page",
       openOptions: "Open Options",
+      clipboardAutofillTipTitle: "Autofill copied media links",
+      clipboardAutofillTipBody: "Turn on clipboard autofill in Options to fill the URL field when you open GIF Vault.",
+      dismissClipboardAutofillTip: "Dismiss",
       openLogs: "Open Logs",
       openTransfer: "Open Import & Backup",
       paginationHint:
@@ -401,6 +404,9 @@ function createTrMessages() {
       previousPageAriaLabel: "Önceki sayfa",
       nextPageAriaLabel: "Sonraki sayfa",
       openOptions: "Ayarları Aç",
+      clipboardAutofillTipTitle: "Kopyalanan medya bağlantılarını otomatik doldurun",
+      clipboardAutofillTipBody: "GIF Vault açıldığında URL alanının dolması için ayarlardan panodan otomatik doldurmayı açın.",
+      dismissClipboardAutofillTip: "Kapat",
       openLogs: "Kayıtları Aç",
       openTransfer: "İçe Aktarma ve Yedeklemeyi Aç",
       paginationHint:
