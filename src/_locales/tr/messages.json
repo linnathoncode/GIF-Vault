@@ -4,7 +4,7 @@
     "description": "Chrome Web Store'da ve uzantı yüzeylerinde görünen uzantı adı."
   },
   "extDescription": {
-    "message": "Desteklenen bağlantılardan ve yerel dosyalardan medya aktarın. MP4/WebM videolarını GIF’e çevirin, arşivinizi düzenleyip yedekleyin.",
+    "message": "Web'den ve X gönderilerinden GIF kaydedin. Arşivinizde arayın, favorilerinize ekleyin ve yerel olarak yedekleyin.",
     "description": "Chrome Web Store'da ve uzantı yüzeylerinde görünen uzantı açıklaması."
   },
   "actionDefaultTitle": {

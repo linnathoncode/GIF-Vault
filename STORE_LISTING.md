@@ -8,7 +8,7 @@ GIF Vault: Save, Organize & Back Up GIFs
 
 ### Summary
 
-Import media from supported links and files. Convert supported MP4/WebM videos to GIFs, organize your vault, and back it up.
+Save GIFs from the web and X posts. Find them later in a searchable collection with favorites and local backups.
 
 ### Detailed description
 
@@ -57,7 +57,7 @@ GIF Vault: GIF’leri Kaydedin, Düzenleyin ve Yedekleyin
 
 ### Özet
 
-Desteklenen bağlantılardan ve yerel dosyalardan medya aktarın. MP4/WebM videolarını GIF’e çevirin, arşivinizi düzenleyip yedekleyin.
+Web'den ve X gönderilerinden GIF kaydedin. Arşivinizde arayın, favorilerinize ekleyin ve yerel olarak yedekleyin.
 
 ### Ayrıntılı açıklama
 
